@@ -41,8 +41,23 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
+@theme {
+  --color-primary: #152836;
+  --color-quaternary: #323031;
+  --color-neutral: #8E8E8E;
+  --color-neutral-300: #E1E1E1;
+  --color-neutral-400: #CACACA;
+  --color-neutral-500: var(--color-neutral);
+  --color-neutral-600: #4B4B4B;
+  --color-warning: #FFAD0D;
+  --color-green-success: #F64C4C,
+  --color-red-danger: #47B881;
+  --color-info: #3B82F6;
   --gradient-primary: linear-gradient(180deg, #FFF 0%, #70B2B2 100%);
+}
+
+
+:root {
   --color-primary: #016B61;
   --color-quaternary: #323031;
   --radius: 0.625rem;
