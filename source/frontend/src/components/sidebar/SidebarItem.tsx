@@ -15,10 +15,10 @@ export function SidebarItem({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center min-h-12 py-2 pl-8 gap-4 rounded-xs text-[var(--color-quaternary)] cursor-pointer ${
+      className={`w-full flex items-center min-h-12 py-2 pl-8 gap-4 rounded-xs cursor-pointer ${
         isActive
-          ? "text-[var(--color-primary)]"
-          : "hover:bg-[var(--color-primary)]/15"
+          ? "text-primary font-medium"
+          : "hover:bg-primary/15"
       }`}
     >
       <Icon></Icon>

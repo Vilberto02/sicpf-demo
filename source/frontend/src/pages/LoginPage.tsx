@@ -38,9 +38,9 @@ export function LoginPage() {
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className=" max-w-md flex flex-col border-2 p-9 gap-6 rounded-3xl border-[var(--color-primary)]/40 backdrop-blur-lg shadow-lg bg-white/25"
+        className=" max-w-md flex flex-col border-2 p-9 gap-6 rounded-3xl border-primary/40 backdrop-blur-lg shadow-lg bg-white/25"
       >
-        <h1 className="text-center text-[var(--color-quaternary)] text-3xl font-bold">
+        <h1 className="text-center text-quaternary text-3xl font-bold">
           Sistema Gestión Farmacéutica
         </h1>
         <p className="text-base font-normal text-[#424242] text-center">

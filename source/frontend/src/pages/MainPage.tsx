@@ -50,7 +50,7 @@ export function MainPage() {
           ></Menu>
           <p>Navbar</p>
         </div>
-        <main className="flex-1 p-10 bg-[var(--color-primary)]/15">
+        <main className="flex-1 p-10 border-red-800 border-2">
           {sections[activeItem]}
         </main>
       </div>
