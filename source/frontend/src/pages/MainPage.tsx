@@ -50,7 +50,7 @@ export function MainPage() {
           ></Menu>
           <p>Navbar</p>
         </div>
-        <main className="flex-1 p-10 border-red-800 border-2">
+        <main className="flex-1 p-10 border-red-800 border-2 xl:overflow-hidden">
           {sections[activeItem]}
         </main>
       </div>
