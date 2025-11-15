@@ -5,7 +5,7 @@ import { ProfileSection } from "@/components/sections/ProfileSection";
 import { SaleSection } from "@/components/sections/SaleSection";
 import { SideBar } from "@/components/sidebar/SideBar";
 import type { SideBarItemType } from "@/types";
-import { Menu, ChartNoAxesColumnDecreasing, Package, ShoppingCart, Siren, User} from "lucide-react";
+import { Menu, ChartNoAxesColumnDecreasing, Package, ShoppingCart, Siren, User, UserCircle2} from "lucide-react";
 import { useState } from "react";
 
 const sidebarItems: SideBarItemType[] = [
@@ -31,7 +31,8 @@ export function MainPage() {
   const toggleSidebar = () => {
     setIsSiderOpen(!isSidebarOpen);
   };
-
+  const name = "Carlos";
+  const lastname = "Rodriguez";
   return (
     <div className="flex w-screen h-screen">
       <SideBar
@@ -48,9 +49,12 @@ export function MainPage() {
             className="cursor-pointer select-none"
             onClick={toggleSidebar}
           ></Menu>
-          <p>Navbar</p>
+          <div className="flex items-center gap-2 cursor-pointer">
+            <UserCircle2></UserCircle2>
+            <p className="select-none">{name}, {lastname}</p>
+          </div>
         </div>
-        <main className="flex-1 p-10 border-red-800 border-2 xl:overflow-hidden">
+        <main className="flex-1 p-10 border-red-800 border-2 overflow-x-hidden">
           {sections[activeItem]}
         </main>
       </div>

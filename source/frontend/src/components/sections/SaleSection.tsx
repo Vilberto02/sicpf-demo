@@ -1,6 +1,7 @@
 import { Plus, ShoppingCart, ShoppingBasket, Clock8, CircleCheckBig, DollarSign } from "lucide-react";
 import { Button } from "../ui/button";
 import { CardDashboard } from "../CardDashboard";
+import { SalesTable } from "../table/SalesTable";
 
 export function SaleSection() {
   return (
@@ -41,7 +42,7 @@ export function SaleSection() {
             variant="info"
           ></CardDashboard>
         </div>
-        <div className="mt-6">Holaaa</div>
+        <SalesTable></SalesTable>
       </div>
     </div>
   );

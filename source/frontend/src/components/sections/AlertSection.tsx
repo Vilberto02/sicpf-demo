@@ -1,5 +1,6 @@
 import { Siren, Sparkles, TriangleAlert, Clock8  } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
+import { AlertsTable } from "../table/AlertsTable";
 
 export function AlertSection() {
   return (
@@ -34,7 +35,7 @@ export function AlertSection() {
             variant="danger"
           ></CardDashboard>
         </div>
-        <div className="mt-6">holaaa</div>
+        <AlertsTable></AlertsTable>
       </div>
     </div>
   );
