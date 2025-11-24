@@ -38,12 +38,12 @@ export function DoughnutChart({ labels, values, colors }: DoughnutChartProps) {
   };
 
   return (
-    <div className="relative w-full py-6 px-8">
+    <div className="relative w-full py-6 px-2 md:px-8">
       <h3 className="font-semibold text-center text-lg mb-8">
         Ventas por categoría de producto.
       </h3>
 
-      <div className="flex justify-between">
+      <div className="flex flex-col xl:flex-row justify-between gap-2 md:gap-4">
         <ScrollArea>
           <div className="space-y-2">
             {labels.map((label, index) => (
@@ -65,10 +65,10 @@ export function DoughnutChart({ labels, values, colors }: DoughnutChartProps) {
         </ScrollArea>
 
         <div className="flex justify-center items-center">
-          <div className="relative w-72 h-72 md:w-80 md:h-80">
+          <div className="relative lg:w-56 lg:h-56 xl:w-72 xl:h-72 w-56 h-56">
             <Doughnut data={data} options={options}></Doughnut>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-              <p className="text-sm text-neutral-500">Productos</p>
+              <p className="text-xs text-neutral-500">Productos</p>
               <p className="text-xl font-semibold">{total}</p>
             </div>
           </div>

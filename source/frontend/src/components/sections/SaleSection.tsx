@@ -11,12 +11,12 @@ export function SaleSection() {
           <ShoppingCart width={42} height={42}></ShoppingCart>
           <h3>Ventas</h3>
         </div>
-        <Button>
+        <Button className="cursor-pointer">
           <Plus></Plus> Agregar venta
         </Button>
       </div>
       <div className="mt-6 flex flex-col gap-9">
-        <div className="flex gap-4 items-center w-full">
+        <div className="flex flex-col sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
           <CardDashboard
             Icon={ShoppingBasket}
             title="Total de pedidos"

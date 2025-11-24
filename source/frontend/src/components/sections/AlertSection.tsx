@@ -5,7 +5,7 @@ import { AlertsTable } from "../table/AlertsTable";
 export function AlertSection() {
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row  md:items-center justify-between gap-4">
         <div className="flex gap-2 items-center text-3xl text-primary font-semibold">
           <Siren width={42} height={42}></Siren>
           <h3>Alertas</h3>
@@ -15,7 +15,7 @@ export function AlertSection() {
         </p>
       </div>
       <div className="mt-6 flex flex-col gap-9">
-        <div className="flex gap-4 items-center w-full">
+        <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
           <CardDashboard
             Icon={Sparkles}
             title="Tendencia de consumo"

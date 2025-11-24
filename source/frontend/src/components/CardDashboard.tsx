@@ -20,7 +20,7 @@ const variantStyles: Record<CardVariant, string> = {
 
 export function CardDashboard({title, value, Icon, variant} : CardDashboardProps) {
   return (
-    <div className="flex flex-col grow p-4 rounded-2xl border-neutral-400 border-2 min-w-[196px] gap-2">
+    <div className="flex flex-col grow px-5 py-6 rounded-2xl border-neutral-400 border-2 min-w-[196px] gap-2">
       <h4 className="font-semibold text-lg">{title}</h4>
       <div
         className={`${variantStyles[variant]} flex items-center gap-2 text-4xl`}

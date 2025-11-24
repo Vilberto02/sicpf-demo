@@ -93,7 +93,7 @@ export function DataTable<TData, TValue>({
 
     return (
       <span
-        className={`px-2 py-1 rounded-md text-xs font-medium border ${getStateText(status) || "border-gray-500 text-gray-500"}`}
+        className={`px-2 py-1 line-clamp-1 sm:line-clamp-0 rounded-md text-xs text-center font-medium border ${getStateText(status) || "border-gray-500 text-gray-500"}`}
       >
         {status}
       </span>
@@ -180,8 +180,8 @@ export function DataTable<TData, TValue>({
   return (
     <div className="w-full rounded-lg">
       {/* Barra superior */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex lg:flex-row lg:items-center lg:justify-between p-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
           {/* Buscador */}
           <Input
             type="search"
@@ -202,6 +202,7 @@ export function DataTable<TData, TValue>({
                 <SelectValue placeholder="Selecciona una opción" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="Todos">Todos</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}

@@ -24,6 +24,7 @@ export function OverviewSection() {
           ></BarChart>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Estado de los productos */}
           <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Estado de los productos
@@ -42,6 +43,8 @@ export function OverviewSection() {
               </div>
             </ScrollArea>
           </div>
+          
+          {/* Nivel de riesgo de productos */}
           <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Nivel de riesgo de los productos
@@ -59,6 +62,8 @@ export function OverviewSection() {
               </div>
             </ScrollArea>
           </div>
+
+          {/* Recomendaciones */}
           <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Recomendaciones

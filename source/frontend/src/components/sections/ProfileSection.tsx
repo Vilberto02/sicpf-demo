@@ -20,9 +20,10 @@ export function ProfileSection(){
         <User width={42} height={42}></User>
         <h3>Mi Perfil</h3>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="border-neutral-400 border-2 rounded-2xl flex items-center gap-6 p-6 w-full">
-          <div className="bg-neutral-300 flex justify-center items-center p-0.5 text-3xl font-semibold text-primary w-40 h-40 rounded-full">
+      <div className="flex flex-col md:grid md:grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tarjeta del perfil */}
+        <div className="border-neutral-400 border-2 rounded-2xl flex sm:items-center flex-col sm:flex-row gap-6 p-6 w-full">
+          <div className="bg-neutral-300 flex justify-center items-center p-0.5 text-3xl font-semibold text-primary w-32 h-32 md:w-40 md:h-40 aspect-square rounded-full">
             {name.charAt(0) + lastname.charAt(0)}
           </div>
           <div className="flex flex-col gap-2">
@@ -34,7 +35,9 @@ export function ProfileSection(){
             <Button variant={"outline"}>ID: EMP-2024-001</Button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 w-full">
+
+
+        <div className="flex flex-col md:grid md:grid-cols-2 gap-4 w-full">
           <CardDashboard
             title="Pedidos procesados"
             value="150"

@@ -6,17 +6,17 @@ import InventoryTable from "../table/InventoryTable";
 export function InventorySection() {
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-6">
         <div className="flex gap-2 items-center text-3xl text-primary font-semibold">
           <Package width={42} height={42}></Package>
           <h3>Inventario</h3>
         </div>
-        <Button>
+        <Button className="cursor-pointer flex gap-2 items-center">
           <Plus></Plus> Agregar producto
         </Button>
       </div>
       <div className="mt-6 flex flex-col gap-9">
-        <div className="flex gap-4 items-center w-full">
+        <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
           <CardDashboard
             Icon={ChartPie}
             title="Total de productos"

@@ -44,17 +44,17 @@ export function MainPage() {
       <div
         className={`flex flex-col w-full ${isSidebarOpen ? "ml-64" : "ml-0"}`}
       >
-        <div className="flex items-center justify-between px-4 py-6">
+        <div className="flex items-center justify-between px-4 py-6 gap-6">
           <Menu
             className="cursor-pointer select-none"
             onClick={toggleSidebar}
           ></Menu>
           <div className="flex items-center gap-2 cursor-pointer">
             <UserCircle2></UserCircle2>
-            <p className="select-none">{name}, {lastname}</p>
+            <p className="select-none line-clamp-1 md:line-clamp-0">{name}, {lastname}</p>
           </div>
         </div>
-        <main className="flex-1 p-10 border-red-800 border-2 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-10 overflow-x-hidden">
           {sections[activeItem]}
         </main>
       </div>
