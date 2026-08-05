@@ -4,7 +4,6 @@ import { createBrowserRouter } from "react-router-dom";
 import { MainPage } from "@/pages/MainPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { PageNotFound } from "@/pages/PageNotFound";
-import { TestDataTablePage } from "@/pages/TestDataTablePage";
 
 const routes = createBrowserRouter([
   {
@@ -14,10 +13,6 @@ const routes = createBrowserRouter([
   {
     path: "/login",
     element: <LoginPage />,
-  },
-  {
-    path: "/test-datatable",
-    element: <TestDataTablePage />,
   },
   {
     path: "*",

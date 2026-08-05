@@ -2,27 +2,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LoginFields } from "@/types/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { Navigate } from "react-router";
-
+import { useAuthStore } from "@/features/auth/store";
 
 export function LoginPage() {
-  const [redirect, setRedirect] = useState<boolean>(false)
+  const [redirect, setRedirect] = useState<boolean>(false);
   const {
     register,
     formState: { errors },
-    reset,
-    handleSubmit
+    handleSubmit,
   } = useForm<LoginFields>({
-    mode: "onChange"
+    mode: "onChange",
   });
 
+  const { loginUser, isAuthenticated, error } = useAuthStore();
+
   const onSubmit: SubmitHandler<LoginFields> = async (data) => {
-    console.log(data);
-    setRedirect(true)
-    reset();
+    await loginUser({ username: data.email, password: data.password });
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setRedirect(true);
+    }
+  }, [isAuthenticated]);
 
   if (redirect) return <Navigate to="/"></Navigate>;
 
@@ -89,6 +94,11 @@ export function LoginPage() {
             </span>
           )}
         </div>
+        {error && (
+          <span className="text-sm text-red-700 text-center font-semibold">
+            {error}
+          </span>
+        )}
         <Button variant={"default"} className="cursor-pointer">
           Continuar
         </Button>
