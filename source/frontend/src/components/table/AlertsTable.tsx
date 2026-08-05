@@ -1,10 +1,18 @@
+import { useEffect } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
-import type { AlertItemType } from "@/types";
-import { alertsData } from "@/mocks";
+import type { AlertItemType } from "@/features/alerts/types";
+import { useAlertsStore } from "@/features/alerts/store";
 
 
 export function AlertsTable(){
+  const { items, fetchItems, loading } = useAlertsStore();
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  if (loading) return <div>Cargando...</div>;
   
   const alertsColumns: ColumnDef<AlertItemType>[] = [
     {
@@ -16,11 +24,11 @@ export function AlertsTable(){
       header: "Categoria",
     },
     {
-      accessorKey: "stockActual",
+      accessorKey: "stock_actual",
       header: "Stock Actual",
     },
     {
-      accessorKey: "stockMinimo",
+      accessorKey: "stock_minimo",
       header: "Stock Minimo",
     },
     {
@@ -29,37 +37,34 @@ export function AlertsTable(){
     },
 
     {
-      accessorKey: "periodoAgotamiento",
+      accessorKey: "periodo_agotamiento",
       header: "P. Agotamiento",
     },
     {
-      accessorKey: "tendenciaConsumo",
+      accessorKey: "tendencia_consumo",
       header: "T. Consumo",
     },
   ];
 
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleView = (row: any) => {
+  const handleView = (row: AlertItemType) => {
     console.log("View item:", row);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: AlertItemType) => {
     console.log("Edit item:", row);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleBlock = (row: any) => {
+  const handleBlock = (row: AlertItemType) => {
     console.log("Block item:", row);
   };
 
   return (
     <DataTable
       columns={alertsColumns}
-      data={alertsData}
+      data={items}
       searchPlaceholder="Buscar por producto"
-      categories={["Todos", "Medicamento", "Antinflamatorio", "Jarabe"]}
+      categories={["Medicamentos", "Antihistamínicos", "Antibióticos"]}
       statusHeaderProps="N. Riesgo"
       onView={handleView}
       onEdit={handleEdit}

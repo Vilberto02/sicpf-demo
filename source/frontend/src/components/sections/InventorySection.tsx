@@ -1,9 +1,16 @@
+import { useEffect } from "react";
 import { ChartPie, Package, Plus, Clock8, TriangleAlert } from "lucide-react";
 import { Button } from "../ui/button";
 import { CardDashboard } from "../CardDashboard";
 import InventoryTable from "../table/InventoryTable";
+import { useInventoryStore } from "@/features/inventory/store";
 
 export function InventorySection() {
+  const { stats, fetchStats } = useInventoryStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
   return (
     <div>
       <div className="flex items-center justify-between gap-6">
@@ -20,19 +27,19 @@ export function InventorySection() {
           <CardDashboard
             Icon={ChartPie}
             title="Total de productos"
-            value="156"
+            value={stats?.total_products ?? "0"}
             variant="default"
           ></CardDashboard>
           <CardDashboard
             Icon={TriangleAlert}
             title="Productos con bajo stock"
-            value="15"
+            value={stats?.low_stock ?? "0"}
             variant="danger"
           ></CardDashboard>
           <CardDashboard
             Icon={Clock8}
             title="Próximos a vencer"
-            value="8"
+            value={stats?.expiring_soon ?? "0"}
             variant="warning"
           ></CardDashboard>
         </div>

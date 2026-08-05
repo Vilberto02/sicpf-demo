@@ -1,9 +1,16 @@
+import { useEffect } from "react";
 import { Plus, ShoppingCart, ShoppingBasket, Clock8, CircleCheckBig, DollarSign } from "lucide-react";
 import { Button } from "../ui/button";
 import { CardDashboard } from "../CardDashboard";
 import { SalesTable } from "../table/SalesTable";
+import { useSalesStore } from "@/features/sales/store";
 
 export function SaleSection() {
+  const { stats, fetchStats } = useSalesStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -20,25 +27,25 @@ export function SaleSection() {
           <CardDashboard
             Icon={ShoppingBasket}
             title="Total de pedidos"
-            value="150"
+            value={stats?.total_orders ?? "0"}
             variant="default"
           ></CardDashboard>
           <CardDashboard
             Icon={Clock8}
             title="Pedidos pendientes"
-            value="45"
+            value={stats?.pending_orders ?? "0"}
             variant="warning"
           ></CardDashboard>
           <CardDashboard
             Icon={CircleCheckBig}
             title="Pedidos completados"
-            value="98"
+            value={stats?.completed_orders ?? "0"}
             variant="success"
           ></CardDashboard>
           <CardDashboard
             Icon={DollarSign}
             title="Total de ventas"
-            value="3,120.50"
+            value={stats?.total_revenue ? stats.total_revenue.toFixed(2) : "0.00"}
             variant="info"
           ></CardDashboard>
         </div>

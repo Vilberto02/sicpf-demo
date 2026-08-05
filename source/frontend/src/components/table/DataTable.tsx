@@ -63,14 +63,6 @@ export function DataTable<TData, TValue>({
     setGlobalFilter(value);
   };
 
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    if (category === "Todas las categorias") {
-      table.getColumn("category")?.setFilterValue("");
-    } else {
-      table.getColumn("category")?.setFilterValue(category);
-    }
-  };
 
   const StatusBadge = ({ status }: { status: string }) => {
     const statusStyles = {
@@ -141,20 +133,19 @@ export function DataTable<TData, TValue>({
   const enhancedColumns = useMemo(() => {
     return [
       ...columns,
-      ...(columns.some(col => col.id === "status") ? [] : [{
+      ...(columns.some(col => col.id === "status" || ('accessorKey' in col && col.accessorKey === "status")) ? [] : [{
         id: "status",
         header: statusHeaderProps,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        cell: ({ row }: any) => {
-          const status = row.original.status || "Activo";
+        accessorFn: (row: any) => row.status || "Activo",
+        cell: ({ row }: { row: { original: TData } }) => {
+          const status = (row.original as { status?: string }).status || "Activo";
           return <StatusBadge status={status} />;
         },
       }]),
       ...(columns.some(col => col.id === "actions") ? [] : [{
         id: "actions",
         header: "Acciones",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        cell: ({ row }: any) => <ActionIcons row={row.original} />,
+        cell: ({ row }: { row: { original: TData } }) => <ActionIcons row={row.original} />,
       }]),
     ];
   }, [ActionIcons, columns, statusHeaderProps]);
@@ -177,6 +168,19 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const handleFilterClick = () => {
+    const col = enhancedTable.getColumn("categoria") || enhancedTable.getColumn("category") || enhancedTable.getColumn("status");
+    if (!col) {
+      console.warn("No filterable column found");
+      return;
+    }
+    if (selectedCategory === "Todos" || selectedCategory === "Todas las categorias") {
+      col.setFilterValue("");
+    } else {
+      col.setFilterValue(selectedCategory);
+    }
+  };
+
   return (
     <div className="w-full rounded-lg">
       {/* Barra superior */}
@@ -193,12 +197,11 @@ export function DataTable<TData, TValue>({
 
           {/* Selector */}
           {categories.length > 0 && (
-            <Select>
-              <SelectTrigger
-                className="w-64"
-                value={selectedCategory}
-                onChange={(e) => handleCategoryChange(e.currentTarget.value)}
-              >
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
+              <SelectTrigger className="w-64">
                 <SelectValue placeholder="Selecciona una opción" />
               </SelectTrigger>
               <SelectContent>
@@ -214,7 +217,7 @@ export function DataTable<TData, TValue>({
         </div>
 
         {/* Botón de filtro */}
-        <Button>
+        <Button className="cursor-pointer" onClick={handleFilterClick}>
           <ListFilter className="h-4 w-4" />
           Filtrar
         </Button>
@@ -283,57 +286,57 @@ export function DataTable<TData, TValue>({
 
         {/* Navegación de páginas */}
         <div className="flex items-center gap-2">
-          <Button
-            variant={"secondary"}
+          <button
             onClick={() => enhancedTable.previousPage()}
             disabled={!enhancedTable.getCanPreviousPage()}
+            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+            <ChevronLeft className="h-5 w-5" />
+          </button>
 
           <div className="flex items-center gap-1">
             {Array.from(
               { length: Math.min(5, enhancedTable.getPageCount()) },
               (_, i) => {
                 const pageIndex = i;
+                const isActive = enhancedTable.getState().pagination.pageIndex === pageIndex;
                 return (
-                  <Button
+                  <button
                     key={pageIndex}
                     onClick={() => enhancedTable.setPageIndex(pageIndex)}
-                    className={`${
-                      enhancedTable.getState().pagination.pageIndex ===
-                      pageIndex
-                        ? "bg-teal-600 text-white"
-                        : "text-gray-400 hover:text-gray-100 hover:bg-gray-700"
+                    className={`min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm transition-colors px-2 ${
+                      isActive
+                        ? "border border-teal-600 text-teal-600 font-bold"
+                        : "text-stone-500 hover:bg-stone-100 font-medium"
                     }`}
                   >
                     {pageIndex + 1}
-                  </Button>
+                  </button>
                 );
               }
             )}
             {enhancedTable.getPageCount() > 5 && (
               <>
-                <span className="text-gray-500">...</span>
-                <Button
+                <span className="text-stone-500 px-1">...</span>
+                <button
                   onClick={() =>
                     enhancedTable.setPageIndex(enhancedTable.getPageCount() - 1)
                   }
-                  className="text-sm text-gray-400 hover:text-gray-100 hover:bg-gray-700 transition-colors"
+                  className="min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm font-medium text-stone-500 hover:bg-stone-100 transition-colors px-2"
                 >
                   {enhancedTable.getPageCount()}
-                </Button>
+                </button>
               </>
             )}
           </div>
           
-          <Button
-            variant={"secondary"}
+          <button
             onClick={() => enhancedTable.nextPage()}
             disabled={!enhancedTable.getCanNextPage()}
+            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </div>

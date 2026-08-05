@@ -1,8 +1,15 @@
+import { useEffect } from "react";
 import { Siren, Sparkles, TriangleAlert, Clock8  } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
 import { AlertsTable } from "../table/AlertsTable";
+import { useAlertsStore } from "@/features/alerts/store";
 
 export function AlertSection() {
+  const { stats, fetchStats } = useAlertsStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
   return (
     <div>
       <div className="flex flex-col md:flex-row  md:items-center justify-between gap-4">
@@ -19,19 +26,19 @@ export function AlertSection() {
           <CardDashboard
             Icon={Sparkles}
             title="Tendencia de consumo"
-            value="12 %"
+            value={stats?.consumption_trend ?? "0 %"}
             variant="success"
           ></CardDashboard>
           <CardDashboard
             Icon={Clock8}
             title="Productos con stock crítico"
-            value="6"
+            value={stats?.critical_stock ?? "0"}
             variant="warning"
           ></CardDashboard>
           <CardDashboard
             Icon={TriangleAlert}
             title="Productos en riesgo"
-            value="10"
+            value={stats?.at_risk ?? "0"}
             variant="danger"
           ></CardDashboard>
         </div>

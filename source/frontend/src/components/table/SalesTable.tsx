@@ -1,9 +1,17 @@
+import { useEffect } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
-import type { SaleItemType } from "@/types";
-import { salesData } from "@/mocks";
+import type { SaleItemType } from "@/features/sales/types";
+import { useSalesStore } from "@/features/sales/store";
 
 export function SalesTable() {
+  const { items, fetchItems, loading } = useSalesStore();
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  if (loading) return <div>Cargando...</div>;
 
   // Sales columns
   const salesColumns: ColumnDef<SaleItemType>[] = [
@@ -31,30 +39,26 @@ export function SalesTable() {
   ];
 
   // Action handlers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleView = (row: any) => {
+  const handleView = (row: SaleItemType) => {
     console.log("View item:", row);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: SaleItemType) => {
     console.log("Edit item:", row);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleFinance = (row: any) => {
+  const handleFinance = (row: SaleItemType) => {
     console.log("Finance item:", row);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleBlock = (row: any) => {
+  const handleBlock = (row: SaleItemType) => {
     console.log("Block item:", row);
   };
 
   return (
     <DataTable
       columns={salesColumns}
-      data={salesData}
+      data={items}
       searchPlaceholder="Buscar por cliente"
       categories={["Completado", "Pendiente", "Cancelado"]}
       statusHeaderProps="Estado"

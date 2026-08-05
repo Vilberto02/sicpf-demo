@@ -2,7 +2,8 @@ import { SidebarItem } from "@/components/sidebar/SidebarItem";
 import type { SideBarItemType } from "@/types";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import logo from "@/assets/SICPF.svg"
+import logo from "@/assets/SICPF.svg";
+import { useAuthStore } from "@/features/auth/store";
 
 type SidebarProps = {
   items: SideBarItemType[];
@@ -17,6 +18,7 @@ export function SideBar({
   setActiveItem,
   isOpen,
 }: SidebarProps) {
+  const { logoutUser } = useAuthStore();
   const navigate = useNavigate();
   return (
     <aside
@@ -44,6 +46,7 @@ export function SideBar({
       <button
         onClick={() => {
           console.log("Cerrando sesión...");
+          logoutUser();
           alert("Sesión cerrada.");
           navigate("/login");
         }}

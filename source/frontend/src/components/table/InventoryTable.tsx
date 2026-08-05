@@ -1,8 +1,9 @@
 // pages/ProductosTable.tsx
+import { useEffect } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/table/DataTable";
-import type { InventoryItemType } from "@/types";
-import { inventoryData } from "@/mocks";
+import type { InventoryItemType } from "@/features/inventory/types";
+import { useInventoryStore } from "@/features/inventory/store";
 
 // Inventory columns
 const inventoryColumns: ColumnDef<InventoryItemType>[] = [
@@ -15,11 +16,11 @@ const inventoryColumns: ColumnDef<InventoryItemType>[] = [
     header: "Nombre",
   },
   {
-    accessorKey: "stockFlotante",
+    accessorKey: "stock_flotante",
     header: "S. Flotante",
   },
   {
-    accessorKey: "stockReal",
+    accessorKey: "stock_real",
     header: "S. Real",
   },
   {
@@ -30,34 +31,42 @@ const inventoryColumns: ColumnDef<InventoryItemType>[] = [
     accessorKey: "vencimiento",
     header: "Vencimiento",
   },
+  {
+    accessorKey: "categoria",
+    header: "Categoría",
+  },
 ];
 
 // Action handlers
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleView = (row: any) => {
+const handleView = (row: InventoryItemType) => {
   console.log("View item:", row);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleEdit = (row: any) => {
+const handleEdit = (row: InventoryItemType) => {
   console.log("Edit item:", row);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleFinance = (row: any) => {
+const handleFinance = (row: InventoryItemType) => {
   console.log("Finance item:", row);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleBlock = (row: any) => {
+const handleBlock = (row: InventoryItemType) => {
   console.log("Block item:", row);
 };
 
 export default function InventoryTable() {
+  const { items, fetchItems, loading } = useInventoryStore();
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  if (loading) return <div>Cargando...</div>;
+
   return (
     <DataTable
       columns={inventoryColumns}
-      data={inventoryData}
+      data={items}
       searchPlaceholder="Buscar por nombre"
       categories={["Medicamentos", "Antibióticos", "Antihistamínicos"]}
       statusHeaderProps="Estado"
