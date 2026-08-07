@@ -20,13 +20,13 @@ const variantStyles: Record<CardVariant, string> = {
 
 export function CardDashboard({title, value, Icon, variant} : CardDashboardProps) {
   return (
-    <div className="flex flex-col grow px-5 py-6 rounded-2xl border-neutral-400 border-2 min-w-[196px] gap-2">
-      <h4 className="font-semibold text-lg">{title}</h4>
+    <div className="flex flex-col grow px-5 py-6 rounded-xl bg-card shadow-sm ring-1 ring-black/5 min-w-[196px] gap-2">
+      <h4 className="font-medium text-sm text-muted-foreground">{title}</h4>
       <div
-        className={`${variantStyles[variant]} flex items-center gap-2 text-4xl`}
+        className={`${variantStyles[variant]} flex items-center gap-3 text-4xl mt-1`}
       >
-        <Icon width={36} height={36}></Icon>
-        <p>{value}</p>
+        <Icon width={32} height={32} strokeWidth={2.5}></Icon>
+        <p className="font-semibold tabular-nums tracking-tight text-primary">{value}</p>
       </div>
     </div>
   );

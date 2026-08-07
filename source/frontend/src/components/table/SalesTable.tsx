@@ -67,5 +67,5 @@ export function SalesTable() {
       onFinance={handleFinance}
       onBlock={handleBlock}
     />
-  )
+  );
 }

@@ -4,8 +4,7 @@ import { DataTable } from "./DataTable";
 import type { AlertItemType } from "@/features/alerts/types";
 import { useAlertsStore } from "@/features/alerts/store";
 
-
-export function AlertsTable(){
+export function AlertsTable() {
   const { items, fetchItems, loading } = useAlertsStore();
 
   useEffect(() => {
@@ -13,7 +12,7 @@ export function AlertsTable(){
   }, [fetchItems]);
 
   if (loading) return <div>Cargando...</div>;
-  
+
   const alertsColumns: ColumnDef<AlertItemType>[] = [
     {
       accessorKey: "producto",
@@ -39,13 +38,13 @@ export function AlertsTable(){
     {
       accessorKey: "periodo_agotamiento",
       header: "P. Agotamiento",
+      meta: { align: "right" },
     },
     {
       accessorKey: "tendencia_consumo",
       header: "T. Consumo",
     },
   ];
-
 
   const handleView = (row: AlertItemType) => {
     console.log("View item:", row);

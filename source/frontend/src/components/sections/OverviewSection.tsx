@@ -31,8 +31,8 @@ export function OverviewSection() {
         <ChartNoAxesColumn width={42} height={42}></ChartNoAxesColumn>
         <h3>General</h3>
       </div>
-      <div className="flex flex-col gap-6">
-        <div className="border-2 rounded-2xl border-neutral-400 p-4 w-full">
+      <div className="flex flex-col gap-6 min-w-0">
+        <div className="bg-card shadow-sm ring-1 ring-black/5 p-5 rounded-xl w-full min-w-0">
           <BarChart
             dataset01={chartData?.dataset01 ?? []}
             dataset02={chartData?.dataset02 ?? []}
@@ -41,7 +41,7 @@ export function OverviewSection() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Estado de los productos */}
-          <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
+          <div className="bg-card shadow-sm ring-1 ring-black/5 p-5 rounded-xl h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Estado de los productos
             </h4>
@@ -61,7 +61,7 @@ export function OverviewSection() {
           </div>
 
           {/* Nivel de riesgo de productos */}
-          <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
+          <div className="bg-card shadow-sm ring-1 ring-black/5 p-5 rounded-xl h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Nivel de riesgo de los productos
             </h4>
@@ -80,7 +80,7 @@ export function OverviewSection() {
           </div>
 
           {/* Recomendaciones */}
-          <div className="border-2 rounded-2xl border-neutral-400 p-4 h-full">
+          <div className="bg-card shadow-sm ring-1 ring-black/5 p-5 rounded-xl h-full">
             <h4 className="font-semibold text-neutral-600 mb-4">
               Recomendaciones
             </h4>

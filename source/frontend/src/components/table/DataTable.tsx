@@ -98,7 +98,7 @@ export function DataTable<TData, TValue>({
       {onView && (
         <button
           onClick={() => onView(row)}
-          className="p-1 text-teal-400 hover:text-teal-300 transition-colors"
+          className="p-1 text-teal-400 hover:text-teal-300 transition-colors cursor-pointer"
         >
           <Eye className="h-4 w-4" />
         </button>
@@ -106,7 +106,7 @@ export function DataTable<TData, TValue>({
       {onEdit && (
         <button
           onClick={() => onEdit(row)}
-          className="p-1 text-teal-400 hover:text-teal-300 transition-colors"
+          className="p-1 text-teal-400 hover:text-teal-300 transition-colors cursor-pointer"
         >
           <Edit className="h-4 w-4" />
         </button>
@@ -114,7 +114,7 @@ export function DataTable<TData, TValue>({
       {onFinance && (
         <button
           onClick={() => onFinance(row)}
-          className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors"
+          className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors cursor-pointer"
         >
           <DollarSign className="h-4 w-4" />
         </button>
@@ -122,7 +122,7 @@ export function DataTable<TData, TValue>({
       {onBlock && (
         <button
           onClick={() => onBlock(row)}
-          className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors"
+          className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors cursor-pointer"
         >
           <Ban className="h-4 w-4" />
         </button>
@@ -182,7 +182,7 @@ export function DataTable<TData, TValue>({
   };
 
   return (
-    <div className="w-full rounded-lg">
+    <div className="w-full rounded-xl bg-card shadow-sm ring-1 ring-black/5 overflow-hidden">
       {/* Barra superior */}
       <div className="flex flex-col gap-4 lg:flex lg:flex-row lg:items-center lg:justify-between p-4">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -228,11 +228,13 @@ export function DataTable<TData, TValue>({
         <table className="w-full">
           <thead>
             {enhancedTable.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-stone-400">
-                {headerGroup.headers.map((header) => (
+              <tr key={headerGroup.id} className="border-b border-border">
+                {headerGroup.headers.map((header) => {
+                  const align = (header.column.columnDef.meta as any)?.align || "left";
+                  return (
                   <th
                     key={header.id}
-                    className="text-left py-3 px-4 text-sm font-medium bg-stone-100"
+                    className={`py-3 px-4 text-sm font-medium bg-muted/30 text-${align}`}
                   >
                     {header.isPlaceholder
                       ? null
@@ -241,7 +243,8 @@ export function DataTable<TData, TValue>({
                           header.getContext()
                         )}
                   </th>
-                ))}
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -249,13 +252,16 @@ export function DataTable<TData, TValue>({
             {enhancedTable.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-stone-300 hover:bg-stone-50 transition-colors"
+                className="border-b border-border hover:bg-muted/50 transition-colors"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="py-3 px-4 text-sm">
+                {row.getVisibleCells().map((cell) => {
+                  const align = (cell.column.columnDef.meta as any)?.align || "left";
+                  return (
+                  <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums text-${align}`}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
-                ))}
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -289,7 +295,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => enhancedTable.previousPage()}
             disabled={!enhancedTable.getCanPreviousPage()}
-            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -304,10 +310,10 @@ export function DataTable<TData, TValue>({
                   <button
                     key={pageIndex}
                     onClick={() => enhancedTable.setPageIndex(pageIndex)}
-                    className={`min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm transition-colors px-2 ${
+                    className={`min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm transition-colors px-2 cursor-pointer ${
                       isActive
-                        ? "border border-teal-600 text-teal-600 font-bold"
-                        : "text-stone-500 hover:bg-stone-100 font-medium"
+                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                        : "text-muted-foreground hover:bg-muted font-medium"
                     }`}
                   >
                     {pageIndex + 1}
@@ -322,7 +328,7 @@ export function DataTable<TData, TValue>({
                   onClick={() =>
                     enhancedTable.setPageIndex(enhancedTable.getPageCount() - 1)
                   }
-                  className="min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm font-medium text-stone-500 hover:bg-stone-100 transition-colors px-2"
+                  className="min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm font-medium text-stone-500 hover:bg-stone-100 transition-colors px-2 cursor-pointer"
                 >
                   {enhancedTable.getPageCount()}
                 </button>
@@ -333,7 +339,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => enhancedTable.nextPage()}
             disabled={!enhancedTable.getCanNextPage()}
-            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
