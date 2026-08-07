@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { Navigate } from "react-router";
 import { useAuthStore } from "@/features/auth/store";
+import { toast } from "sonner";
 
 export function LoginPage() {
   const [redirect, setRedirect] = useState<boolean>(false);
@@ -25,14 +26,21 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      toast.success("Has iniciado sesión exitosamente.");
       setRedirect(true);
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   if (redirect) return <Navigate to="/"></Navigate>;
 
   return (
-    <div className="relative flex items-center justify-center w-screen h-screen bg-white border-2 overflow-hidden">
+    <div className="relative flex items-center justify-center w-screen h-screen bg-background overflow-hidden">
       <div className="w-[364px] h-[364px] absolute -left-50 -top-50 rounded-full  bg-linear-to-b from-white to-[#70B2B2]"></div>
 
       <div className="w-[364px] h-[364px] absolute -left-40 top-20 rounded-full  bg-linear-to-b from-white to-[#70B2B2]"></div>
@@ -43,14 +51,14 @@ export function LoginPage() {
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className=" max-w-md flex flex-col border-2 p-9 gap-6 rounded-3xl border-primary/40 backdrop-blur-lg shadow-lg bg-white/25"
+        className="z-10 w-full max-w-md flex flex-col p-10 gap-6 rounded-2xl bg-card ring-1 ring-black/5 shadow-xl mx-4"
       >
-        <h1 className="text-center text-quaternary text-3xl font-bold">
-          Sistema Gestión Farmacéutica
+        <h1 className="text-center text-primary text-3xl font-semibold tracking-tight">
+          Gestión Farmacéutica
         </h1>
-        <p className="text-base font-normal text-[#424242] text-center">
-          Registra su correo electrónico y contraseña para acceder a la
-          plataforma
+        <p className="text-sm font-medium text-muted-foreground text-center">
+          Registra tu correo electrónico y contraseña para acceder a la
+          plataforma.
         </p>
         <div className="space-y-4">
           <Label htmlFor="email">Correo electrónico</Label>
@@ -94,12 +102,7 @@ export function LoginPage() {
             </span>
           )}
         </div>
-        {error && (
-          <span className="text-sm text-red-700 text-center font-semibold">
-            {error}
-          </span>
-        )}
-        <Button variant={"default"} className="cursor-pointer">
+        <Button variant={"default"} className="cursor-pointer w-full mt-2">
           Continuar
         </Button>
       </form>

@@ -23,7 +23,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem("token", data.access);
       set({ token: data.access, isAuthenticated: true });
     } catch (error: any) {
-      set({ error: error.message, isAuthenticated: false });
+      let errorMessage = error.message;
+      if (errorMessage === "No active account found with the given credentials") {
+        errorMessage = "Las credenciales proporcionadas son incorrectas.";
+      }
+      set({ error: errorMessage, isAuthenticated: false });
     }
   },
   logoutUser: () => {

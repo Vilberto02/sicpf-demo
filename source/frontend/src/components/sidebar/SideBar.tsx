@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/SICPF.svg";
 import { useAuthStore } from "@/features/auth/store";
+import { toast } from "sonner";
 
 type SidebarProps = {
   items: SideBarItemType[];
@@ -22,7 +23,7 @@ export function SideBar({
   const navigate = useNavigate();
   return (
     <aside
-      className={`h-screen bg-white w-64 flex flex-col items-center py-6 justify-between fixed top-0 left-0 z-40 
+      className={`h-screen bg-card w-64 flex flex-col items-center py-6 justify-between fixed top-0 left-0 z-40 border-r border-black/5
         transition-transform duration-300 ease-in-out ${
           isOpen ? "transform translate-x-0" : "transform -translate-x-full"
         }`}
@@ -45,9 +46,8 @@ export function SideBar({
       </div>
       <button
         onClick={() => {
-          console.log("Cerrando sesión...");
           logoutUser();
-          alert("Sesión cerrada.");
+          toast.info("Sesión cerrada correctamente.");
           navigate("/login");
         }}
         className="cursor-pointer pl-8 text-left flex items-center gap-4 hover:text-red-700 w-full"
