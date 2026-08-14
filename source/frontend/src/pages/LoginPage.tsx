@@ -21,7 +21,7 @@ export function LoginPage() {
   const { loginUser, isAuthenticated, error } = useAuthStore();
 
   const onSubmit: SubmitHandler<LoginFields> = async (data) => {
-    await loginUser({ username: data.email, password: data.password });
+    await loginUser({ username: data.username, password: data.password });
   };
 
   useEffect(() => {
@@ -61,25 +61,21 @@ export function LoginPage() {
           plataforma.
         </p>
         <div className="space-y-4">
-          <Label htmlFor="email">Correo electrónico</Label>
+          <Label htmlFor="username">Nombre de usuario</Label>
           <Input
-            id="email"
-            placeholder="Ingrese su correo electrónico"
-            type="email"
-            {...register("email", {
+            id="username"
+            placeholder="Ingrese su usuario"
+            type="text"
+            {...register("username", {
               required: {
                 value: true,
-                message: "El correo eletrónico es requerido.",
-              },
-              pattern: {
-                value: /^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/,
-                message: "Correo inválido.",
+                message: "El usuario es requerido.",
               },
             })}
           ></Input>
-          {errors.email && (
+          {errors.username && (
             <span className="text-sm text-red-700 ml-2">
-              {errors.email.message}
+              {errors.username.message}
             </span>
           )}
         </div>
