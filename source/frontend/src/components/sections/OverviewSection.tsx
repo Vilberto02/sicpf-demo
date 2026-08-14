@@ -49,11 +49,11 @@ export function OverviewSection() {
               <div className="flex flex-col gap-2 pr-3">
                 {invItems.map((product) => (
                   <InventoryItem
-                    key={product.codigo}
+                    key={product.codigo_lote}
                     variant="state"
-                    code={product.codigo}
-                    title={product.nombre}
-                    state={product.status as any}
+                    code={product.producto_codigo}
+                    title={product.producto_nombre}
+                    state={product.producto_estado as any}
                   ></InventoryItem>
                 ))}
               </div>
@@ -71,8 +71,8 @@ export function OverviewSection() {
                   <InventoryItem
                     key={product.id}
                     variant="level"
-                    title={product.producto}
-                    level={product.status as any}
+                    title={product.producto_nombre}
+                    level={product.nivel_riesgo as any}
                   ></InventoryItem>
                 ))}
               </div>

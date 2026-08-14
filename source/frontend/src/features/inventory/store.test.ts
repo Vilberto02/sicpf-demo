@@ -18,14 +18,14 @@ describe('useInventoryStore', () => {
     const mockData = [
       {
         id: 1,
-        codigo: 'MED-001',
-        nombre: 'Paracetamol',
+        producto_codigo: 'MED-001',
+        producto_nombre: 'Paracetamol',
         stock_flotante: 10,
         stock_real: 10,
-        lote: 'L123',
-        vencimiento: '2027-01-01',
-        status: 'Activo',
-        categoria: 'Medicamento'
+        codigo_lote: 'L123',
+        fecha_vencimiento: '2027-01-01',
+        producto_estado: 'activo',
+        categoria_nombre: 'Medicamentos'
       }
     ];
     

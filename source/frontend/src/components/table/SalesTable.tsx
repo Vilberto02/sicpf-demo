@@ -20,22 +20,27 @@ export function SalesTable() {
       header: "Código",
     },
     {
-      accessorKey: "cliente",
+      accessorKey: "cliente_nombre",
       header: "Cliente",
     },
     {
-      accessorKey: "monto",
+      accessorKey: "total",
       header: "Monto",
-      cell: ({ row }) => `$${row.getValue("monto")}`,
+      cell: ({ row }) => `$${row.getValue("total")}`,
     },
     {
       accessorKey: "fecha",
       header: "Fecha",
     },
     {
-      accessorKey: "vendedor",
+      accessorKey: "vendedor_nombre",
       header: "Vendedor",
     },
+    {
+      id: "status",
+      accessorKey: "estado",
+      header: "Estado",
+    }
   ];
 
   // Action handlers

@@ -15,26 +15,21 @@ export function AlertsTable() {
 
   const alertsColumns: ColumnDef<AlertItemType>[] = [
     {
-      accessorKey: "producto",
+      accessorKey: "producto_nombre",
       header: "Producto",
     },
     {
-      accessorKey: "categoria",
+      accessorKey: "categoria_nombre",
       header: "Categoria",
-    },
-    {
-      accessorKey: "stock_actual",
-      header: "Stock Actual",
     },
     {
       accessorKey: "stock_minimo",
       header: "Stock Minimo",
     },
     {
-      accessorKey: "fecha",
+      accessorKey: "fecha_alerta",
       header: "Fecha",
     },
-
     {
       accessorKey: "periodo_agotamiento",
       header: "P. Agotamiento",
@@ -43,6 +38,11 @@ export function AlertsTable() {
     {
       accessorKey: "tendencia_consumo",
       header: "T. Consumo",
+    },
+    {
+      id: "status",
+      accessorKey: "nivel_riesgo",
+      header: "N. Riesgo",
     },
   ];
 
