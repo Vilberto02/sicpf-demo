@@ -3,68 +3,66 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.models import User
-from .models import InventoryItem
-from .services import InventoryService
+from decimal import Decimal
+from .models import Categoria, Producto
+from .services import CategoriaService, ProductoService
 
-class InventoryServiceTest(TestCase):
+class CategoriaServiceTest(TestCase):
     def setUp(self):
-        self.item_data = {
-            "codigo": "PROD-001",
-            "nombre": "Paracetamol",
-            "stock_flotante": 10,
-            "stock_real": 15,
-            "lote": "L123",
-            "vencimiento": "2025-12-31",
-            "status": "Activo",
-            "categoria": "Medicamento"
-        }
+        self.cat_data = {"nombre": "Analgésicos"}
 
-    def test_create_item(self):
-        item = InventoryService.create(self.item_data)
-        self.assertEqual(item.codigo, "PROD-001")
-        self.assertEqual(InventoryItem.objects.count(), 1)
+    def test_create_categoria(self):
+        cat = CategoriaService.create(self.cat_data)
+        self.assertEqual(cat.nombre, "Analgésicos")
+        self.assertEqual(Categoria.objects.count(), 1)
 
-    def test_get_all(self):
-        InventoryService.create(self.item_data)
-        items = InventoryService.get_all()
-        self.assertEqual(len(items), 1)
+    def test_get_all_categorias(self):
+        CategoriaService.create(self.cat_data)
+        cats = CategoriaService.get_all()
+        self.assertEqual(len(cats), 1)
 
-class InventoryAPITest(TestCase):
+class ProductoAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username='testuser', password='testpassword')
         
-        # Get JWT Token
+        # Obtener Token JWT
         response = self.client.post(reverse('token_obtain_pair'), {
             'username': 'testuser',
             'password': 'testpassword'
         })
         self.token = response.data['access']
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
-
-        self.item_data = {
-            "codigo": "PROD-002",
-            "nombre": "Ibuprofeno",
-            "stock_flotante": 5,
-            "stock_real": 10,
-            "lote": "L456",
-            "vencimiento": "2024-12-31",
-            "status": "Activo",
-            "categoria": "Medicamento"
+        
+        # Setup Data
+        self.categoria = Categoria.objects.create(nombre="Antibióticos")
+        self.producto_data = {
+            "codigo": "PROD-TEST",
+            "nombre": "Amoxicilina",
+            "precio_real": "15.50",
+            "precio_flotante": "1.55",
+            "unidades_por_caja": 10,
+            "estado": "activo",
+            "unidad_medida": "pastilla",
+            "categoria": self.categoria.id
         }
 
-    def test_list_inventory_unauthorized(self):
-        self.client.credentials() # clear token
-        response = self.client.get(reverse('inventory-list'))
+    def test_list_productos_unauthorized(self):
+        response = self.client.get(reverse('producto-list'))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_create_inventory(self):
-        response = self.client.post(reverse('inventory-create'), self.item_data)
+    def test_create_producto(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+        response = self.client.post(reverse('producto-create'), self.producto_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(InventoryItem.objects.count(), 1)
+        self.assertEqual(Producto.objects.count(), 1)
 
-    def test_list_inventory(self):
-        InventoryService.create(self.item_data)
-        response = self.client.get(reverse('inventory-list'))
+    def test_list_productos(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+        Producto.objects.create(
+            codigo="PROD-TEST2", nombre="Penicilina", precio_real=Decimal("20.00"), 
+            precio_flotante=Decimal("2.00"), unidades_por_caja=10, estado="activo", 
+            unidad_medida="pastilla", categoria=self.categoria
+        )
+        response = self.client.get(reverse('producto-list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
