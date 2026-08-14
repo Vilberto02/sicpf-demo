@@ -19,6 +19,9 @@ class ProductoSerializer(serializers.ModelSerializer):
 
 class LoteSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
+    producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
+    producto_estado = serializers.ReadOnlyField(source='producto.estado')
+    categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     
     class Meta:
         model = Lote
@@ -31,6 +34,8 @@ class PrediccionMLSerializer(serializers.ModelSerializer):
 
 class AlertaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
+    tendencia_consumo = serializers.ReadOnlyField(source='prediccion.tendencia_consumo')
+    categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     
     class Meta:
         model = Alerta
