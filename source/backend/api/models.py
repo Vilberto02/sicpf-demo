@@ -3,92 +3,172 @@ from django.db import models
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
 
-class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=100, default='Usuario')
-    location = models.CharField(max_length=100, default='Sede Central')
-    employee_id = models.CharField(max_length=50, default='EMP-000-000')
+class Categoria(models.Model):
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        verbose_name_plural = 'Categorías'
+        verbose_name = 'Categoría'
 
     def __str__(self):
-        return f"Perfil de {self.user.username}"
+        return self.nombre
 
-
-class InventoryItem(models.Model):
-    STATUS_CHOICES = (
-        ('Activo', 'Activo'),
-        ('Por vencer', 'Por vencer'),
-        ('Vencido', 'Vencido'),
+class Producto(models.Model):
+    ESTADO_CHOICES = (
+        ('activo', 'Activo'),
+        ('por vencer', 'Por vencer'),
+        ('vencido', 'Vencido'),
     )
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=200)
-    stock_flotante = models.IntegerField()
-    stock_real = models.IntegerField()
-    lote = models.CharField(max_length=100)
-    vencimiento = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    categoria = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+    precio_real = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_flotante = models.DecimalField(max_digits=10, decimal_places=2)
+    unidades_por_caja = models.IntegerField(default=1)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
+    unidad_medida = models.CharField(max_length=50)
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
 
     class Meta:
-        verbose_name_plural = 'Artículos de inventario'
-        verbose_name = 'Artículo de inventario'
+        verbose_name_plural = 'Productos'
+        verbose_name = 'Producto'
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
-class Sale(models.Model):
-    STATUS_CHOICES = (
-        ('Completado', 'Completado'),
-        ('Pendiente', 'Pendiente'),
-        ('Cancelado', 'Cancelado'),
-    )
-    codigo = models.CharField(max_length=50, unique=True)
-    cliente = models.CharField(max_length=200)
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    vendedor = models.CharField(max_length=100)
+class Lote(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes')
+    codigo_lote = models.CharField(max_length=100)
+    fecha_vencimiento = models.DateField()
+    stock_real = models.IntegerField(default=0)
+    stock_flotante = models.IntegerField(default=0)
 
     class Meta:
-        verbose_name_plural = 'Ventas'
-        verbose_name = 'Venta'
+        verbose_name_plural = 'Lotes'
+        verbose_name = 'Lote'
 
     def __str__(self):
-        return f"Venta {self.codigo} - {self.cliente}"
+        return f"Lote {self.codigo_lote} ({self.producto.nombre})"
 
-class Alert(models.Model):
-    TENDENCIA_CHOICES = (
-        ('Alta', 'Alta'),
-        ('Moderada', 'Moderada'),
-        ('Baja', 'Baja'),
-    )
-    STATUS_CHOICES = (
-        ('Alto', 'Alto'),
-        ('Medio', 'Medio'),
-        ('Bajo', 'Bajo'),
-    )
-    producto = models.CharField(max_length=200)
-    categoria = models.CharField(max_length=100)
-    stock_actual = models.IntegerField()
+class PrediccionML(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='predicciones')
+    fecha_prediccion = models.DateField()
+    probabilidad_agotamiento = models.DecimalField(max_digits=5, decimal_places=4)
+    tendencia_consumo = models.CharField(max_length=50) # 'alta', 'moderada', 'baja'
+    version_modelo = models.CharField(max_length=50)
+
+    class Meta:
+        verbose_name_plural = 'Predicciones ML'
+        verbose_name = 'Predicción ML'
+
+    def __str__(self):
+        return f"Predicción {self.id} - {self.producto.nombre}"
+
+class Alerta(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='alertas')
+    prediccion = models.ForeignKey(PrediccionML, on_delete=models.SET_NULL, null=True, blank=True)
+    alerta = models.CharField(max_length=200)
+    nivel_riesgo = models.CharField(max_length=50)
+    periodo_agotamiento = models.IntegerField() # en días
     stock_minimo = models.IntegerField()
-    fecha = models.DateField()
-    periodo_agotamiento = models.CharField(max_length=50)
-    tendencia_consumo = models.CharField(max_length=20, choices=TENDENCIA_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    fecha_alerta = models.DateField()
 
     class Meta:
         verbose_name_plural = 'Alertas'
         verbose_name = 'Alerta'
 
     def __str__(self):
-        return f"Alerta {self.producto} ({self.status})"
+        return f"Alerta: {self.alerta} - Riesgo: {self.nivel_riesgo}"
 
-class Recommendation(models.Model):
-    title = models.CharField(max_length=200)
-    description = models.TextField()
+class Recomendacion(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='recomendaciones')
+    prediccion = models.ForeignKey(PrediccionML, on_delete=models.SET_NULL, null=True, blank=True)
+    titulo = models.CharField(max_length=200)
+    descripcion = models.TextField()
 
     class Meta:
         verbose_name_plural = 'Recomendaciones'
         verbose_name = 'Recomendación'
 
     def __str__(self):
-        return self.title
+        return self.titulo
+
+class Cliente(models.Model):
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(unique=True)
+    telefono = models.CharField(max_length=50, blank=True, null=True)
+    direccion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Clientes'
+        verbose_name = 'Cliente'
+
+    def __str__(self):
+        if self.apellido:
+            return f"{self.nombre} {self.apellido}"
+        return self.nombre
+
+class Rol(models.Model):
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+    permisos = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Roles'
+        verbose_name = 'Rol'
+
+    def __str__(self):
+        return self.nombre
+
+class Usuario(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='usuario_perfil')
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    telefono = models.CharField(max_length=50, blank=True, null=True)
+    direccion = models.TextField(blank=True, null=True)
+    rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = 'Usuarios'
+        verbose_name = 'Usuario'
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido}"
+
+class Venta(models.Model):
+    ESTADO_CHOICES = (
+        ('cancelado', 'Cancelado'),
+        ('completado', 'Completado'),
+        ('finalizado', 'Finalizado'),
+    )
+    codigo = models.CharField(max_length=50, unique=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ventas_realizadas')
+    fecha = models.DateField()
+    total = models.DecimalField(max_digits=12, decimal_places=2)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='completado')
+
+    class Meta:
+        verbose_name_plural = 'Ventas'
+        verbose_name = 'Venta'
+
+    def __str__(self):
+        return f"Venta {self.codigo}"
+
+class DetalleVenta(models.Model):
+    venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
+    cantidad_real = models.IntegerField(default=0)
+    cantidad_flotante = models.IntegerField(default=0)
+    precio_real = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_flotante = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        verbose_name_plural = 'Detalles de Venta'
+        verbose_name = 'Detalle de Venta'
+
+    def __str__(self):
+        return f"Detalle {self.id} de Venta {self.venta.codigo}"
