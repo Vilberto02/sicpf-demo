@@ -3,79 +3,197 @@ import os
 import django
 import random
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sicpf_core.settings')
 django.setup()
 
-from api.models import InventoryItem, Sale, Alert, Recommendation, UserProfile
+from api.models import (
+    Categoria, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+)
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
 
 def populate():
-    print("Limpiando base de datos...")
-    InventoryItem.objects.all().delete()
-    Sale.objects.all().delete()
-    Alert.objects.all().delete()
-    Recommendation.objects.all().delete()
+    print("Limpiando base de datos (Django ORM)...")
+    DetalleVenta.objects.all().delete()
+    Venta.objects.all().delete()
+    Recomendacion.objects.all().delete()
+    Alerta.objects.all().delete()
+    PrediccionML.objects.all().delete()
+    Lote.objects.all().delete()
+    Producto.objects.all().delete()
+    Categoria.objects.all().delete()
+    Cliente.objects.all().delete()
+    Usuario.objects.all().delete()
+    Rol.objects.all().delete()
 
-    print("Insertando inventario...")
-    # Insert 20 products
+    print("Insertando Categorías...")
+    categorias_nombres = ["Analgésicos", "Antibióticos", "Antihistamínicos", "Vitaminas", "Primeros Auxilios"]
+    categorias = []
+    for nombre in categorias_nombres:
+        categorias.append(Categoria.objects.create(nombre=nombre))
+
+    print("Insertando Productos y Lotes...")
+    productos = []
+    unidades_medida = ["pastilla", "frasco", "blister", "tubo", "caja"]
     for i in range(20):
-        InventoryItem.objects.create(
-            codigo=f"MED-{i:03d}",
-            nombre=f"Medicamento de prueba {i}",
-            stock_flotante=random.randint(10, 50),
-            stock_real=random.randint(5, 100),
-            lote=f"LOTE-{random.randint(100, 999)}",
-            vencimiento=datetime.now().date() + timedelta(days=random.randint(10, 365)),
-            status=random.choice(["Activo", "Por vencer", "Vencido"]),
-            categoria=random.choice(["Medicamentos", "Antihistamínicos", "Antibióticos"])
+        cat = random.choice(categorias)
+        precio_real = Decimal(round(random.uniform(5.0, 100.0), 2))
+        unidades_por_caja = random.choice([1, 10, 20, 30])
+        precio_flotante = precio_real / unidades_por_caja if unidades_por_caja > 1 else Decimal("0.00")
+        
+        prod = Producto.objects.create(
+            codigo=f"PROD-{i:03d}",
+            nombre=f"{cat.nombre} Genérico {i}",
+            descripcion=f"Descripción de prueba para producto {i}",
+            precio_real=precio_real,
+            precio_flotante=precio_flotante,
+            unidades_por_caja=unidades_por_caja,
+            estado=random.choice(["activo", "activo", "por vencer"]),
+            unidad_medida=random.choice(unidades_medida),
+            categoria=cat
+        )
+        productos.append(prod)
+
+        # Crear 1 a 3 lotes por producto
+        for j in range(random.randint(1, 3)):
+            Lote.objects.create(
+                producto=prod,
+                codigo_lote=f"LOTE-{prod.id}-{j}",
+                fecha_vencimiento=datetime.now().date() + timedelta(days=random.randint(30, 730)),
+                stock_real=random.randint(0, 50),
+                stock_flotante=random.randint(0, unidades_por_caja - 1) if unidades_por_caja > 1 else 0
+            )
+
+    print("Insertando Predicciones, Alertas y Recomendaciones...")
+    for prod in random.sample(productos, 10):
+        prediccion = PrediccionML.objects.create(
+            producto=prod,
+            fecha_prediccion=datetime.now().date(),
+            probabilidad_agotamiento=Decimal(round(random.uniform(0.5, 0.99), 4)),
+            tendencia_consumo=random.choice(["alta", "moderada"]),
+            version_modelo="v1.0"
+        )
+        
+        Alerta.objects.create(
+            producto=prod,
+            prediccion=prediccion,
+            alerta=f"Posible quiebre de stock para {prod.nombre}",
+            nivel_riesgo=random.choice(["alto", "medio"]),
+            periodo_agotamiento=random.randint(5, 15),
+            stock_minimo=random.randint(10, 30),
+            fecha_alerta=datetime.now().date()
         )
 
-    print("Insertando ventas...")
-    # Insert 30 sales
-    for i in range(30):
-        Sale.objects.create(
-            codigo=f"VNT-{i:03d}",
-            cliente=f"Cliente {i}",
-            monto=round(random.uniform(10.0, 500.0), 2),
-            fecha=datetime.now().date() - timedelta(days=random.randint(0, 150)),
-            status=random.choice(["Completado", "Pendiente", "Cancelado"]),
-            vendedor=f"Vendedor {random.randint(1, 3)}"
+        Recomendacion.objects.create(
+            producto=prod,
+            prediccion=prediccion,
+            titulo=f"Comprar {prod.nombre}",
+            descripcion="Basado en el consumo reciente, se recomienda reabastecer pronto."
         )
 
-    print("Insertando alertas...")
-    # Insert 10 alerts
-    for i in range(10):
-        Alert.objects.create(
-            producto=f"Producto {i}",
-            categoria=random.choice(["Medicamentos", "Antihistamínicos"]),
-            stock_actual=random.randint(0, 20),
-            stock_minimo=random.randint(15, 30),
-            fecha=datetime.now().date(),
-            periodo_agotamiento=f"{random.randint(1, 10)} días",
-            tendencia_consumo=random.choice(["Alta", "Moderada", "Baja"]),
-            status=random.choice(["Alto", "Medio", "Bajo"])
-        )
-    
-    print("Insertando recomendaciones...")
+    print("Insertando Clientes...")
+    clientes = []
+    # Cliente genérico
+    clientes.append(Cliente.objects.create(
+        nombre="Venta Mostrador",
+        email="mostrador@sistema.local",
+        telefono="N/A",
+        direccion="N/A"
+    ))
     for i in range(5):
-        Recommendation.objects.create(
-            title=f"Recomendación {i}",
-            description="Esta es una recomendación generada automáticamente basada en el consumo."
-        )
-    
-    print("Verificando usuario admin...")
-    admin_user = User.objects.filter(username="admin@example.com").first()
-    if admin_user:
-        UserProfile.objects.get_or_create(
-            user=admin_user,
+        clientes.append(Cliente.objects.create(
+            nombre=f"ClienteName{i}",
+            apellido=f"Apellido{i}",
+            email=f"cliente{i}@email.com",
+            telefono=f"555-000{i}"
+        ))
+
+    print("Verificando Usuario y Roles...")
+    rol_admin, _ = Rol.objects.get_or_create(nombre="Administrador", permisos="all")
+    rol_vendedor, _ = Rol.objects.get_or_create(nombre="Vendedor", permisos="sales")
+
+    admin_django_user = User.objects.filter(username="admin@example.com").first()
+    if admin_django_user:
+        usuario_admin, _ = Usuario.objects.get_or_create(
+            user=admin_django_user,
             defaults={
-                'role': 'Control de Calidad',
-                'location': 'San Miguel',
-                'employee_id': 'EMP-2024-001'
+                'nombre': "Admin",
+                'apellido': "Sistema",
+                'email': "admin@example.com",
+                'rol': rol_admin
             }
         )
+    else:
+        # Create a dummy user object if we don't have django user yet just for sales logic
+        usuario_admin = None
+        print("Advertencia: No se encontró admin@example.com de Django Auth.")
+
+    # Crear algunos vendedores si no hay
+    vendedores = []
+    if usuario_admin:
+        vendedores.append(usuario_admin)
+    
+    for i in range(2):
+        django_user, created = User.objects.get_or_create(username=f"vendedor{i}", email=f"vendedor{i}@local.com")
+        if created:
+            django_user.set_password('password123')
+            django_user.save()
+            
+        vend, _ = Usuario.objects.get_or_create(
+            user=django_user,
+            defaults={
+                'nombre': f"Vendedor {i}",
+                'apellido': "Ventas",
+                'email': f"vendedor{i}@local.com",
+                'rol': rol_vendedor
+            }
+        )
+        vendedores.append(vend)
+
+    print("Insertando Ventas y Detalles...")
+    for i in range(30):
+        cliente = random.choice(clientes)
+        vendedor = random.choice(vendedores) if vendedores else None
+        
+        venta = Venta.objects.create(
+            codigo=f"VNT-2024-{i:04d}",
+            cliente=cliente,
+            usuario=vendedor,
+            fecha=datetime.now().date() - timedelta(days=random.randint(0, 150)),
+            total=Decimal("0.00"),
+            estado=random.choice(["completado", "completado", "finalizado", "cancelado"])
+        )
+        
+        total_venta = Decimal("0.00")
+        
+        # 1 a 4 productos por venta
+        for _ in range(random.randint(1, 4)):
+            prod = random.choice(productos)
+            lote = prod.lotes.first()
+            if not lote:
+                continue
+                
+            cant_real = random.randint(1, 3)
+            cant_flotante = random.randint(0, prod.unidades_por_caja - 1) if prod.unidades_por_caja > 1 else 0
+            
+            subtotal = (Decimal(cant_real) * prod.precio_real) + (Decimal(cant_flotante) * prod.precio_flotante)
+            total_venta += subtotal
+            
+            DetalleVenta.objects.create(
+                venta=venta,
+                producto=prod,
+                lote=lote,
+                cantidad_real=cant_real,
+                cantidad_flotante=cant_flotante,
+                precio_real=prod.precio_real,
+                precio_flotante=prod.precio_flotante
+            )
+            
+        venta.total = total_venta
+        venta.save()
 
     print("¡Base de datos poblada exitosamente!")
 

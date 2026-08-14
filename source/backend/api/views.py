@@ -10,15 +10,23 @@ from datetime import datetime, timedelta
 from rest_framework.views import APIView
 # pyrefly: ignore [missing-import]
 from django.db.models import Sum, Count
-# pyrefly: ignore [missing-import]
-from .models import InventoryItem, Sale, Alert, UserProfile
-# pyrefly: ignore [missing-import]
-from rest_framework.permissions import IsAuthenticated
 
-from .serializers import (
-    InventoryItemSerializer, SaleSerializer, AlertSerializer, RecommendationSerializer
+from .models import (
+    Categoria, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
 )
-from .services import InventoryService, SaleService, AlertService, RecommendationService
+from .serializers import (
+    CategoriaSerializer, ProductoSerializer, LoteSerializer,
+    PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
+    ClienteSerializer, RolSerializer, UsuarioSerializer,
+    VentaSerializer, DetalleVentaSerializer
+)
+from .services import (
+    CategoriaService, ProductoService, LoteService,
+    PrediccionMLService, AlertaService, RecomendacionService,
+    ClienteService, RolService, UsuarioService,
+    VentaService, DetalleVentaService
+)
 
 def create_generic_views(model_service, model_serializer):
     class ListView(generics.ListAPIView):
@@ -59,32 +67,39 @@ def create_generic_views(model_service, model_serializer):
             
     return ListView, CreateView, DetailView, UpdateView, DeleteView
 
-# Inventory Views
-InventoryListView, InventoryCreateView, InventoryDetailView, InventoryUpdateView, InventoryDeleteView = create_generic_views(
-    InventoryService, InventoryItemSerializer
-)
+# Categoria Views
+CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(CategoriaService, CategoriaSerializer)
 
-# Sale Views
-SaleListView, SaleCreateView, SaleDetailView, SaleUpdateView, SaleDeleteView = create_generic_views(
-    SaleService, SaleSerializer
-)
+# Producto Views
+ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(ProductoService, ProductoSerializer)
 
-# Alert Views
-AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(
-    AlertService, AlertSerializer
-)
+# Lote Views
+LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(LoteService, LoteSerializer)
 
-# Recommendation Views
-RecommendationListView, RecommendationCreateView, RecommendationDetailView, RecommendationUpdateView, RecommendationDeleteView = create_generic_views(
-    RecommendationService, RecommendationSerializer
-)
+# Cliente Views
+ClienteListView, ClienteCreateView, ClienteDetailView, ClienteUpdateView, ClienteDeleteView = create_generic_views(ClienteService, ClienteSerializer)
+
+# Usuario Views
+UsuarioListView, UsuarioCreateView, UsuarioDetailView, UsuarioUpdateView, UsuarioDeleteView = create_generic_views(UsuarioService, UsuarioSerializer)
+
+# Venta Views
+VentaListView, VentaCreateView, VentaDetailView, VentaUpdateView, VentaDeleteView = create_generic_views(VentaService, VentaSerializer)
+
+# Alerta Views
+AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(AlertaService, AlertaSerializer)
+
+# Recomendacion Views
+RecommendationListView, RecommendationCreateView, RecommendationDetailView, RecommendationUpdateView, RecommendationDeleteView = create_generic_views(RecomendacionService, RecomendacionSerializer)
+
 
 class InventoryStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        total_products = InventoryItem.objects.count()
-        low_stock = InventoryItem.objects.filter(stock_real__lte=15).count()
-        expiring_soon = InventoryItem.objects.filter(status="Por vencer").count()
+        total_products = Producto.objects.count()
+        # Sumamos el stock_real de todos los lotes y agrupamos por producto para ver cuáles tienen poco stock.
+        # Una forma más sencilla para el demo: Lotes con poco stock real.
+        low_stock = Lote.objects.filter(stock_real__lte=15).count()
+        expiring_soon = Producto.objects.filter(estado="por vencer").count()
         return Response({
             "total_products": total_products,
             "low_stock": low_stock,
@@ -94,10 +109,10 @@ class InventoryStatsView(APIView):
 class SaleStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        total_orders = Sale.objects.count()
-        pending_orders = Sale.objects.filter(status="Pendiente").count()
-        completed_orders = Sale.objects.filter(status="Completado").count()
-        total_revenue = Sale.objects.filter(status="Completado").aggregate(total=Sum('monto'))['total'] or 0
+        total_orders = Venta.objects.count()
+        pending_orders = Venta.objects.filter(estado="cancelado").count() # Adaptado a cancelado/completado/finalizado
+        completed_orders = Venta.objects.filter(estado="completado").count()
+        total_revenue = Venta.objects.filter(estado__in=["completado", "finalizado"]).aggregate(total=Sum('total'))['total'] or 0
         return Response({
             "total_orders": total_orders,
             "pending_orders": pending_orders,
@@ -108,11 +123,15 @@ class SaleStatsView(APIView):
 class AlertStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        total_alerts = Alert.objects.count()
-        high_trend = Alert.objects.filter(tendencia_consumo="Alta").count()
+        total_alerts = Alerta.objects.count()
+        
+        # Obtenemos cuántas alertas vienen de predicciones con tendencia alta
+        high_trend = Alerta.objects.filter(prediccion__tendencia_consumo="alta").count()
         consumption_trend = round((high_trend / total_alerts * 100) if total_alerts > 0 else 0, 1)
-        critical_stock = Alert.objects.filter(status="Alto").count()
-        at_risk = Alert.objects.filter(status="Medio").count()
+        
+        critical_stock = Alerta.objects.filter(nivel_riesgo="alto").count()
+        at_risk = Alerta.objects.filter(nivel_riesgo="medio").count()
+        
         return Response({
             "consumption_trend": f"{consumption_trend} %",
             "critical_stock": critical_stock,
@@ -123,7 +142,7 @@ class DashboardChartView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         five_months_ago = datetime.now().date() - timedelta(days=150)
-        sales = Sale.objects.filter(fecha__gte=five_months_ago).annotate(month=TruncMonth('fecha')).values('month').annotate(total=Sum('monto'), count=Count('id')).order_by('month')
+        sales = Venta.objects.filter(fecha__gte=five_months_ago, estado__in=["completado", "finalizado"]).annotate(month=TruncMonth('fecha')).values('month').annotate(total=Sum('total'), count=Count('id')).order_by('month')
         
         labels = []
         dataset01 = []
@@ -135,9 +154,8 @@ class DashboardChartView(APIView):
                 if month_name not in labels:
                     labels.append(month_name)
                     dataset01.append(float(s['total'] or 0))
-                    dataset02.append(s['count'] * 100) # scale up count to match scale visually or just use count
+                    dataset02.append(s['count'] * 100) 
         
-        # fallback if no data
         if not labels:
             labels = ["Enero", "Febrero", "Marzo", "Abril", "Mayo"]
             dataset01 = [120, 400, 700, 900, 1500]
@@ -153,21 +171,31 @@ class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         user = request.user
-        profile = getattr(user, 'profile', None)
-        return Response({
-            "first_name": user.first_name or user.username,
-            "last_name": user.last_name,
-            "email": user.email,
-            "role": profile.role if profile else "Usuario",
-            "location": profile.location if profile else "Sede Central",
-            "employee_id": profile.employee_id if profile else "N/A"
-        })
+        try:
+            profile = user.usuario_perfil
+            return Response({
+                "first_name": profile.nombre,
+                "last_name": profile.apellido,
+                "email": profile.email,
+                "role": profile.rol.nombre if profile.rol else "Usuario",
+                "location": "Sede Central", # Hardcoded or to be added to model if needed
+                "employee_id": "N/A" # Hardcoded or to be added to model if needed
+            })
+        except:
+            return Response({
+                "first_name": user.first_name or user.username,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": "Usuario",
+                "location": "Sede Central",
+                "employee_id": "N/A"
+            })
 
 class InventoryCategoriesView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        categories = InventoryItem.objects.values('categoria').annotate(count=Count('categoria')).order_by('-count')
-        labels = [item['categoria'] for item in categories]
+        categories = Producto.objects.values('categoria__nombre').annotate(count=Count('categoria')).order_by('-count')
+        labels = [item['categoria__nombre'] for item in categories]
         values = [item['count'] for item in categories]
         return Response({
             "labels": labels,

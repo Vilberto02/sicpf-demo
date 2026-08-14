@@ -1,4 +1,7 @@
-from .models import InventoryItem, Sale, Alert, Recommendation
+from .models import (
+    Categoria, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+)
 
 class BaseService:
     model = None
@@ -28,14 +31,35 @@ class BaseService:
         instance = cls.get_by_id(pk)
         instance.delete()
 
-class InventoryService(BaseService):
-    model = InventoryItem
+class CategoriaService(BaseService):
+    model = Categoria
 
-class SaleService(BaseService):
-    model = Sale
+class ProductoService(BaseService):
+    model = Producto
 
-class AlertService(BaseService):
-    model = Alert
+class LoteService(BaseService):
+    model = Lote
 
-class RecommendationService(BaseService):
-    model = Recommendation
+class PrediccionMLService(BaseService):
+    model = PrediccionML
+
+class AlertaService(BaseService):
+    model = Alerta
+
+class RecomendacionService(BaseService):
+    model = Recomendacion
+
+class ClienteService(BaseService):
+    model = Cliente
+
+class RolService(BaseService):
+    model = Rol
+
+class UsuarioService(BaseService):
+    model = Usuario
+
+class VentaService(BaseService):
+    model = Venta
+
+class DetalleVentaService(BaseService):
+    model = DetalleVenta

@@ -1,26 +1,59 @@
 # pyrefly: ignore [missing-import]
 from django.contrib import admin
-from .models import InventoryItem, Sale, Alert, Recommendation
+from .models import (
+    Categoria, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+)
 
-@admin.register(InventoryItem)
-class InventoryItemAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'nombre', 'stock_flotante', 'stock_real', 'vencimiento', 'status', 'categoria')
-    search_fields = ('codigo', 'nombre', 'lote', 'categoria')
-    list_filter = ('status', 'categoria')
+@admin.register(Categoria)
+class CategoriaAdmin(admin.ModelAdmin):
+    list_display = ('nombre',)
+    search_fields = ('nombre',)
 
-@admin.register(Sale)
-class SaleAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'cliente', 'monto', 'fecha', 'status', 'vendedor')
-    search_fields = ('codigo', 'cliente', 'vendedor')
-    list_filter = ('status', 'fecha')
+@admin.register(Producto)
+class ProductoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'precio_real', 'estado', 'categoria')
+    search_fields = ('codigo', 'nombre')
+    list_filter = ('estado', 'categoria')
 
-@admin.register(Alert)
-class AlertAdmin(admin.ModelAdmin):
-    list_display = ('producto', 'categoria', 'stock_actual', 'stock_minimo', 'tendencia_consumo', 'status')
-    search_fields = ('producto', 'categoria')
-    list_filter = ('status', 'tendencia_consumo')
+@admin.register(Lote)
+class LoteAdmin(admin.ModelAdmin):
+    list_display = ('codigo_lote', 'producto', 'stock_real', 'stock_flotante', 'fecha_vencimiento')
+    search_fields = ('codigo_lote', 'producto__nombre')
 
-@admin.register(Recommendation)
-class RecommendationAdmin(admin.ModelAdmin):
-    list_display = ('title',)
-    search_fields = ('title', 'description')
+@admin.register(PrediccionML)
+class PrediccionMLAdmin(admin.ModelAdmin):
+    list_display = ('id', 'producto', 'probabilidad_agotamiento', 'tendencia_consumo', 'fecha_prediccion')
+    list_filter = ('tendencia_consumo',)
+
+@admin.register(Alerta)
+class AlertaAdmin(admin.ModelAdmin):
+    list_display = ('alerta', 'producto', 'nivel_riesgo', 'stock_minimo', 'fecha_alerta')
+    list_filter = ('nivel_riesgo',)
+
+@admin.register(Recomendacion)
+class RecomendacionAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'producto')
+
+@admin.register(Cliente)
+class ClienteAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'apellido', 'email')
+    search_fields = ('nombre', 'apellido', 'email')
+
+@admin.register(Rol)
+class RolAdmin(admin.ModelAdmin):
+    list_display = ('nombre',)
+
+@admin.register(Usuario)
+class UsuarioAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'apellido', 'email', 'rol')
+
+class DetalleVentaInline(admin.TabularInline):
+    model = DetalleVenta
+    extra = 1
+
+@admin.register(Venta)
+class VentaAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'cliente', 'usuario', 'total', 'fecha', 'estado')
+    list_filter = ('estado', 'fecha')
+    inlines = [DetalleVentaInline]
