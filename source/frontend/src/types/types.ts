@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 export type LoginFields = {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -23,36 +23,38 @@ export type BarChartProps = {
   label: string[];
 };
 
-export type InventoryItemType = {
-  id: string;
-  codigo: string;
-  nombre: string;
-  stockFlotante: number;
-  stockReal: number;
-  lote: string;
-  vencimiento: string;
-  status: "Activo" | "Por vencer" | "Vencido";
-  categoria: string;
+export type LoteType = {
+  id: number;
+  producto: number;
+  producto_nombre: string;
+  producto_codigo: string;
+  producto_estado: string;
+  categoria_nombre: string;
+  codigo_lote: string;
+  fecha_vencimiento: string;
+  stock_real: number;
+  stock_flotante: number;
 };
 
-export type SaleItemType = {
-  id: string;
+export type VentaType = {
+  id: number;
   codigo: string;
-  cliente: string;
-  monto: number;
+  cliente: number;
+  cliente_nombre: string;
+  total: number;
   fecha: string;
-  status: "Completado" | "Pendiente" | "Cancelado";
-  vendedor: string;
+  estado: string;
+  vendedor_nombre: string;
 };
 
-export type AlertItemType = {
-  id: string;
-  producto: string;
-  categoria: string;
-  stockActual: number;
-  stockMinimo: number;
-  fecha: string;
-  periodoAgotamiento: string;
-  tendenciaConsumo: "Alta" | "Moderada" | "Baja";
-  status: "Alto" | "Medio" | "Bajo";
+export type AlertaType = {
+  id: number;
+  producto_nombre: string;
+  alerta: string;
+  nivel_riesgo: string;
+  periodo_agotamiento: number;
+  stock_minimo: number;
+  fecha_alerta: string;
+  tendencia_consumo?: string;
+  categoria_nombre?: string;
 }

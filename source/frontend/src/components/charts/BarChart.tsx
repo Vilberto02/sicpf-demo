@@ -23,6 +23,19 @@ ChartJS.defaults.font.family = "'Sora', sans-serif";
 ChartJS.defaults.color = "#78716c"; // text-stone-500
 
 export function BarChart({dataset01, dataset02, label}: BarChartProps) {
+  if (!label || label.length === 0) {
+    return (
+      <div className="py-6 px-8 w-full h-full flex flex-col items-center justify-center min-h-[250px]">
+        <h3 className="font-semibold text-center text-lg mb-2 text-foreground">
+          Ventas y compras por meses.
+        </h3>
+        <p className="text-muted-foreground text-sm">
+          No hay operaciones registradas en los últimos meses.
+        </p>
+      </div>
+    );
+  }
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,

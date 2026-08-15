@@ -57,6 +57,8 @@ export function ProfileSection() {
   const location = userProfile?.location || "Cargando...";
   const employeeId = userProfile?.employee_id || "Cargando...";
   const email = userProfile?.email || "usuario@ejemplo.com";
+  const phone = userProfile?.phone || "No registrado";
+  const dateJoined = userProfile?.date_joined || "Reciente";
 
   const colors = [
     "#DBAEFF",
@@ -96,9 +98,6 @@ export function ProfileSection() {
               <h2 className="text-2xl font-bold text-foreground">
                 {name} {lastname}
               </h2>
-              <span className="inline-flex items-center gap-1.5 py-1 px-3 mt-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                <ShieldCheck size={16} /> {role}
-              </span>
             </div>
           </div>
 
@@ -113,13 +112,13 @@ export function ProfileSection() {
               <p className="text-sm font-semibold text-muted-foreground uppercase flex items-center gap-2">
                 <Phone size={16} /> Teléfono
               </p>
-              <p className="text-base font-medium">+51 987 654 321</p>
+              <p className="text-base font-medium">{phone}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-muted-foreground uppercase flex items-center gap-2">
                 <CalendarDays size={16} /> Fecha de Ingreso
               </p>
-              <p className="text-base font-medium">15 de Marzo, 2023</p>
+              <p className="text-base font-medium">{dateJoined}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-muted-foreground uppercase flex items-center gap-2">
@@ -146,7 +145,6 @@ export function ProfileSection() {
         <h3 className="mt-1">Mi Perfil</h3>
       </div>
       <div className="flex flex-col md:grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tarjeta del perfil - Ahora clickeable */}
         <div
           onClick={() => setIsDetailView(true)}
           className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl flex sm:items-center flex-col sm:flex-row gap-6 p-6 w-full min-w-0 cursor-pointer hover:bg-muted/50 transition-colors group"
@@ -158,7 +156,7 @@ export function ProfileSection() {
             <h5 className="font-semibold text-2xl group-hover:text-primary transition-colors">
               {name} {lastname}
             </h5>
-            <p className="font-normal text-muted-foreground">{role}</p>
+            {/*<p className="font-normal text-muted-foreground">{role}</p>*/}
             <p className="font-normal text-muted-foreground">{location}</p>
             <div className="mt-1 inline-flex items-center text-xs text-primary font-medium">
               Ver detalles completos &rarr;

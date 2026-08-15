@@ -249,21 +249,29 @@ export function DataTable<TData, TValue>({
             ))}
           </thead>
           <tbody>
-            {enhancedTable.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border hover:bg-muted/50 transition-colors"
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const align = (cell.column.columnDef.meta as any)?.align || "left";
-                  return (
-                  <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums text-${align}`}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                  );
-                })}
+            {enhancedTable.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={enhancedColumns.length} className="py-12 text-center text-muted-foreground bg-muted/10 font-medium">
+                  Aún no hay registros para mostrar.
+                </td>
               </tr>
-            ))}
+            ) : (
+              enhancedTable.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-muted/50 transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const align = (cell.column.columnDef.meta as any)?.align || "left";
+                    return (
+                    <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums text-${align}`}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

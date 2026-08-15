@@ -8,11 +8,11 @@ import { useInventoryStore } from "@/features/inventory/store";
 // Inventory columns
 const inventoryColumns: ColumnDef<InventoryItemType>[] = [
   {
-    accessorKey: "codigo",
+    accessorKey: "producto_codigo",
     header: "Código",
   },
   {
-    accessorKey: "nombre",
+    accessorKey: "producto_nombre",
     header: "Nombre",
   },
   {
@@ -24,16 +24,21 @@ const inventoryColumns: ColumnDef<InventoryItemType>[] = [
     header: "S. Real",
   },
   {
-    accessorKey: "lote",
+    accessorKey: "codigo_lote",
     header: "Lote",
   },
   {
-    accessorKey: "vencimiento",
+    accessorKey: "fecha_vencimiento",
     header: "Vencimiento",
   },
   {
-    accessorKey: "categoria",
+    accessorKey: "categoria_nombre",
     header: "Categoría",
+  },
+  {
+    id: "status",
+    accessorKey: "producto_estado",
+    header: "Estado",
   },
 ];
 
