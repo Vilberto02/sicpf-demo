@@ -5,6 +5,7 @@
 ```mermaid
 erDiagram
     CATEGORIA ||--o{ PRODUCTO : contiene
+    UNIDAD_MEDIDA ||--o{ PRODUCTO : clasifica
     PRODUCTO ||--o{ LOTE : tiene
     PRODUCTO ||--o{ PREDICCION_ML : "analizado en"
     PRODUCTO ||--o{ ALERTA : genera
@@ -12,6 +13,7 @@ erDiagram
     PREDICCION_ML ||--o{ ALERTA : fundamenta
     PREDICCION_ML ||--o{ RECOMENDACION : fundamenta
     USUARIO }|--|| ROL : tiene
+    USUARIO }|--|| SEDE : "pertenece a"
     VENTA }|--|| CLIENTE : "realizada a"
     VENTA }|--|| USUARIO : "realizada por (Vendedor)"
     VENTA ||--|{ DETALLE_VENTA : incluye
@@ -22,6 +24,12 @@ erDiagram
         int id PK
         string nombre
     }
+
+    UNIDAD_MEDIDA {
+        int id PK
+        string nombre
+        string abreviatura
+    }
     
     PRODUCTO {
         int id PK
@@ -31,8 +39,10 @@ erDiagram
         decimal precio_real
         decimal precio_flotante
         int unidades_por_caja
+        int unidades_por_blister
+        int blisters_por_caja
         string estado
-        string unidad_medida
+        int unidad_medida_id FK
         int categoria_id FK
     }
 
@@ -79,6 +89,11 @@ erDiagram
         string apellido
         string email
         string telefono
+    }
+
+    SEDE {
+        int id PK
+        string nombre
         string direccion
     }
 
@@ -90,13 +105,13 @@ erDiagram
         string telefono
         string direccion
         int rol_id FK
+        int sede_id FK
     }
 
     ROL {
         int id PK
         string nombre
         string descripcion
-        string permisos
     }
 
     VENTA {
@@ -130,10 +145,12 @@ erDiagram
   - descripcion
   - precio_real
   - precio_flotante
-  - unidades_por_caja (factor de conversión)
+  - unidades_por_caja (factor de conversión principal)
+  - unidades_por_blister (factor de conversión blister)
+  - blisters_por_caja (factor de conversión caja)
   - categoria_id
   - estado: "activo", "por vencer", "vencido"
-  - unidad_medida (ej. "pastilla", "blister", "frasco")
+  - unidad_medida_id (referencia al catálogo UnidadMedida)
 - Lote:
   - id
   - producto_id
@@ -144,6 +161,14 @@ erDiagram
 - Categoria:
   - id
   - nombre
+- UnidadMedida:
+  - id
+  - nombre
+  - abreviatura
+- Sede:
+  - id
+  - nombre
+  - direccion
 - PrediccionML:
   - id
   - producto_id
@@ -172,7 +197,6 @@ erDiagram
   - apellido
   - email
   - telefono
-  - direccion
 - Usuario:
   - id
   - nombre
@@ -181,11 +205,12 @@ erDiagram
   - telefono
   - direccion
   - rol_id
+  - sede_id
 - Rol:
   - id
   - nombre
   - descripcion
-  - permisos
+  - permisos (Relación M2M nativa con auth_permission)
 - Venta:
   - id
   - codigo
@@ -207,6 +232,7 @@ erDiagram
 ### Relaciones
 
 - Una **Categoria** contiene muchos **Productos** (1 a N).
+- Una **UnidadMedida** clasifica muchos **Productos** (1 a N).
 - Un **Producto** tiene muchos **Lotes** (1 a N).
 - Un **Producto** genera muchas **Alertas** (1 a N).
 - Un **Producto** recibe muchas **Recomendaciones** (1 a N).
@@ -214,6 +240,7 @@ erDiagram
 - Una **PrediccionML** fundamenta muchas **Alertas** (1 a N).
 - Una **PrediccionML** fundamenta muchas **Recomendaciones** (1 a N).
 - Un **Rol** pertenece a muchos **Usuarios** (1 a N).
+- Una **Sede** aloja a muchos **Usuarios** (1 a N).
 - Un **Cliente** tiene muchas **Ventas** (1 a N).
 - Un **Usuario** (Vendedor) realiza muchas **Ventas** (1 a N).
 - Una **Venta** incluye muchos **Detalles de Venta** (1 a N).
