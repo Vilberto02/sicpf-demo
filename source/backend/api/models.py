@@ -1,7 +1,7 @@
 # pyrefly: ignore [missing-import]
 from django.db import models
 # pyrefly: ignore [missing-import]
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Permission
 
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100)
@@ -9,6 +9,17 @@ class Categoria(models.Model):
     class Meta:
         verbose_name_plural = 'Categorías'
         verbose_name = 'Categoría'
+
+    def __str__(self):
+        return self.nombre
+
+class UnidadMedida(models.Model):
+    nombre = models.CharField(max_length=50, unique=True)
+    abreviatura = models.CharField(max_length=10, blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Unidades de Medida'
+        verbose_name = 'Unidad de Medida'
 
     def __str__(self):
         return self.nombre
@@ -22,11 +33,13 @@ class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
-    precio_real = models.DecimalField(max_digits=10, decimal_places=2)
-    precio_flotante = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_real = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de la caja")
+    precio_flotante = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de 1 unidad minima (ej. pastilla)")
     unidades_por_caja = models.IntegerField(default=1)
+    unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
+    blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
-    unidad_medida = models.CharField(max_length=50)
+    unidad_medida = models.ForeignKey(UnidadMedida, on_delete=models.PROTECT)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
 
     class Meta:
@@ -98,7 +111,6 @@ class Cliente(models.Model):
     apellido = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(unique=True)
     telefono = models.CharField(max_length=50, blank=True, null=True)
-    direccion = models.TextField(blank=True, null=True)
 
     class Meta:
         verbose_name_plural = 'Clientes'
@@ -112,11 +124,22 @@ class Cliente(models.Model):
 class Rol(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
-    permisos = models.TextField(blank=True, null=True)
+    permisos = models.ManyToManyField(Permission, blank=True, help_text="Permisos específicos para este rol")
 
     class Meta:
         verbose_name_plural = 'Roles'
         verbose_name = 'Rol'
+
+    def __str__(self):
+        return self.nombre
+
+class Sede(models.Model):
+    nombre = models.CharField(max_length=100)
+    direccion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Sedes'
+        verbose_name = 'Sede'
 
     def __str__(self):
         return self.nombre
@@ -129,6 +152,7 @@ class Usuario(models.Model):
     telefono = models.CharField(max_length=50, blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
     rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True)
+    sede = models.ForeignKey(Sede, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         verbose_name_plural = 'Usuarios'
