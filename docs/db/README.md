@@ -8,13 +8,19 @@ El modelo divide la conceptualización del inventario en datos maestros (`Produc
 - **Stock Real:** Representa las unidades cerradas o empaques completos (ej. cajas, frascos sellados).
 - **Stock Flotante:** Representa las unidades sueltas o fracciones provenientes de un empaque abierto (ej. pastillas sueltas o blisters individuales).
 
-La conversión matemática entre ambos tipos está definida por el atributo `unidades_por_caja` en la tabla `Producto`.
+La conversión matemática entre ambos tipos está definida por los atributos `unidades_por_caja`, `unidades_por_blister` y `blisters_por_caja` en la tabla `Producto`.
+
+### Tabla: UnidadMedida
+| id | nombre | abreviatura |
+|---|---|---|
+| 1 | pastilla | tab |
+| 2 | frasco | fco |
 
 ### Tabla: Producto
-| id | codigo | nombre | precio_real | precio_flotante | unidades_por_caja | unidad_medida | categoria_id |
-|---|---|---|---|---|---|---|---|
-| 1 | P-001 | Paracetamol 500mg | 10.00 | 1.20 | 10 | pastilla | 1 |
-| 2 | J-001 | Jarabe para Tos 200ml | 15.00 | 0.00 | 1 | frasco | 2 |
+| id | codigo | nombre | precio_real | precio_flotante | unidades_por_caja | unidades_por_blister | blisters_por_caja | unidad_medida_id | categoria_id |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | P-001 | Paracetamol 500mg | 10.00 | 1.20 | 10 | 10 | 1 | 1 | 1 |
+| 2 | J-001 | Jarabe para Tos 200ml | 15.00 | 0.00 | 1 | 1 | 1 | 2 | 2 |
 
 ### Tabla: Lote
 | id | producto_id | codigo_lote | fecha_vencimiento | stock_real | stock_flotante |
@@ -66,18 +72,23 @@ Las entidades relacionadas al Machine Learning funcionan como un sistema de traz
 
 ## 4. Control de Acceso
 
-El sistema utiliza un control basado en roles para separar funciones operativas y administrativas. 
+El sistema utiliza un control basado en roles para separar funciones operativas y administrativas, y permite asignar usuarios a diferentes sucursales. 
 
 ### Tabla: Rol
-| id | nombre | permisos |
+| id | nombre | descripción | permisos |
+|---|---|---|---|
+| 1 | Administrador | Acceso total | *(Relación M2M nativa con auth_permission)* |
+| 2 | Vendedor | Acceso en sucursal | *(Relación M2M nativa con auth_permission)* |
+
+### Tabla: Sede
+| id | nombre | direccion |
 |---|---|---|
-| 1 | Administrador | all |
-| 2 | Vendedor | ventas_create, clientes_read |
+| 1 | Sucursal Centro | Av. Principal 123 |
 
 ### Tabla: Usuario
-| id | nombre | apellido | email | rol_id |
-|---|---|---|---|---|
-| 5 | Carlos | Gómez | carlos@farmacia.local | 2 |
+| id | nombre | apellido | email | rol_id | sede_id |
+|---|---|---|---|---|---|
+| 5 | Carlos | Gómez | carlos@farmacia.local | 2 | 1 |
 
 ## Resumen del Flujo de Información
 
