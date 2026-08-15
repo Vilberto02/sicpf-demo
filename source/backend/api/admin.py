@@ -1,14 +1,24 @@
 # pyrefly: ignore [missing-import]
 from django.contrib import admin
 from .models import (
-    Categoria, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+    Categoria, UnidadMedida, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta
 )
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
     list_display = ('nombre',)
     search_fields = ('nombre',)
+
+@admin.register(Sede)
+class SedeAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'direccion')
+    search_fields = ('nombre',)
+
+@admin.register(UnidadMedida)
+class UnidadMedidaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'abreviatura')
+    search_fields = ('nombre', 'abreviatura')
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
@@ -43,10 +53,11 @@ class ClienteAdmin(admin.ModelAdmin):
 @admin.register(Rol)
 class RolAdmin(admin.ModelAdmin):
     list_display = ('nombre',)
+    filter_horizontal = ('permisos',)
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'apellido', 'email', 'rol')
+    list_display = ('nombre', 'apellido', 'email', 'rol', 'sede')
 
 class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta
