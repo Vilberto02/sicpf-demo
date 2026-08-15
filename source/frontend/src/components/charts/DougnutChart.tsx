@@ -9,6 +9,19 @@ ChartJS.defaults.font.family = "'Sora', sans-serif";
 ChartJS.defaults.color = "#78716c";
 
 export function DoughnutChart({ labels, values, colors }: DoughnutChartProps) {
+  if (!labels || labels.length === 0) {
+    return (
+      <div className="py-6 px-8 w-full h-full flex flex-col items-center justify-center min-h-[300px]">
+        <h3 className="font-semibold text-center text-lg mb-2 text-foreground">
+          Ventas por categoría de producto.
+        </h3>
+        <p className="text-muted-foreground text-sm">
+          No hay operaciones registradas en los últimos meses.
+        </p>
+      </div>
+    );
+  }
+
   // Dataset y opciones ajustadas para replicar el estilo del diseño.
   const total = values.reduce((sum, cur) => sum + cur, 0);
   const data = {
@@ -56,33 +69,33 @@ export function DoughnutChart({ labels, values, colors }: DoughnutChartProps) {
         Ventas por categoría de producto.
       </h3>
 
-      <div className="flex flex-col xl:flex-row justify-between gap-2 md:gap-4">
-        <ScrollArea>
-          <div className="space-y-2">
+      <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
+        <ScrollArea className="w-full lg:w-1/2 max-h-[260px]">
+          <div className="space-y-4 pr-4">
             {labels.map((label, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between gap-6"
+                className="flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span
-                    className="w-5 h-5 rounded-full"
+                    className="min-w-[16px] min-h-[16px] w-4 h-4 rounded-full"
                     style={{ backgroundColor: colors[index] }}
                   ></span>
-                  <span className="text-base text-neutral-700">{label}</span>
+                  <span className="text-sm font-medium text-neutral-700 leading-tight">{label}</span>
                 </div>
-                <span className="text-stone-500 font-medium">{values[index]}</span>
+                <span className="text-stone-500 text-sm font-semibold">{values[index]}</span>
               </div>
             ))}
           </div>
         </ScrollArea>
 
-        <div className="flex justify-center items-center">
-          <div className="relative lg:w-56 lg:h-56 xl:w-72 xl:h-72 w-56 h-56 drop-shadow-sm">
+        <div className="flex justify-center items-center w-full lg:w-1/2">
+          <div className="relative w-full max-w-[240px] aspect-square drop-shadow-sm">
             <Doughnut data={data} options={options}></Doughnut>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
               <p className="text-xs text-neutral-500 font-medium">Productos</p>
-              <p className="text-2xl font-bold text-foreground">{total}</p>
+              <p className="text-xl font-bold text-foreground">{total}</p>
             </div>
           </div>
         </div>
