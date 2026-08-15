@@ -25,6 +25,7 @@ export function OverviewSection() {
     fetchChartData();
     fetchProfile();
   }, [fetchRec, fetchInv, fetchAlert, fetchChartData, fetchProfile]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex gap-2 items-center text-3xl text-primary font-semibold">
@@ -47,15 +48,29 @@ export function OverviewSection() {
             </h4>
             <ScrollArea className="h-72">
               <div className="flex flex-col gap-2 pr-3">
-                {invItems.map((product) => (
-                  <InventoryItem
-                    key={product.codigo_lote}
-                    variant="state"
-                    code={product.producto_codigo}
-                    title={product.producto_nombre}
-                    state={product.producto_estado as any}
-                  ></InventoryItem>
-                ))}
+                {(() => {
+                  const filteredAndSortedInvItems = invItems
+                    .filter((product) => product.producto_estado === "vencido" || product.producto_estado === "por vencer")
+                    .sort((a, b) => {
+                      if (a.producto_estado === "vencido" && b.producto_estado !== "vencido") return -1;
+                      if (a.producto_estado !== "vencido" && b.producto_estado === "vencido") return 1;
+                      return 0;
+                    });
+                  
+                  if (filteredAndSortedInvItems.length === 0) {
+                    return <p className="text-sm text-muted-foreground mt-4">Aún no hay productos con estados críticos registrados.</p>;
+                  }
+                  
+                  return filteredAndSortedInvItems.map((product) => (
+                    <InventoryItem
+                      key={product.codigo_lote}
+                      variant="state"
+                      code={product.producto_codigo}
+                      title={product.producto_nombre}
+                      state={product.producto_estado as any}
+                    ></InventoryItem>
+                  ));
+                })()}
               </div>
             </ScrollArea>
           </div>
@@ -67,14 +82,18 @@ export function OverviewSection() {
             </h4>
             <ScrollArea className="h-72">
               <div className="flex flex-col gap-2 pr-3">
-                {alertItems.map((product) => (
-                  <InventoryItem
-                    key={product.id}
-                    variant="level"
-                    title={product.producto_nombre}
-                    level={product.nivel_riesgo as any}
-                  ></InventoryItem>
-                ))}
+                {alertItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-4">Aún no hay alertas registradas.</p>
+                ) : (
+                  alertItems.map((product) => (
+                    <InventoryItem
+                      key={product.id}
+                      variant="level"
+                      title={product.producto_nombre}
+                      level={product.nivel_riesgo as any}
+                    ></InventoryItem>
+                  ))
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -86,13 +105,17 @@ export function OverviewSection() {
             </h4>
             <ScrollArea className="h-72">
               <div className="flex flex-col gap-2 pr-3">
-                {recItems.map((recommendation) => (
-                  <RecommendationItem
-                    key={recommendation.id}
-                    title={recommendation.title}
-                    description={recommendation.description}
-                  ></RecommendationItem>
-                ))}
+                {recItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-4">Aún no hay recomendaciones emitidas.</p>
+                ) : (
+                  recItems.map((recommendation) => (
+                    <RecommendationItem
+                      key={recommendation.id}
+                      title={recommendation.title}
+                      description={recommendation.description}
+                    ></RecommendationItem>
+                  ))
+                )}
               </div>
             </ScrollArea>
           </div>
