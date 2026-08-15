@@ -156,11 +156,6 @@ class DashboardChartView(APIView):
                     dataset01.append(float(s['total'] or 0))
                     dataset02.append(s['count'] * 100) 
         
-        if not labels:
-            labels = ["Enero", "Febrero", "Marzo", "Abril", "Mayo"]
-            dataset01 = [120, 400, 700, 900, 1500]
-            dataset02 = [80, 200, 400, 800, 1100]
-
         return Response({
             "labels": labels,
             "dataset01": dataset01,
@@ -178,17 +173,21 @@ class UserProfileView(APIView):
                 "last_name": profile.apellido,
                 "email": profile.email,
                 "role": profile.rol.nombre if profile.rol else "Usuario",
-                "location": "Sede Central", # Hardcoded or to be added to model if needed
-                "employee_id": "N/A" # Hardcoded or to be added to model if needed
+                "location": profile.direccion or "Sede Central",
+                "employee_id": f"EMP-{str(profile.id).zfill(4)}",
+                "phone": profile.telefono or "No registrado",
+                "date_joined": user.date_joined.strftime("%Y-%m-%d") if user.date_joined else "Reciente"
             })
         except:
             return Response({
                 "first_name": user.first_name or user.username,
                 "last_name": user.last_name,
                 "email": user.email,
-                "role": "Usuario",
+                "role": "Superusuario" if user.is_superuser else "Usuario",
                 "location": "Sede Central",
-                "employee_id": "N/A"
+                "employee_id": f"EMP-{str(user.id).zfill(4)}",
+                "phone": "No registrado",
+                "date_joined": user.date_joined.strftime("%Y-%m-%d") if user.date_joined else "Reciente"
             })
 
 class InventoryCategoriesView(APIView):
