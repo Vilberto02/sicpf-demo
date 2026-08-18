@@ -1,5 +1,5 @@
 export type RecommendationItemType = {
   id?: number;
-  title: string;
-  description: string;
+  titulo: string;
+  descripcion: string;
 };

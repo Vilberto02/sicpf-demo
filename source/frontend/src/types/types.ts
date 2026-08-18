@@ -34,17 +34,21 @@ export type LoteType = {
   fecha_vencimiento: string;
   stock_real: number;
   stock_flotante: number;
+  precio_real: number;
+  precio_flotante: number;
 };
 
 export type VentaType = {
-  id: number;
+  id?: number;
   codigo: string;
   cliente: number;
-  cliente_nombre: string;
+  cliente_nombre?: string;
+  usuario?: number;
   total: number;
   fecha: string;
   estado: string;
-  vendedor_nombre: string;
+  vendedor_nombre?: string;
+  detalles_write?: any[];
 };
 
 export type AlertaType = {

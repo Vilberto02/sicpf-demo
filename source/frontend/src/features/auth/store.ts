@@ -4,6 +4,7 @@ import { login, getProfile } from "./api";
 interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
+  isCheckingAuth: boolean;
   error: string | null;
   userProfile: any | null;
   loginUser: (credentials: any) => Promise<void>;
@@ -14,6 +15,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   token: localStorage.getItem("token"),
   isAuthenticated: !!localStorage.getItem("token"),
+  isCheckingAuth: !!localStorage.getItem("token"),
   error: null,
   userProfile: null,
   loginUser: async (credentials) => {
@@ -35,11 +37,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token: null, isAuthenticated: false, userProfile: null });
   },
   fetchProfile: async () => {
+    set({ isCheckingAuth: true });
     try {
       const data = await getProfile();
-      set({ userProfile: data });
+      set({ userProfile: data, isAuthenticated: true, isCheckingAuth: false });
     } catch (error: any) {
       console.error("Error fetching profile", error);
+      localStorage.removeItem("token");
+      set({ token: null, isAuthenticated: false, userProfile: null, isCheckingAuth: false });
     }
   }
 }));
