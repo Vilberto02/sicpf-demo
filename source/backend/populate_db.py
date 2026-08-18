@@ -10,7 +10,7 @@ django.setup()
 
 from api.models import (
     Categoria, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, UnidadMedida, Sede
 )
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
@@ -24,10 +24,12 @@ def populate():
     PrediccionML.objects.all().delete()
     Lote.objects.all().delete()
     Producto.objects.all().delete()
+    UnidadMedida.objects.all().delete()
     Categoria.objects.all().delete()
     Cliente.objects.all().delete()
     Usuario.objects.all().delete()
     Rol.objects.all().delete()
+    Sede.objects.all().delete()
 
     print("Insertando Categorías...")
     categorias_nombres = ["Analgésicos", "Antibióticos", "Antihistamínicos", "Vitaminas", "Primeros Auxilios"]
@@ -35,9 +37,14 @@ def populate():
     for nombre in categorias_nombres:
         categorias.append(Categoria.objects.create(nombre=nombre))
 
+    print("Insertando Unidades de Medida...")
+    unidades_nombres = ["pastilla", "frasco", "blister", "tubo", "caja"]
+    unidades_medida = []
+    for nombre in unidades_nombres:
+        unidades_medida.append(UnidadMedida.objects.create(nombre=nombre))
+
     print("Insertando Productos y Lotes...")
     productos = []
-    unidades_medida = ["pastilla", "frasco", "blister", "tubo", "caja"]
     for i in range(20):
         cat = random.choice(categorias)
         precio_real = Decimal(round(random.uniform(5.0, 100.0), 2))
@@ -51,6 +58,8 @@ def populate():
             precio_real=precio_real,
             precio_flotante=precio_flotante,
             unidades_por_caja=unidades_por_caja,
+            unidades_por_blister=10 if unidades_por_caja >= 10 else 1,
+            blisters_por_caja=unidades_por_caja // 10 if unidades_por_caja >= 10 else 1,
             estado=random.choice(["activo", "activo", "por vencer"]),
             unidad_medida=random.choice(unidades_medida),
             categoria=cat
@@ -100,8 +109,7 @@ def populate():
     clientes.append(Cliente.objects.create(
         nombre="Venta Mostrador",
         email="mostrador@sistema.local",
-        telefono="N/A",
-        direccion="N/A"
+        telefono="N/A"
     ))
     for i in range(5):
         clientes.append(Cliente.objects.create(
@@ -111,9 +119,13 @@ def populate():
             telefono=f"555-000{i}"
         ))
 
-    print("Verificando Usuario y Roles...")
-    rol_admin, _ = Rol.objects.get_or_create(nombre="Administrador", permisos="all")
-    rol_vendedor, _ = Rol.objects.get_or_create(nombre="Vendedor", permisos="sales")
+    print("Verificando Sedes, Usuario y Roles...")
+    sede_central, _ = Sede.objects.get_or_create(nombre="Sede Central", direccion="Av. Principal 1")
+    sede_norte, _ = Sede.objects.get_or_create(nombre="Sede Norte", direccion="Av. Norte 2")
+    sedes = [sede_central, sede_norte]
+
+    rol_admin, _ = Rol.objects.get_or_create(nombre="Administrador", descripcion="Acceso total")
+    rol_vendedor, _ = Rol.objects.get_or_create(nombre="Vendedor", descripcion="Acceso a ventas")
 
     admin_django_user = User.objects.filter(username="admin@example.com").first()
     if admin_django_user:
@@ -123,7 +135,8 @@ def populate():
                 'nombre': "Admin",
                 'apellido': "Sistema",
                 'email': "admin@example.com",
-                'rol': rol_admin
+                'rol': rol_admin,
+                'sede': sede_central
             }
         )
     else:
@@ -148,7 +161,8 @@ def populate():
                 'nombre': f"Vendedor {i}",
                 'apellido': "Ventas",
                 'email': f"vendedor{i}@local.com",
-                'rol': rol_vendedor
+                'rol': rol_vendedor,
+                'sede': random.choice(sedes)
             }
         )
         vendedores.append(vend)
@@ -164,7 +178,7 @@ def populate():
             usuario=vendedor,
             fecha=datetime.now().date() - timedelta(days=random.randint(0, 150)),
             total=Decimal("0.00"),
-            estado=random.choice(["completado", "completado", "finalizado", "cancelado"])
+            estado=random.choice(["Completado", "Completado", "Pendiente", "Cancelado"])
         )
         
         total_venta = Decimal("0.00")

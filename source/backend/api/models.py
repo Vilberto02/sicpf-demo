@@ -163,16 +163,16 @@ class Usuario(models.Model):
 
 class Venta(models.Model):
     ESTADO_CHOICES = (
-        ('cancelado', 'Cancelado'),
-        ('completado', 'Completado'),
-        ('finalizado', 'Finalizado'),
+        ('Pendiente', 'Pendiente'),
+        ('Completado', 'Completado'),
+        ('Cancelado', 'Cancelado'),
     )
     codigo = models.CharField(max_length=50, unique=True)
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ventas_realizadas')
     fecha = models.DateField()
     total = models.DecimalField(max_digits=12, decimal_places=2)
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='completado')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Completado')
 
     class Meta:
         verbose_name_plural = 'Ventas'
