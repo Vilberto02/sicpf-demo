@@ -142,13 +142,13 @@ export function DataTable<TData, TValue>({
           return <StatusBadge status={status} />;
         },
       }]),
-      ...(columns.some(col => col.id === "actions") ? [] : [{
+      ...(columns.some(col => col.id === "actions") || (!onView && !onEdit && !onFinance && !onBlock) ? [] : [{
         id: "actions",
         header: "Acciones",
         cell: ({ row }: { row: { original: TData } }) => <ActionIcons row={row.original} />,
       }]),
     ];
-  }, [ActionIcons, columns, statusHeaderProps]);
+  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onFinance, onBlock]);
 
   const enhancedTable = useReactTable({
     data,

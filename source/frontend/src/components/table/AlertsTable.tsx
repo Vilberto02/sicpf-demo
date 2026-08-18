@@ -36,6 +36,7 @@ export function AlertsTable() {
       meta: { align: "right" },
     },
     {
+      id: "category",
       accessorKey: "tendencia_consumo",
       header: "T. Consumo",
     },
@@ -46,28 +47,13 @@ export function AlertsTable() {
     },
   ];
 
-  const handleView = (row: AlertItemType) => {
-    console.log("View item:", row);
-  };
-
-  const handleEdit = (row: AlertItemType) => {
-    console.log("Edit item:", row);
-  };
-
-  const handleBlock = (row: AlertItemType) => {
-    console.log("Block item:", row);
-  };
-
   return (
     <DataTable
       columns={alertsColumns}
       data={items}
       searchPlaceholder="Buscar por producto"
-      categories={["Medicamentos", "Antihistamínicos", "Antibióticos"]}
+      categories={["Alta", "Moderada", "Baja"]}
       statusHeaderProps="N. Riesgo"
-      onView={handleView}
-      onEdit={handleEdit}
-      onBlock={handleBlock}
     />
   );
 }

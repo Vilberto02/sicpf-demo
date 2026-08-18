@@ -5,80 +5,96 @@ import { DataTable } from "@/components/table/DataTable";
 import type { InventoryItemType } from "@/features/inventory/types";
 import { useInventoryStore } from "@/features/inventory/store";
 
-// Inventory columns
-const inventoryColumns: ColumnDef<InventoryItemType>[] = [
-  {
-    accessorKey: "producto_codigo",
-    header: "Código",
-  },
-  {
-    accessorKey: "producto_nombre",
-    header: "Nombre",
-  },
-  {
-    accessorKey: "stock_flotante",
-    header: "S. Flotante",
-  },
-  {
-    accessorKey: "stock_real",
-    header: "S. Real",
-  },
-  {
-    accessorKey: "codigo_lote",
-    header: "Lote",
-  },
-  {
-    accessorKey: "fecha_vencimiento",
-    header: "Vencimiento",
-  },
-  {
-    accessorKey: "categoria_nombre",
-    header: "Categoría",
-  },
-  {
-    id: "status",
-    accessorKey: "producto_estado",
-    header: "Estado",
-  },
-];
-
-// Action handlers
-const handleView = (row: InventoryItemType) => {
-  console.log("View item:", row);
-};
-
-const handleEdit = (row: InventoryItemType) => {
-  console.log("Edit item:", row);
-};
-
-const handleFinance = (row: InventoryItemType) => {
-  console.log("Finance item:", row);
-};
-
-const handleBlock = (row: InventoryItemType) => {
-  console.log("Block item:", row);
-};
-
 export default function InventoryTable() {
-  const { items, fetchItems, loading } = useInventoryStore();
+  const { items, categories, fetchItems, fetchCategories, loading } = useInventoryStore();
 
   useEffect(() => {
     fetchItems();
-  }, [fetchItems]);
+    fetchCategories();
+  }, [fetchItems, fetchCategories]);
 
   if (loading) return <div>Cargando...</div>;
+
+  const inventoryColumns: ColumnDef<InventoryItemType>[] = [
+    {
+      accessorKey: "producto_nombre",
+      header: "Nombre del Producto",
+    },
+    {
+      accessorKey: "codigo_lote",
+      header: "Código Lote",
+    },
+    {
+      id: "category",
+      accessorKey: "categoria_nombre",
+      header: "Categoría",
+    },
+    {
+      accessorKey: "stock_real",
+      header: "Stock Cajas",
+      meta: { align: "right" },
+      cell: ({ row }) => row.getValue("stock_real") ?? 0,
+    },
+    {
+      accessorKey: "stock_flotante",
+      header: "Stock Unidades",
+      meta: { align: "right" },
+      cell: ({ row }) => row.getValue("stock_flotante") ?? 0,
+    },
+    {
+      accessorKey: "precio_real",
+      header: "Precio Caja",
+      meta: { align: "right" },
+      cell: ({ row }) => {
+        const rawValue = row.getValue("precio_real");
+        const value = rawValue ? parseFloat(rawValue as string) : 0;
+        return new Intl.NumberFormat("es-PE", {
+          style: "currency",
+          currency: "PEN",
+        }).format(value || 0);
+      },
+    },
+    {
+      accessorKey: "precio_flotante",
+      header: "Precio Unidad",
+      meta: { align: "right" },
+      cell: ({ row }) => {
+        const rawValue = row.getValue("precio_flotante");
+        const value = rawValue ? parseFloat(rawValue as string) : 0;
+        return new Intl.NumberFormat("es-PE", {
+          style: "currency",
+          currency: "PEN",
+        }).format(value || 0);
+      },
+    },
+    {
+      accessorKey: "fecha_vencimiento",
+      header: "Vencimiento",
+    },
+    {
+      id: "status",
+      accessorKey: "producto_estado",
+      header: "Estado",
+    },
+  ];
+
+  const handleView = (row: InventoryItemType) => {
+    console.log("View item:", row);
+  };
+
+  const handleEdit = (row: InventoryItemType) => {
+    console.log("Edit item:", row);
+  };
 
   return (
     <DataTable
       columns={inventoryColumns}
       data={items}
-      searchPlaceholder="Buscar por nombre"
-      categories={["Medicamentos", "Antibióticos", "Antihistamínicos"]}
+      searchPlaceholder="Buscar por nombre o lote"
+      categories={categories?.labels || []}
       statusHeaderProps="Estado"
       onView={handleView}
       onEdit={handleEdit}
-      onFinance={handleFinance}
-      onBlock={handleBlock}
     />
   );
 }
