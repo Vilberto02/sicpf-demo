@@ -22,6 +22,8 @@ class LoteSerializer(serializers.ModelSerializer):
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
     producto_estado = serializers.ReadOnlyField(source='producto.estado')
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
+    precio_real = serializers.ReadOnlyField(source='producto.precio_real')
+    precio_flotante = serializers.ReadOnlyField(source='producto.precio_flotante')
     
     class Meta:
         model = Lote
@@ -71,11 +73,24 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
         model = DetalleVenta
         fields = '__all__'
 
+class DetalleVentaCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DetalleVenta
+        fields = ['producto', 'lote', 'cantidad_real', 'cantidad_flotante', 'precio_real', 'precio_flotante']
+
 class VentaSerializer(serializers.ModelSerializer):
     detalles = DetalleVentaSerializer(many=True, read_only=True)
+    detalles_write = DetalleVentaCreateSerializer(many=True, write_only=True, required=False)
     cliente_nombre = serializers.ReadOnlyField(source='cliente.nombre')
     vendedor_nombre = serializers.ReadOnlyField(source='usuario.nombre')
     
     class Meta:
         model = Venta
         fields = '__all__'
+
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles_write', [])
+        venta = Venta.objects.create(**validated_data)
+        for detalle_data in detalles_data:
+            DetalleVenta.objects.create(venta=venta, **detalle_data)
+        return venta
