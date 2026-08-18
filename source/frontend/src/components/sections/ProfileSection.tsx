@@ -9,7 +9,6 @@ import {
   Mail,
   Phone,
   CalendarDays,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { CardDashboard } from "../CardDashboard";
@@ -22,7 +21,7 @@ import { useSalesStore } from "@/features/sales/store";
 import { useAlertsStore } from "@/features/alerts/store";
 
 export function ProfileSection() {
-  const { userProfile, fetchProfile } = useAuthStore();
+  const { userProfile } = useAuthStore();
   const { chartData, fetchChartData } = useDashboardStore();
   const {
     categories,
@@ -36,14 +35,12 @@ export function ProfileSection() {
   const [isDetailView, setIsDetailView] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
     fetchChartData();
     fetchCategories();
     fetchInvStats();
     fetchSalesStats();
     fetchAlertsStats();
   }, [
-    fetchProfile,
     fetchChartData,
     fetchCategories,
     fetchInvStats,
@@ -53,7 +50,6 @@ export function ProfileSection() {
 
   const name = userProfile?.first_name || "Cargando...";
   const lastname = userProfile?.last_name || "";
-  const role = userProfile?.role || "Cargando...";
   const location = userProfile?.location || "Cargando...";
   const employeeId = userProfile?.employee_id || "Cargando...";
   const email = userProfile?.email || "usuario@ejemplo.com";

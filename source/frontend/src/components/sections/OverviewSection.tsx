@@ -8,11 +8,9 @@ import { useRecommendationsStore } from "@/features/recommendations/store";
 import { useInventoryStore } from "@/features/inventory/store";
 import { useAlertsStore } from "@/features/alerts/store";
 import { useDashboardStore } from "@/features/dashboard/store";
-import { useAuthStore } from "@/features/auth/store";
 
 export function OverviewSection() {
   const { chartData, fetchChartData } = useDashboardStore();
-  const { fetchProfile } = useAuthStore();
 
   const { items: recItems, fetchItems: fetchRec } = useRecommendationsStore();
   const { items: invItems, fetchItems: fetchInv } = useInventoryStore();
@@ -23,8 +21,7 @@ export function OverviewSection() {
     fetchInv();
     fetchAlert();
     fetchChartData();
-    fetchProfile();
-  }, [fetchRec, fetchInv, fetchAlert, fetchChartData, fetchProfile]);
+  }, [fetchRec, fetchInv, fetchAlert, fetchChartData]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -111,8 +108,8 @@ export function OverviewSection() {
                   recItems.map((recommendation) => (
                     <RecommendationItem
                       key={recommendation.id}
-                      title={recommendation.title}
-                      description={recommendation.description}
+                      title={recommendation.titulo}
+                      description={recommendation.descripcion}
                     ></RecommendationItem>
                   ))
                 )}

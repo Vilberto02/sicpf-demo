@@ -42,16 +42,16 @@ export function InventorySection() {
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm">
-              <Plus></Plus> Agregar producto
+              <Plus></Plus> Agregar Lote
             </Button>
           </SheetTrigger>
           <SheetContent className="w-full sm:max-w-md overflow-y-auto">
             <SheetHeader>
               <SheetTitle className="text-2xl text-primary font-semibold tracking-tight">
-                Nuevo Producto
+                Registrar Nuevo Lote
               </SheetTitle>
               <SheetDescription>
-                Registra un nuevo producto, lote o medicamento en el inventario.
+                Añade un nuevo lote a un producto existente en el inventario.
               </SheetDescription>
             </SheetHeader>
             <form
@@ -59,16 +59,20 @@ export function InventorySection() {
               className="flex flex-col gap-6 py-4 px-4"
             >
               <div className="flex flex-col gap-3">
-                <Label htmlFor="code">Código / SKU</Label>
-                <Input id="code" placeholder="MED-0000" required />
+                <Label htmlFor="productoId">ID o Nombre del Producto</Label>
+                <Input id="productoId" placeholder="Ej. Buscar producto..." required />
               </div>
               <div className="flex flex-col gap-3">
-                <Label htmlFor="name">Nombre del Producto</Label>
-                <Input id="name" placeholder="Ej. Paracetamol 500mg" required />
+                <Label htmlFor="batch">Código de Lote</Label>
+                <Input id="batch" placeholder="L-2024-XXX" required />
+              </div>
+              <div className="flex flex-col gap-3">
+                <Label htmlFor="expiry">Fecha de Vencimiento</Label>
+                <Input id="expiry" type="date" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-3">
-                  <Label htmlFor="realStock">Stock Real (Cajas)</Label>
+                  <Label htmlFor="realStock">Stock Inicial (Cajas)</Label>
                   <Input
                     id="realStock"
                     type="number"
@@ -78,7 +82,7 @@ export function InventorySection() {
                   />
                 </div>
                 <div className="flex flex-col gap-3">
-                  <Label htmlFor="floatStock">Stock Flotante (Unidades)</Label>
+                  <Label htmlFor="floatStock">Stock Inicial (Unidades sueltas)</Label>
                   <Input
                     id="floatStock"
                     type="number"
@@ -88,20 +92,12 @@ export function InventorySection() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="batch">Lote</Label>
-                <Input id="batch" placeholder="L-2024-XXX" required />
-              </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="expiry">Fecha de Vencimiento</Label>
-                <Input id="expiry" type="date" required />
-              </div>
               <SheetFooter className="mt-4">
                 <Button
                   type="submit"
                   className="w-full cursor-pointer shadow-sm"
                 >
-                  Guardar Producto
+                  Guardar Lote
                 </Button>
               </SheetFooter>
             </form>
