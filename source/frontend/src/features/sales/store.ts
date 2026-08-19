@@ -42,6 +42,7 @@ export const useSalesStore = create<SalesState>((set) => ({
       set((state) => ({ items: [...state.items, newItem] }));
     } catch (error: any) {
       set({ error: error.message });
+      throw error;
     }
   },
   updateItem: async (id, data) => {

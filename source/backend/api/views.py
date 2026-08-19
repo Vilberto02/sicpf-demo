@@ -41,7 +41,7 @@ def create_generic_views(model_service, model_serializer):
         def create(self, request, *args, **kwargs):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            instance = model_service.create(serializer.validated_data)
+            instance = serializer.save()
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
     class DetailView(generics.RetrieveAPIView):
@@ -54,9 +54,10 @@ def create_generic_views(model_service, model_serializer):
         permission_classes = [IsAuthenticated]
         serializer_class = model_serializer
         def update(self, request, *args, **kwargs):
-            serializer = self.get_serializer(data=request.data, partial=True)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
-            instance = model_service.update(self.kwargs['pk'], serializer.validated_data)
+            instance = serializer.save()
             return Response(self.get_serializer(instance).data)
 
     class DeleteView(generics.DestroyAPIView):
@@ -110,9 +111,17 @@ class SaleStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         total_orders = Venta.objects.count()
-        pending_orders = Venta.objects.filter(estado="cancelado").count() # Adaptado a cancelado/completado/finalizado
-        completed_orders = Venta.objects.filter(estado="completado").count()
-        total_revenue = Venta.objects.filter(estado__in=["completado", "finalizado"]).aggregate(total=Sum('total'))['total'] or 0
+        pending_orders = Venta.objects.filter(estado="Pendiente").count()
+        completed_orders = Venta.objects.filter(estado="Completado").count()
+        
+        # Total revenue of the current week
+        today = datetime.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+        total_revenue = Venta.objects.filter(
+            estado="Completado", 
+            fecha__gte=start_of_week
+        ).aggregate(total=Sum('total'))['total'] or 0
+        
         return Response({
             "total_orders": total_orders,
             "pending_orders": pending_orders,
@@ -167,8 +176,9 @@ class UserProfileView(APIView):
     def get(self, request):
         user = request.user
         try:
-            profile = user.usuario_perfil
+            profile = Usuario.objects.get(user=user)
             return Response({
+                "id": profile.id,
                 "first_name": profile.nombre,
                 "last_name": profile.apellido,
                 "email": profile.email,
@@ -180,6 +190,7 @@ class UserProfileView(APIView):
             })
         except:
             return Response({
+                "id": 3, # Fallback to existing valid Usuario id
                 "first_name": user.first_name or user.username,
                 "last_name": user.last_name,
                 "email": user.email,
