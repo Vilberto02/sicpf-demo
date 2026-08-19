@@ -24,6 +24,8 @@ class LoteSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     precio_real = serializers.ReadOnlyField(source='producto.precio_real')
     precio_flotante = serializers.ReadOnlyField(source='producto.precio_flotante')
+    precio_blister = serializers.ReadOnlyField(source='producto.precio_blister')
+    unidades_por_blister = serializers.ReadOnlyField(source='producto.unidades_por_blister')
     
     class Meta:
         model = Lote
@@ -76,7 +78,7 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
 class DetalleVentaCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DetalleVenta
-        fields = ['producto', 'lote', 'cantidad_real', 'cantidad_flotante', 'precio_real', 'precio_flotante']
+        fields = ['producto', 'lote', 'cantidad_real', 'cantidad_flotante', 'cantidad_blister', 'precio_real', 'precio_flotante', 'precio_blister']
 
 class VentaSerializer(serializers.ModelSerializer):
     detalles = DetalleVentaSerializer(many=True, read_only=True)
@@ -93,4 +95,34 @@ class VentaSerializer(serializers.ModelSerializer):
         venta = Venta.objects.create(**validated_data)
         for detalle_data in detalles_data:
             DetalleVenta.objects.create(venta=venta, **detalle_data)
+            
+            lote = detalle_data.get('lote')
+            if lote:
+                lote.stock_real -= detalle_data.get('cantidad_real', 0)
+                lote.stock_flotante -= detalle_data.get('cantidad_flotante', 0)
+                blisters = detalle_data.get('cantidad_blister', 0)
+                if blisters > 0:
+                    lote.stock_flotante -= blisters * lote.producto.unidades_por_blister
+                lote.save()
+                
         return venta
+
+    def update(self, instance, validated_data):
+        estado_nuevo = validated_data.get('estado', instance.estado)
+        
+        # Si transiciona a "Cancelado" por primera vez
+        if instance.estado != 'Cancelado' and estado_nuevo == 'Cancelado':
+            for detalle in instance.detalles.all():
+                lote = detalle.lote
+                if lote:
+                    lote.stock_real += detalle.cantidad_real
+                    lote.stock_flotante += detalle.cantidad_flotante
+                    if detalle.cantidad_blister > 0:
+                        lote.stock_flotante += detalle.cantidad_blister * lote.producto.unidades_por_blister
+                    lote.save()
+                
+        # Actualizar campos normalmente
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

@@ -1,11 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 import type { SaleItemType } from "@/features/sales/types";
 import { useSalesStore } from "@/features/sales/store";
+import { toast } from "sonner";
+import { SaleDetailsModal } from "@/components/modals/SaleDetailsModal";
 
 export function SalesTable() {
-  const { items, fetchItems, loading } = useSalesStore();
+  const { items, fetchItems, loading, updateItem } = useSalesStore();
+  const [selectedSale, setSelectedSale] = useState<SaleItemType | null>(null);
 
   useEffect(() => {
     fetchItems();
@@ -26,11 +29,26 @@ export function SalesTable() {
     {
       accessorKey: "total",
       header: "Monto",
-      cell: ({ row }) => `$${row.getValue("total")}`,
+      cell: ({ row }) => `S/${Number(row.getValue("total")).toFixed(2)}`,
     },
     {
       accessorKey: "fecha",
       header: "Fecha",
+      cell: ({ row }) => {
+        const rawDate = row.getValue("fecha") as string;
+        try {
+          // Ajustar fecha para no tener problemas de timezone (si viene YYYY-MM-DD)
+          const [year, month, day] = rawDate.split("-").map(Number);
+          const date = new Date(year, month - 1, day);
+          return new Intl.DateTimeFormat("es-ES", {
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+          }).format(date);
+        } catch {
+          return rawDate;
+        }
+      }
     },
     {
       accessorKey: "vendedor_nombre",
@@ -45,32 +63,136 @@ export function SalesTable() {
 
   // Action handlers
   const handleView = (row: SaleItemType) => {
-    console.log("View item:", row);
+    setSelectedSale(row);
   };
 
-  const handleEdit = (row: SaleItemType) => {
-    console.log("Edit item:", row);
+  const handlePrint = (row: SaleItemType) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    let filasHTML = '';
+    if (row.detalles) {
+      row.detalles.forEach((d: any) => {
+        let qty = 0;
+        let type = '';
+        let total = 0;
+        if (d.cantidad_real > 0) { qty = d.cantidad_real; type = 'Cj'; total = d.cantidad_real * d.precio_real; }
+        else if (d.cantidad_blister > 0) { qty = d.cantidad_blister; type = 'Bl'; total = d.cantidad_blister * d.precio_blister; }
+        else if (d.cantidad_flotante > 0) { qty = d.cantidad_flotante; type = 'Un'; total = d.cantidad_flotante * d.precio_flotante; }
+        
+        if (qty > 0) {
+           filasHTML += `<tr>
+             <td>${qty} ${type}</td>
+             <td>${d.producto_nombre?.substring(0, 15) || 'Producto'}</td>
+             <td class="right">${total.toFixed(2)}</td>
+           </tr>`;
+        }
+      });
+    }
+
+    const content = `
+      <html>
+        <head>
+          <title>Ticket ${row.codigo}</title>
+          <style>
+            @page { margin: 0; size: 80mm auto; }
+            body { font-family: monospace; width: 75mm; padding: 5mm; margin: 0; font-size: 12px; color: black; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { text-align: left; padding: 2px 0; font-size: 11px; }
+            .right { text-align: right; }
+            .dashed { border-bottom: 1px dashed black; }
+          </style>
+        </head>
+        <body>
+           <div class="center bold" style="font-size: 16px">SICPF DEMO</div>
+           <div class="center">
+             Ticket: ${row.codigo}<br/>
+             Fecha: ${row.fecha}<br/>
+             Cliente: ${row.cliente_nombre || 'Cliente General'}
+           </div>
+           <table>
+             <thead>
+               <tr class="dashed">
+                 <th>Cant</th>
+                 <th>Prod</th>
+                 <th class="right">Tot</th>
+               </tr>
+             </thead>
+             <tbody>${filasHTML}</tbody>
+           </table>
+           <br/>
+           <div style="display: flex; justify-content: space-between" class="bold dashed">
+             <span>TOTAL:</span>
+             <span>S/${Number(row.total).toFixed(2)}</span>
+           </div>
+           <br/>
+           <div class="center">
+             Atendido por: ${row.vendedor_nombre || 'Vendedor'}<br/>
+             ¡Gracias por su compra!
+           </div>
+        </body>
+      </html>
+    `;
+    
+    if (iframe.contentWindow) {
+      iframe.contentWindow.document.write(content);
+      iframe.contentWindow.document.close();
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }
+    setTimeout(() => document.body.removeChild(iframe), 2000);
   };
 
-  const handleFinance = (row: SaleItemType) => {
-    console.log("Finance item:", row);
+  const handleBlock = async (row: SaleItemType) => {
+    if (row.estado === "Cancelado") {
+      toast.error("Esta venta ya ha sido anulada");
+      return;
+    }
+    
+    const { default: Swal } = await import('sweetalert2');
+    
+    const result = await Swal.fire({
+       title: '¿Anular Venta?',
+       text: `¿Estás seguro que deseas anular la venta ${row.codigo}? El stock de los productos será devuelto al inventario.`,
+       icon: 'warning',
+       showCancelButton: true,
+       confirmButtonColor: '#d33',
+       cancelButtonColor: '#3085d6',
+       confirmButtonText: 'Sí, anular',
+       cancelButtonText: 'Cancelar'
+    });
+    
+    if (result.isConfirmed) {
+       try {
+         await updateItem(row.id!, { estado: "Cancelado" });
+         toast.success("Venta anulada y stock devuelto exitosamente");
+         fetchItems();
+       } catch(e: any) {
+         toast.error("Hubo un error al anular la venta: " + (e.message || "Error desconocido"));
+       }
+    }
   };
 
-  const handleBlock = (row: SaleItemType) => {
-    console.log("Block item:", row);
-  };
+  // Sort items desc by date
+  const sortedItems = [...items].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
   return (
-    <DataTable
-      columns={salesColumns}
-      data={items}
-      searchPlaceholder="Buscar por cliente"
-      categories={["Completado", "Pendiente", "Cancelado"]}
-      statusHeaderProps="Estado"
-      onView={handleView}
-      onEdit={handleEdit}
-      onFinance={handleFinance}
-      onBlock={handleBlock}
-    />
+    <>
+      <DataTable
+        columns={salesColumns}
+        data={sortedItems}
+        searchPlaceholder="Buscar por cliente"
+        categories={["Completado", "Pendiente", "Cancelado"]}
+        statusHeaderProps="Estado"
+        onView={handleView}
+        onPrint={handlePrint}
+        onBlock={handleBlock}
+      />
+
+      <SaleDetailsModal sale={selectedSale} onClose={() => setSelectedSale(null)} />
+    </>
   );
 }
