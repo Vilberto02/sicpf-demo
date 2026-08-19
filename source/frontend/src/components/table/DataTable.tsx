@@ -8,7 +8,16 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { useState, useMemo } from "react";
-import { Eye, Edit, DollarSign, Ban, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import {
+  ListFilter,
+  Eye,
+  Edit,
+  DollarSign,
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Printer,
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -23,40 +32,29 @@ interface DataTableProps<TData, TValue> {
   onEdit?: (row: TData) => void;
   onFinance?: (row: TData) => void;
   onBlock?: (row: TData) => void;
+  onPrint?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchPlaceholder = "Buscar por nombre",
+  searchPlaceholder = "Buscar...",
   categories = [],
-  statusHeaderProps,
+  statusHeaderProps = "Estado",
   onView,
   onEdit,
   onFinance,
   onBlock,
+  onPrint,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(10);
 
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
-    state: {
-      columnFilters,
-      globalFilter,
-      pagination: {
-        pageIndex: 0,
-        pageSize: itemsPerPage,
-      },
-    },
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: itemsPerPage,
   });
 
   const handleSearch = (value: string) => {
@@ -119,6 +117,14 @@ export function DataTable<TData, TValue>({
           <DollarSign className="h-4 w-4" />
         </button>
       )}
+      {onPrint && (
+        <button
+          onClick={() => onPrint(row)}
+          className="p-1 text-primary hover:text-primary/80 transition-colors cursor-pointer"
+        >
+          <Printer className="h-4 w-4" />
+        </button>
+      )}
       {onBlock && (
         <button
           onClick={() => onBlock(row)}
@@ -142,13 +148,19 @@ export function DataTable<TData, TValue>({
           return <StatusBadge status={status} />;
         },
       }]),
-      ...(columns.some(col => col.id === "actions") || (!onView && !onEdit && !onFinance && !onBlock) ? [] : [{
-        id: "actions",
-        header: "Acciones",
-        cell: ({ row }: { row: { original: TData } }) => <ActionIcons row={row.original} />,
-      }]),
+      ...((onView || onEdit || onFinance || onBlock || onPrint)
+        ? [
+            {
+              id: "actions",
+              header: "ACCIONES",
+              cell: ({ row }: { row: { original: TData } }) => (
+                <ActionIcons row={row.original} />
+              ),
+            },
+          ]
+        : []),
     ];
-  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onFinance, onBlock]);
+  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onFinance, onBlock, onPrint]);
 
   const enhancedTable = useReactTable({
     data,
@@ -158,13 +170,11 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
     state: {
       columnFilters,
       globalFilter,
-      pagination: {
-        pageIndex: table.getState().pagination.pageIndex,
-        pageSize: itemsPerPage,
-      },
+      pagination,
     },
   });
 
@@ -278,24 +288,10 @@ export function DataTable<TData, TValue>({
 
       {/* Paginación */}
       <div className="flex items-center justify-between p-4 ">
-        {/* Selector de items por página */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-stone-600">Mostrar</span>
-          <Select>
-            <SelectTrigger
-              className="w-28"
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.currentTarget.value))}
-            >
-              <SelectValue placeholder="5/pag." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">5/pag.</SelectItem>
-              <SelectItem value="10">10/pag.</SelectItem>
-              <SelectItem value="20">20/pag.</SelectItem>
-              <SelectItem value="50">50/pag.</SelectItem>
-            </SelectContent>
-          </Select>
+          <span className="text-sm text-stone-600">
+            Mostrando {enhancedTable.getState().pagination.pageIndex * enhancedTable.getState().pagination.pageSize + 1} a {Math.min((enhancedTable.getState().pagination.pageIndex + 1) * enhancedTable.getState().pagination.pageSize, enhancedTable.getFilteredRowModel().rows.length)} de {enhancedTable.getFilteredRowModel().rows.length} resultados
+          </span>
         </div>
 
         {/* Navegación de páginas */}
