@@ -36,6 +36,8 @@ export type LoteType = {
   stock_flotante: number;
   precio_real: number;
   precio_flotante: number;
+  precio_blister: number;
+  unidades_por_blister: number;
 };
 
 export type VentaType = {
@@ -48,6 +50,7 @@ export type VentaType = {
   fecha: string;
   estado: string;
   vendedor_nombre?: string;
+  detalles?: any[];
   detalles_write?: any[];
 };
 

@@ -35,6 +35,7 @@ class Producto(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     precio_real = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de la caja")
     precio_flotante = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio de 1 unidad minima (ej. pastilla)")
+    precio_blister = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Precio de 1 blister")
     unidades_por_caja = models.IntegerField(default=1)
     unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
     blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
@@ -187,8 +188,10 @@ class DetalleVenta(models.Model):
     lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
     cantidad_real = models.IntegerField(default=0)
     cantidad_flotante = models.IntegerField(default=0)
+    cantidad_blister = models.IntegerField(default=0)
     precio_real = models.DecimalField(max_digits=10, decimal_places=2)
     precio_flotante = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_blister = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
         verbose_name_plural = 'Detalles de Venta'
