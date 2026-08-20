@@ -152,7 +152,7 @@ export function DataTable<TData, TValue>({
         ? [
             {
               id: "actions",
-              header: "ACCIONES",
+              header: "Acciones",
               cell: ({ row }: { row: { original: TData } }) => (
                 <ActionIcons row={row.original} />
               ),

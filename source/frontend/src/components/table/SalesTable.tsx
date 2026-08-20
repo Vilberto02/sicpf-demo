@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { SaleDetailsModal } from "@/components/modals/SaleDetailsModal";
 
 export function SalesTable() {
-  const { items, fetchItems, loading, updateItem } = useSalesStore();
+  const { items, fetchItems, loading, updateItem, fetchStats } = useSalesStore();
   const [selectedSale, setSelectedSale] = useState<SaleItemType | null>(null);
 
   useEffect(() => {
@@ -33,17 +33,17 @@ export function SalesTable() {
     },
     {
       accessorKey: "fecha",
-      header: "Fecha",
+      header: "Fecha y Hora",
       cell: ({ row }) => {
         const rawDate = row.getValue("fecha") as string;
         try {
-          // Ajustar fecha para no tener problemas de timezone (si viene YYYY-MM-DD)
-          const [year, month, day] = rawDate.split("-").map(Number);
-          const date = new Date(year, month - 1, day);
+          const date = new Date(rawDate);
           return new Intl.DateTimeFormat("es-ES", {
             day: "numeric",
             month: "short",
-            year: "numeric"
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
           }).format(date);
         } catch {
           return rawDate;
@@ -170,17 +170,17 @@ export function SalesTable() {
          await updateItem(row.id!, { estado: "Cancelado" });
          toast.success("Venta anulada y stock devuelto exitosamente");
          fetchItems();
+         if (fetchStats) fetchStats();
        } catch(e: any) {
          toast.error("Hubo un error al anular la venta: " + (e.message || "Error desconocido"));
        }
     }
   };
 
-  // Sort items desc by date
   const sortedItems = [...items].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
   return (
-    <>
+    <div className="space-y-4">
       <DataTable
         columns={salesColumns}
         data={sortedItems}
@@ -193,6 +193,6 @@ export function SalesTable() {
       />
 
       <SaleDetailsModal sale={selectedSale} onClose={() => setSelectedSale(null)} />
-    </>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { CardDashboard } from "../CardDashboard";
 import { SalesTable } from "../table/SalesTable";
 import { useSalesStore } from "@/features/sales/store";
+import { AnimatedCounter } from "../AnimatedCounter";
 
 export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
   const { stats, fetchStats } = useSalesStore();
@@ -40,7 +41,7 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
           <CardDashboard
             Icon={ShoppingBasket}
             title="Total de pedidos"
-            value={stats?.total_orders ?? "0"}
+            value={<AnimatedCounter value={stats?.total_orders ?? 0} />}
             variant="default"
           ></CardDashboard>
         </div>
@@ -48,7 +49,7 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
           <CardDashboard
             Icon={Clock8}
             title="Pedidos pendientes"
-            value={stats?.pending_orders ?? "0"}
+            value={<AnimatedCounter value={stats?.pending_orders ?? 0} />}
             variant="warning"
           ></CardDashboard>
         </div>
@@ -56,7 +57,7 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
           <CardDashboard
             Icon={CircleCheckBig}
             title="Pedidos completados"
-            value={stats?.completed_orders ?? "0"}
+            value={<AnimatedCounter value={stats?.completed_orders ?? 0} />}
             variant="success"
           ></CardDashboard>
         </div>
@@ -64,9 +65,7 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
           <CardDashboard
             Icon={DollarSign}
             title="Total de ventas"
-            value={
-              stats?.total_revenue ? stats.total_revenue.toFixed(2) : "0.00"
-            }
+            value={<AnimatedCounter value={stats?.total_revenue ?? 0} isFloat={true} />}
             variant="info"
           ></CardDashboard>
         </div>

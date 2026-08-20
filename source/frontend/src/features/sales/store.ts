@@ -53,6 +53,7 @@ export const useSalesStore = create<SalesState>((set) => ({
       }));
     } catch (error: any) {
       set({ error: error.message });
+      throw error;
     }
   },
   removeItem: async (id) => {
@@ -63,6 +64,7 @@ export const useSalesStore = create<SalesState>((set) => ({
       }));
     } catch (error: any) {
       set({ error: error.message });
+      throw error;
     }
   },
 }));

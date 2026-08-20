@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { AnimatedCounter } from "../AnimatedCounter";
 
 export function InventorySection() {
   const { stats, fetchStats } = useInventoryStore();
@@ -110,7 +111,7 @@ export function InventorySection() {
           <CardDashboard
             Icon={ChartPie}
             title="Total de productos"
-            value={stats?.total_products ?? "0"}
+            value={<AnimatedCounter value={stats?.total_products ?? 0} />}
             variant="default"
           ></CardDashboard>
         </div>
@@ -118,7 +119,7 @@ export function InventorySection() {
           <CardDashboard
             Icon={TriangleAlert}
             title="Productos con bajo stock"
-            value={stats?.low_stock ?? "0"}
+            value={<AnimatedCounter value={stats?.low_stock ?? 0} />}
             variant="danger"
           ></CardDashboard>
         </div>
@@ -126,7 +127,7 @@ export function InventorySection() {
           <CardDashboard
             Icon={Clock8}
             title="Próximos a vencer"
-            value={stats?.expiring_soon ?? "0"}
+            value={<AnimatedCounter value={stats?.expiring_soon ?? 0} />}
             variant="warning"
           ></CardDashboard>
         </div>

@@ -53,6 +53,8 @@ def create_generic_views(model_service, model_serializer):
     class UpdateView(generics.UpdateAPIView):
         permission_classes = [IsAuthenticated]
         serializer_class = model_serializer
+        def get_object(self):
+            return model_service.get_by_id(self.kwargs['pk'])
         def update(self, request, *args, **kwargs):
             instance = self.get_object()
             serializer = self.get_serializer(instance, data=request.data, partial=True)

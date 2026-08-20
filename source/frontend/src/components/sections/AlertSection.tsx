@@ -3,6 +3,7 @@ import { Siren, Sparkles, TriangleAlert, Clock8  } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
 import { AlertsTable } from "../table/AlertsTable";
 import { useAlertsStore } from "@/features/alerts/store";
+import { AnimatedCounter } from "../AnimatedCounter";
 
 export function AlertSection() {
   const { stats, fetchStats } = useAlertsStore();
@@ -26,19 +27,19 @@ export function AlertSection() {
           <CardDashboard
             Icon={Sparkles}
             title="Tendencia de consumo"
-            value={stats?.consumption_trend ?? "0 %"}
+            value={<AnimatedCounter value={stats?.consumption_trend ? parseFloat(stats.consumption_trend) : 0} suffix=" %" isFloat />}
             variant="success"
           ></CardDashboard>
           <CardDashboard
             Icon={Clock8}
             title="Productos con stock crítico"
-            value={stats?.critical_stock ?? "0"}
+            value={<AnimatedCounter value={stats?.critical_stock ?? 0} />}
             variant="warning"
           ></CardDashboard>
           <CardDashboard
             Icon={TriangleAlert}
             title="Productos en riesgo"
-            value={stats?.at_risk ?? "0"}
+            value={<AnimatedCounter value={stats?.at_risk ?? 0} />}
             variant="danger"
           ></CardDashboard>
         </div>

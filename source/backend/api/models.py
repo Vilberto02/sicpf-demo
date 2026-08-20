@@ -171,7 +171,7 @@ class Venta(models.Model):
     codigo = models.CharField(max_length=50, unique=True)
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ventas_realizadas')
-    fecha = models.DateField()
+    fecha = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=12, decimal_places=2)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Completado')
 

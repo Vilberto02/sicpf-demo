@@ -19,6 +19,7 @@ import { useDashboardStore } from "@/features/dashboard/store";
 import { useInventoryStore } from "@/features/inventory/store";
 import { useSalesStore } from "@/features/sales/store";
 import { useAlertsStore } from "@/features/alerts/store";
+import { AnimatedCounter } from "../AnimatedCounter";
 
 export function ProfileSection() {
   const { userProfile } = useAuthStore();
@@ -163,25 +164,25 @@ export function ProfileSection() {
         <div className="flex flex-col md:grid md:grid-cols-2 gap-4 w-full min-w-0">
           <CardDashboard
             title="Pedidos procesados"
-            value={salesStats?.total_orders ?? "0"}
+            value={<AnimatedCounter value={salesStats?.total_orders ?? 0} />}
             Icon={ShoppingCart}
             variant="default"
           ></CardDashboard>
           <CardDashboard
             title="Productos ingresados"
-            value={invStats?.total_products ?? "0"}
+            value={<AnimatedCounter value={invStats?.total_products ?? 0} />}
             Icon={Package}
             variant="info"
           ></CardDashboard>
           <CardDashboard
             title="Productos en riesgo"
-            value={alertsStats?.at_risk ?? "0"}
+            value={<AnimatedCounter value={alertsStats?.at_risk ?? 0} />}
             Icon={TriangleAlert}
             variant="danger"
           ></CardDashboard>
           <CardDashboard
             title="Tendencia de consumo"
-            value={alertsStats?.consumption_trend ?? "0 %"}
+            value={<AnimatedCounter value={alertsStats?.consumption_trend ? parseFloat(alertsStats.consumption_trend) : 0}  suffix=" %" isFloat />}
             Icon={Sparkles}
             variant="success"
           ></CardDashboard>

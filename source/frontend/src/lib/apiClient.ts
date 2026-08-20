@@ -27,7 +27,15 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.message || "Something went wrong");
+    let errorMessage = errorData.detail || errorData.message;
+    if (!errorMessage && Array.isArray(errorData)) errorMessage = errorData[0];
+    if (!errorMessage && Array.isArray(errorData.non_field_errors)) errorMessage = errorData.non_field_errors[0];
+    if (!errorMessage && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+       const firstVal = Object.values(errorData)[0];
+       if (Array.isArray(firstVal)) errorMessage = firstVal[0];
+       else errorMessage = String(firstVal);
+    }
+    throw new Error(errorMessage || "Something went wrong");
   }
 
   // Handle 204 No Content

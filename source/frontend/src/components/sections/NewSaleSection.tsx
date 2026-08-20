@@ -235,14 +235,14 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer" variant="outline" disabled={lote.stock_real <= 0}>
-                    <Plus size={16} className="mr-1" /> Caja
+                  <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer text-sm" variant="outline" disabled={lote.stock_real <= 0}>
+                    <Plus size={12} className="mr-1" /> Caja
                   </Button>
-                  <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer" variant="outline" disabled={maxBlisters <= 0}>
-                    <Plus size={16} className="mr-1" /> Blíster
+                  <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer text-sm" variant="outline" disabled={maxBlisters <= 0}>
+                    <Plus size={12} className="mr-1" /> Blíster
                   </Button>
-                  <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer" variant="secondary" disabled={lote.stock_flotante <= 0}>
-                    <Plus size={16} className="mr-1" /> Und
+                  <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer text-sm" variant="secondary" disabled={lote.stock_flotante <= 0}>
+                    <Plus size={12} className="mr-1" /> Und
                   </Button>
                 </div>
               </div>

@@ -92,17 +92,34 @@ class VentaSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles_write', [])
+        
+        # Validar stock antes de crear nada
+        for detalle_data in detalles_data:
+            lote = detalle_data.get('lote')
+            if lote:
+                req_real = detalle_data.get('cantidad_real', 0)
+                req_flot = detalle_data.get('cantidad_flotante', 0)
+                blisters = detalle_data.get('cantidad_blister', 0)
+                if blisters > 0:
+                    req_flot += blisters * lote.producto.unidades_por_blister
+                
+                if lote.stock_real < req_real or lote.stock_flotante < req_flot:
+                    raise serializers.ValidationError("Stock insuficiente para el lote: " + lote.numero)
+
         venta = Venta.objects.create(**validated_data)
         for detalle_data in detalles_data:
             DetalleVenta.objects.create(venta=venta, **detalle_data)
             
             lote = detalle_data.get('lote')
             if lote:
-                lote.stock_real -= detalle_data.get('cantidad_real', 0)
-                lote.stock_flotante -= detalle_data.get('cantidad_flotante', 0)
+                req_real = detalle_data.get('cantidad_real', 0)
+                req_flot = detalle_data.get('cantidad_flotante', 0)
                 blisters = detalle_data.get('cantidad_blister', 0)
                 if blisters > 0:
-                    lote.stock_flotante -= blisters * lote.producto.unidades_por_blister
+                    req_flot += blisters * lote.producto.unidades_por_blister
+                    
+                lote.stock_real -= req_real
+                lote.stock_flotante -= req_flot
                 lote.save()
                 
         return venta
@@ -126,3 +143,4 @@ class VentaSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
