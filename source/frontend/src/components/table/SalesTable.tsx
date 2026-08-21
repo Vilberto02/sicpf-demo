@@ -16,6 +16,19 @@ export function SalesTable() {
 
   if (loading) return <div>Cargando...</div>;
 
+  const getEstadoBadge = (estado: string) => {
+    const styles: Record<string, string> = {
+      Cancelado: "bg-red-100 text-red-800 border-red-200",
+      Pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      Completado: "bg-green-100 text-green-800 border-green-200",
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[estado] || ""}`}>
+        {estado.charAt(0).toUpperCase() + estado.slice(1)}
+      </span>
+    );
+  };
+
   // Sales columns
   const salesColumns: ColumnDef<SaleItemType>[] = [
     {
@@ -58,6 +71,7 @@ export function SalesTable() {
       id: "status",
       accessorKey: "estado",
       header: "Estado",
+      cell: ({ row }) => getEstadoBadge(row.original.estado),
     }
   ];
 

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -94,44 +94,53 @@ export function DataTable<TData, TValue>({
   const ActionIcons = ({ row }: { row: TData }) => (
     <div className="flex items-center gap-2">
       {onView && (
-        <button
+        <Button
           onClick={() => onView(row)}
-          className="p-1 text-teal-400 hover:text-teal-300 transition-colors cursor-pointer"
+          variant="ghost"
+          className="p-1 text-primary hover:text-primary/60 transition-colors cursor-pointer"
+          title="Ver detalle"
         >
           <Eye className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       {onEdit && (
-        <button
+        <Button
           onClick={() => onEdit(row)}
-          className="p-1 text-teal-400 hover:text-teal-300 transition-colors cursor-pointer"
+          variant="ghost"
+          className="p-1 text-blue-600 hover:text-blue-400 transition-colors cursor-pointer"
+          title="Editar"
         >
           <Edit className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       {onFinance && (
-        <button
+        <Button
           onClick={() => onFinance(row)}
+          variant="ghost"
           className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors cursor-pointer"
         >
           <DollarSign className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       {onPrint && (
-        <button
+        <Button
           onClick={() => onPrint(row)}
-          className="p-1 text-primary hover:text-primary/80 transition-colors cursor-pointer"
+          variant="ghost"
+          className="p-1 text-stone-600 hover:text-stone-400 transition-colors cursor-pointer"
+          title="Imprimir"
         >
           <Printer className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       {onBlock && (
-        <button
+        <Button
           onClick={() => onBlock(row)}
-          className="p-1 text-yellow-500 hover:text-yellow-400 transition-colors cursor-pointer"
+          variant="ghost"
+          className="p-1 text-red-600 hover:text-red-400 transition-colors cursor-pointer"
+          title="Anular"
         >
           <Ban className="h-4 w-4" />
-        </button>
+        </Button>
       )}
     </div>
   );

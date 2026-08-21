@@ -70,6 +70,19 @@ export function AlertsTable() {
     {
       accessorKey: "fecha_alerta",
       header: "Fecha",
+      cell: ({ row }) => {
+        const rawDate = row.getValue("fecha_alerta") as string;
+        try {
+          const date = new Date(rawDate);
+          return new Intl.DateTimeFormat("es-ES", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }).format(date);
+        } catch {
+          return rawDate;
+        }
+      }
     },
     {
       accessorKey: "periodo_agotamiento",
@@ -105,6 +118,7 @@ export function AlertsTable() {
             <Button
               variant="ghost"
               size="sm"
+              className="cursor-pointer"
               onClick={() => markReviewed(alerta.id)}
               title="Marcar como revisada"
             >
@@ -113,6 +127,7 @@ export function AlertsTable() {
             <Button
               variant="ghost"
               size="sm"
+              className="cursor-pointer"
               onClick={() => markDiscarded(alerta.id)}
               title="Descartar"
             >
@@ -129,7 +144,7 @@ export function AlertsTable() {
       columns={alertsColumns}
       data={items}
       searchPlaceholder="Buscar por producto"
-      categories={["Alta", "Moderada", "Baja"]}
+      categories={["Alto", "Medio", "Bajo"]}
       statusHeaderProps="N. Riesgo"
     />
   );

@@ -15,6 +15,19 @@ export default function InventoryTable() {
 
   if (loading) return <div>Cargando...</div>;
 
+  const getEstadoBadge = (estado: string) => {
+    const styles: Record<string, string> = {
+      vencido: "bg-red-100 text-red-800 border-red-200",
+      "por vencer": "bg-yellow-100 text-yellow-800 border-yellow-200",
+      activo: "bg-green-100 text-green-800 border-green-200",
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[estado] || ""}`}>
+        {estado.charAt(0).toUpperCase() + estado.slice(1)}
+      </span>
+    );
+  };
+
   const inventoryColumns: ColumnDef<InventoryItemType>[] = [
     {
       accessorKey: "producto_nombre",
@@ -70,11 +83,25 @@ export default function InventoryTable() {
     {
       accessorKey: "fecha_vencimiento",
       header: "Vencimiento",
+      cell: ({ row }) => {
+        const rawDate = row.getValue("fecha_vencimiento") as string;
+        try {
+          const date = new Date(rawDate);
+          return new Intl.DateTimeFormat("es-ES", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }).format(date);
+        } catch {
+          return rawDate;
+        }
+      }
     },
     {
       id: "status",
       accessorKey: "producto_estado",
       header: "Estado",
+      cell: ({ row }) => getEstadoBadge(row.original.producto_estado) 
     },
   ];
 
