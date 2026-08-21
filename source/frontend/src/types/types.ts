@@ -38,6 +38,13 @@ export type LoteType = {
   precio_flotante: number;
   precio_blister: number;
   unidades_por_blister: number;
+  unidades_por_caja: number;
+  blisters_por_caja: number;
+  presentacion_principal: boolean;
+  presentacion_blister: boolean;
+  presentacion_unidad: boolean;
+  unidad_medida_nombre: string;
+  unidad_medida_abrev: string;
 };
 
 export type VentaType = {

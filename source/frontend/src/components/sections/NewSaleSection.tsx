@@ -79,17 +79,25 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     c.email.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
+  const getStockLimits = (lote: LoteType) => {
+    const unidades_en_principal = Math.max(lote.unidades_por_caja, lote.blisters_por_caja * lote.unidades_por_blister);
+    const total_flotante = lote.stock_flotante + (lote.stock_real * unidades_en_principal);
+    
+    return {
+      "Caja": lote.stock_real + Math.floor(lote.stock_flotante / unidades_en_principal),
+      "Unidad": total_flotante,
+      "Blíster": Math.floor(total_flotante / (lote.unidades_por_blister || 1))
+    };
+  };
+
   const addToCart = (lote: LoteType, type: "Caja" | "Unidad" | "Blíster") => {
     setCart((prev) => {
       const cartId = `${lote.id}-${type}`;
       const existing = prev.find((item) => item.id === cartId);
       
       const requestedQty = existing ? existing.qty + 1 : 1;
-      
-      let stockLimit = 0;
-      if (type === "Caja") stockLimit = lote.stock_real;
-      else if (type === "Unidad") stockLimit = lote.stock_flotante;
-      else if (type === "Blíster") stockLimit = Math.floor(lote.stock_flotante / (lote.unidades_por_blister || 1));
+      const limits = getStockLimits(lote);
+      const stockLimit = limits[type];
 
       if (requestedQty > stockLimit) {
         toast.error(`Stock insuficiente de ${type}s.`);
@@ -116,10 +124,8 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
       const item = prev.find(i => i.id === cartId);
       if (!item) return prev;
       
-      let stockLimit = 0;
-      if (item.type === "Caja") stockLimit = item.lote.stock_real;
-      else if (item.type === "Unidad") stockLimit = item.lote.stock_flotante;
-      else if (item.type === "Blíster") stockLimit = Math.floor(item.lote.stock_flotante / (item.lote.unidades_por_blister || 1));
+      const limits = getStockLimits(item.lote);
+      const stockLimit = limits[item.type as "Caja" | "Unidad" | "Blíster"];
 
       if (qty > stockLimit) {
         toast.error(`Stock insuficiente.`);
@@ -173,7 +179,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     const saleData = {
       codigo: `VNT-${Date.now().toString().slice(-6)}`,
       cliente: selectedClient.id,
-      usuario: userProfile?.id || 3, // Fallback si falla
+      usuario: userProfile?.id,
       total,
       fecha: new Date().toISOString().split('T')[0],
       estado: "Completado",
@@ -216,34 +222,50 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
           </div>
           <div className="h-[500px] overflow-y-auto mt-2 border rounded-md divide-y">
             {filteredLotes.map((lote) => {
-              const maxBlisters = Math.floor(lote.stock_flotante / (lote.unidades_por_blister || 1));
+              const limits = getStockLimits(lote);
+              const maxCajas = limits["Caja"];
+              const maxBlisters = limits["Blíster"];
+              const maxUnidades = limits["Unidad"];
+              
               return (
               <div key={lote.id} className="flex flex-col xl:flex-row justify-between xl:items-center p-4 hover:bg-muted/50 transition-colors gap-4">
                 <div>
                   <p className="font-semibold text-primary">{lote.producto_nombre}</p>
                   <p className="text-xs text-muted-foreground mb-1">Lote: {lote.codigo_lote} | Vence: {lote.fecha_vencimiento} </p>
                   <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium">
-                    <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">
-                      Cajas: {lote.stock_real} (S/{Number(lote.precio_real || 0).toFixed(2)})
-                    </span>
-                    <span className="bg-purple-500/10 text-purple-600 px-2 py-1 rounded-md">
-                      Blísters: {maxBlisters} (S/{Number(lote.precio_blister || 0).toFixed(2)})
-                    </span>
-                    <span className="bg-orange-500/10 text-orange-600 px-2 py-1 rounded-md">
-                      Unds: {lote.stock_flotante} (S/{Number(lote.precio_flotante || 0).toFixed(2)})
-                    </span>
+                    {lote.presentacion_principal !== false && (
+                      <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">
+                        Cajas: {lote.stock_real} (S/{Number(lote.precio_real || 0).toFixed(2)})
+                      </span>
+                    )}
+                    {lote.presentacion_blister !== false && (
+                      <span className="bg-purple-500/10 text-purple-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxBlisters}`}>
+                        Blísters: {Math.floor(lote.stock_flotante / (lote.unidades_por_blister || 1))} (S/{Number(lote.precio_blister || 0).toFixed(2)})
+                      </span>
+                    )}
+                    {lote.presentacion_unidad !== false && (
+                      <span className="bg-orange-500/10 text-orange-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxUnidades}`}>
+                        Unds: {lote.stock_flotante} (S/{Number(lote.precio_flotante || 0).toFixed(2)})
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer text-sm" variant="outline" disabled={lote.stock_real <= 0}>
-                    <Plus size={12} className="mr-1" /> Caja
-                  </Button>
-                  <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer text-sm" variant="outline" disabled={maxBlisters <= 0}>
-                    <Plus size={12} className="mr-1" /> Blíster
-                  </Button>
-                  <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer text-sm" variant="secondary" disabled={lote.stock_flotante <= 0}>
-                    <Plus size={12} className="mr-1" /> Und
-                  </Button>
+                  {lote.presentacion_principal !== false && (
+                    <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer text-sm" variant="outline" disabled={maxCajas <= 0}>
+                      <Plus size={12} className="mr-1" /> Caja
+                    </Button>
+                  )}
+                  {lote.presentacion_blister !== false && (
+                    <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer text-sm" variant="outline" disabled={maxBlisters <= 0}>
+                      <Plus size={12} className="mr-1" /> Blíster
+                    </Button>
+                  )}
+                  {lote.presentacion_unidad !== false && (
+                    <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer text-sm" variant="secondary" disabled={maxUnidades <= 0}>
+                      <Plus size={12} className="mr-1" /> Und
+                    </Button>
+                  )}
                 </div>
               </div>
             )})}
