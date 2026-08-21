@@ -39,6 +39,7 @@ export function AlertSection() {
             disabled={generating}
             variant="default"
             size="sm"
+            className="cursor-pointer"
           >
             <Zap className="mr-2 h-4 w-4" />
             {generating ? "Generando..." : "Generar Alertas"}
