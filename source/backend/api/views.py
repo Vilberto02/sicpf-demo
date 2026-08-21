@@ -25,7 +25,7 @@ from .services import (
     CategoriaService, ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService,
-    VentaService, DetalleVentaService
+    VentaService, DetalleVentaService, AlertGenerationService
 )
 
 def create_generic_views(model_service, model_serializer):
@@ -136,18 +136,47 @@ class AlertStatsView(APIView):
     def get(self, request):
         total_alerts = Alerta.objects.count()
         
-        # Obtenemos cuántas alertas vienen de predicciones con tendencia alta
         high_trend = Alerta.objects.filter(prediccion__tendencia_consumo="alta").count()
         consumption_trend = round((high_trend / total_alerts * 100) if total_alerts > 0 else 0, 1)
         
         critical_stock = Alerta.objects.filter(nivel_riesgo="alto").count()
         at_risk = Alerta.objects.filter(nivel_riesgo="medio").count()
+        total_pendientes = Alerta.objects.filter(estado="pendiente").count()
+        
+        today = datetime.now().date()
+        generadas_hoy = Alerta.objects.filter(fecha_alerta=today).count()
+        
+        origen_regla = Alerta.objects.filter(origen="reglas").count()
+        origen_ml = Alerta.objects.filter(origen="ml").count()
         
         return Response({
             "consumption_trend": f"{consumption_trend} %",
             "critical_stock": critical_stock,
-            "at_risk": at_risk
+            "at_risk": at_risk,
+            "total_pendientes": total_pendientes,
+            "generadas_hoy": generadas_hoy,
+            "origen_regla": origen_regla,
+            "origen_ml": origen_ml
         })
+
+
+class AlertGenerateView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        alertas = AlertGenerationService.generate_all()
+        return Response({
+            'generadas': len(alertas),
+            'alertas': AlertaSerializer(alertas, many=True).data
+        })
+
+
+class AlertPendingView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        pendientes = Alerta.objects.filter(estado='pendiente')
+        return Response(AlertaSerializer(pendientes, many=True).data)
 
 class DashboardChartView(APIView):
     permission_classes = [IsAuthenticated]
