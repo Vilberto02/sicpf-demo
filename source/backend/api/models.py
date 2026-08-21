@@ -2,6 +2,8 @@
 from django.db import models
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User, Permission
+# pyrefly: ignore [missing-import]
+from django.utils import timezone
 
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100)
@@ -92,13 +94,27 @@ class PrediccionML(models.Model):
         return f"Predicción {self.id} - {self.producto.nombre}"
 
 class Alerta(models.Model):
+    ESTADO_CHOICES = (
+        ('pendiente', 'Pendiente'),
+        ('revisada', 'Revisada'),
+        ('descartada', 'Descartada'),
+    )
+    ORIGEN_CHOICES = (
+        ('reglas', 'Reglas'),
+        ('ml', 'ML'),
+        ('manual', 'Manual'),
+    )
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='alertas')
     prediccion = models.ForeignKey(PrediccionML, on_delete=models.SET_NULL, null=True, blank=True)
     alerta = models.CharField(max_length=200)
     nivel_riesgo = models.CharField(max_length=50)
-    periodo_agotamiento = models.IntegerField() # en días
+    periodo_agotamiento = models.IntegerField() # en dias
     stock_minimo = models.IntegerField()
     fecha_alerta = models.DateField()
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, default='reglas')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Alertas'

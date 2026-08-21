@@ -64,6 +64,8 @@ urlpatterns = [
     path('inventory/categories/', views.InventoryCategoriesView.as_view(), name='inventory-categories'),
     path('sales/stats/', views.SaleStatsView.as_view(), name='sale-stats'),
     path('alerts/stats/', views.AlertStatsView.as_view(), name='alert-stats'),
+    path('alerts/generate/', views.AlertGenerateView.as_view(), name='alert-generate'),
+    path('alerts/pending/', views.AlertPendingView.as_view(), name='alert-pending'),
     path('dashboard/chart/', views.DashboardChartView.as_view(), name='dashboard-chart'),
     path('auth/profile/', views.UserProfileView.as_view(), name='auth-profile'),
 ]

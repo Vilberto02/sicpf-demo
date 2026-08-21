@@ -45,12 +45,18 @@ class PrediccionMLSerializer(serializers.ModelSerializer):
 
 class AlertaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
-    tendencia_consumo = serializers.ReadOnlyField(source='prediccion.tendencia_consumo')
+    producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
-    
+    tendencia_consumo = serializers.SerializerMethodField()
+
     class Meta:
         model = Alerta
         fields = '__all__'
+
+    def get_tendencia_consumo(self, obj):
+        if obj.prediccion:
+            return obj.prediccion.tendencia_consumo
+        return None
 
 class RecomendacionSerializer(serializers.ModelSerializer):
     class Meta:

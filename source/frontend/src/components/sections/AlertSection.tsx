@@ -1,16 +1,28 @@
 import { useEffect } from "react";
-import { Siren, Sparkles, TriangleAlert, Clock8  } from "lucide-react";
+import { Siren, Sparkles, TriangleAlert, Clock8, Activity, Zap } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
 import { AlertsTable } from "../table/AlertsTable";
 import { useAlertsStore } from "@/features/alerts/store";
 import { AnimatedCounter } from "../AnimatedCounter";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export function AlertSection() {
-  const { stats, fetchStats } = useAlertsStore();
+  const { stats, fetchStats, generateAlerts, generating } = useAlertsStore();
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  const handleGenerate = async () => {
+    try {
+      const result = await generateAlerts();
+      toast.success(`Se generaron ${result.generadas} alertas`);
+    } catch (error) {
+      toast.error("Error al generar alertas");
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -18,12 +30,23 @@ export function AlertSection() {
           <Siren width={36} height={36}></Siren>
           <h3 className="mt-1">Alertas</h3>
         </div>
-        <p className="text-sm font-medium text-muted-foreground">
-          Próxima actualización del modelo: <span className="tabular-nums">02/11/2025, 00:00</span>
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-muted-foreground">
+            Pendientes: <span className="tabular-nums font-bold text-primary">{stats?.total_pendientes ?? 0}</span>
+          </p>
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            variant="default"
+            size="sm"
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            {generating ? "Generando..." : "Generar Alertas"}
+          </Button>
+        </div>
       </div>
       <div className="mt-8 flex flex-col gap-8">
-        <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
+        <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
           <CardDashboard
             Icon={Sparkles}
             title="Tendencia de consumo"
@@ -41,6 +64,12 @@ export function AlertSection() {
             title="Productos en riesgo"
             value={<AnimatedCounter value={stats?.at_risk ?? 0} />}
             variant="danger"
+          ></CardDashboard>
+          <CardDashboard
+            Icon={Activity}
+            title="Pendientes hoy"
+            value={<AnimatedCounter value={stats?.generadas_hoy ?? 0} />}
+            variant="info"
           ></CardDashboard>
         </div>
         <AlertsTable></AlertsTable>
