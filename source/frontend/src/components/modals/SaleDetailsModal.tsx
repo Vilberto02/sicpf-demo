@@ -23,12 +23,8 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha</p>
                 <p className="font-medium text-sm mt-1">
-                  {new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(
-                    new Date(
-                      Number(sale.fecha.split("-")[0]),
-                      Number(sale.fecha.split("-")[1]) - 1,
-                      Number(sale.fecha.split("-")[2])
-                    )
+                  {new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(
+                    new Date(sale.fecha)
                   )}
                 </p>
               </div>

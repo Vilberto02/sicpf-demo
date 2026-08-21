@@ -79,7 +79,7 @@ export function SalesTable() {
         let total = 0;
         if (d.cantidad_real > 0) { qty = d.cantidad_real; type = 'Cj'; total = d.cantidad_real * d.precio_real; }
         else if (d.cantidad_blister > 0) { qty = d.cantidad_blister; type = 'Bl'; total = d.cantidad_blister * d.precio_blister; }
-        else if (d.cantidad_flotante > 0) { qty = d.cantidad_flotante; type = 'Un'; total = d.cantidad_flotante * d.precio_flotante; }
+        else if (d.cantidad_flotante > 0) { qty = d.cantidad_flotante; type = 'Und'; total = d.cantidad_flotante * d.precio_flotante; }
         
         if (qty > 0) {
            filasHTML += `<tr>
