@@ -39,6 +39,12 @@ class Producto(models.Model):
     unidades_por_caja = models.IntegerField(default=1)
     unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
     blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
+    
+    # Nuevos campos de presentacion
+    presentacion_principal = models.BooleanField(default=True, help_text="Se vende por su presentación principal (Caja, Frasco, Tubo, etc.)")
+    presentacion_blister = models.BooleanField(default=True, help_text="Se vende por blister")
+    presentacion_unidad = models.BooleanField(default=True, help_text="Se vende por unidad mínima (pastilla, ml)")
+    
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
     unidad_medida = models.ForeignKey(UnidadMedida, on_delete=models.PROTECT)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
@@ -46,6 +52,13 @@ class Producto(models.Model):
     class Meta:
         verbose_name_plural = 'Productos'
         verbose_name = 'Producto'
+
+    def save(self, *args, **kwargs):
+        from decimal import Decimal
+        if self.presentacion_blister and self.precio_blister == 0 and self.precio_flotante and self.unidades_por_blister:
+            precio_calculado = float(self.precio_flotante) * self.unidades_por_blister
+            self.precio_blister = round(Decimal(precio_calculado), 2)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
