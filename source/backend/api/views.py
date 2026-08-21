@@ -191,14 +191,20 @@ class UserProfileView(APIView):
                 "date_joined": user.date_joined.strftime("%Y-%m-%d") if user.date_joined else "Reciente"
             })
         except:
+            profile = Usuario.objects.create(
+                user=user,
+                nombre=user.first_name or user.username,
+                apellido=user.last_name or '',
+                email=user.email or f"{user.username}@example.com"
+            )
             return Response({
-                "id": 3, # Fallback to existing valid Usuario id
-                "first_name": user.first_name or user.username,
-                "last_name": user.last_name,
-                "email": user.email,
+                "id": profile.id,
+                "first_name": profile.nombre,
+                "last_name": profile.apellido,
+                "email": profile.email,
                 "role": "Superusuario" if user.is_superuser else "Usuario",
                 "location": "Sede Central",
-                "employee_id": f"EMP-{str(user.id).zfill(4)}",
+                "employee_id": f"EMP-{str(profile.id).zfill(4)}",
                 "phone": "No registrado",
                 "date_joined": user.date_joined.strftime("%Y-%m-%d") if user.date_joined else "Reciente"
             })
