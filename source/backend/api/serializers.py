@@ -26,6 +26,13 @@ class LoteSerializer(serializers.ModelSerializer):
     precio_flotante = serializers.ReadOnlyField(source='producto.precio_flotante')
     precio_blister = serializers.ReadOnlyField(source='producto.precio_blister')
     unidades_por_blister = serializers.ReadOnlyField(source='producto.unidades_por_blister')
+    unidades_por_caja = serializers.ReadOnlyField(source='producto.unidades_por_caja')
+    blisters_por_caja = serializers.ReadOnlyField(source='producto.blisters_por_caja')
+    presentacion_principal = serializers.ReadOnlyField(source='producto.presentacion_principal')
+    presentacion_blister = serializers.ReadOnlyField(source='producto.presentacion_blister')
+    presentacion_unidad = serializers.ReadOnlyField(source='producto.presentacion_unidad')
+    unidad_medida_nombre = serializers.ReadOnlyField(source='producto.unidad_medida.nombre')
+    unidad_medida_abrev = serializers.ReadOnlyField(source='producto.unidad_medida.abreviatura')
     
     class Meta:
         model = Lote
@@ -70,6 +77,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
     lote_codigo = serializers.ReadOnlyField(source='lote.codigo_lote')
+    unidad_medida_abrev = serializers.ReadOnlyField(source='producto.unidad_medida.abreviatura')
     
     class Meta:
         model = DetalleVenta
@@ -93,34 +101,46 @@ class VentaSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles_write', [])
         
-        # Validar stock antes de crear nada
+        # Validar stock y convertir si es necesario (en memoria)
+        # Hacemos una copia profunda de los stocks para no alterar la BD si la validación falla
+        lotes_temp = {}
         for detalle_data in detalles_data:
             lote = detalle_data.get('lote')
             if lote:
+                if lote.id not in lotes_temp:
+                    lotes_temp[lote.id] = {'stock_real': lote.stock_real, 'stock_flotante': lote.stock_flotante, 'obj': lote}
+                
                 req_real = detalle_data.get('cantidad_real', 0)
                 req_flot = detalle_data.get('cantidad_flotante', 0)
                 blisters = detalle_data.get('cantidad_blister', 0)
                 if blisters > 0:
                     req_flot += blisters * lote.producto.unidades_por_blister
                 
-                if lote.stock_real < req_real or lote.stock_flotante < req_flot:
-                    raise serializers.ValidationError("Stock insuficiente para el lote: " + lote.numero)
+                temp = lotes_temp[lote.id]
+                
+                # Conversión automática
+                unidades_en_principal = max(lote.producto.unidades_por_caja, lote.producto.blisters_por_caja * lote.producto.unidades_por_blister)
+                
+                while temp['stock_flotante'] < req_flot and temp['stock_real'] > req_real:
+                    temp['stock_real'] -= 1
+                    temp['stock_flotante'] += unidades_en_principal
+                
+                if temp['stock_real'] < req_real or temp['stock_flotante'] < req_flot:
+                    raise serializers.ValidationError(f"Stock insuficiente para el lote: {lote.codigo_lote}")
+                    
+                temp['stock_real'] -= req_real
+                temp['stock_flotante'] -= req_flot
 
         venta = Venta.objects.create(**validated_data)
         for detalle_data in detalles_data:
             DetalleVenta.objects.create(venta=venta, **detalle_data)
             
-            lote = detalle_data.get('lote')
-            if lote:
-                req_real = detalle_data.get('cantidad_real', 0)
-                req_flot = detalle_data.get('cantidad_flotante', 0)
-                blisters = detalle_data.get('cantidad_blister', 0)
-                if blisters > 0:
-                    req_flot += blisters * lote.producto.unidades_por_blister
-                    
-                lote.stock_real -= req_real
-                lote.stock_flotante -= req_flot
-                lote.save()
+        # Guardar los stocks actualizados (incluyendo las conversiones)
+        for temp in lotes_temp.values():
+            lote = temp['obj']
+            lote.stock_real = temp['stock_real']
+            lote.stock_flotante = temp['stock_flotante']
+            lote.save()
                 
         return venta
 
