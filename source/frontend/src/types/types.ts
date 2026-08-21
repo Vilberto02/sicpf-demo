@@ -57,6 +57,7 @@ export type VentaType = {
 export type AlertaType = {
   id: number;
   producto_nombre: string;
+  producto_codigo?: string;
   alerta: string;
   nivel_riesgo: string;
   periodo_agotamiento: number;
@@ -64,4 +65,8 @@ export type AlertaType = {
   fecha_alerta: string;
   tendencia_consumo?: string;
   categoria_nombre?: string;
+  estado: 'pendiente' | 'revisada' | 'descartada';
+  origen: 'reglas' | 'ml' | 'manual';
+  created_at: string;
+  updated_at: string;
 }
