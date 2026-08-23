@@ -61,14 +61,26 @@ export type VentaType = {
   detalles_write?: any[];
 };
 
+export type LoteAfectadoType = {
+  id: number;
+  codigo_lote: string;
+  fecha_vencimiento: string;
+  dias_restantes: number;
+  vencido: boolean;
+  stock_real: number;
+  stock_flotante: number;
+};
+
 export type AlertaType = {
   id: number;
   producto_nombre: string;
   producto_codigo?: string;
   alerta: string;
+  tipo?: 'stock_critico' | 'stock_bajo' | 'vencimiento' | 'quiebre' | null;
   nivel_riesgo: string;
   periodo_agotamiento: number;
   stock_minimo: number;
+  stock_minimo_flotante?: number | null;
   fecha_alerta: string;
   tendencia_consumo?: string;
   categoria_nombre?: string;
@@ -76,4 +88,14 @@ export type AlertaType = {
   origen: 'reglas' | 'ml' | 'manual';
   created_at: string;
   updated_at: string;
+  // Contexto calculado por el backend para el detalle
+  producto_stock_minimo_real?: number;
+  producto_stock_minimo_flotante?: number;
+  stock_actual_real?: number;
+  stock_actual_flotante?: number;
+  total_unidades?: number;
+  ventas_promedio_diario_30d?: number;
+  dias_cobertura?: number;
+  explicacion?: string;
+  lotes_afectados?: LoteAfectadoType[];
 }

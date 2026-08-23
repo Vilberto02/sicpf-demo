@@ -1,1 +1,1 @@
-export type { AlertaType as AlertItemType } from "@/types/types";
+export type { AlertaType as AlertItemType, LoteAfectadoType } from "@/types/types";
