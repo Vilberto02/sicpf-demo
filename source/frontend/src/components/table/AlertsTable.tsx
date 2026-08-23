@@ -1,13 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 import type { AlertItemType } from "@/features/alerts/types";
 import { useAlertsStore } from "@/features/alerts/store";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Eye } from "lucide-react";
+import {
+  NivelRiesgoBadge,
+  OrigenBadge,
+  EstadoBadge,
+  TipoBadge,
+} from "@/features/alerts/components/alertBadges";
+import { AlertDetailDialog } from "@/features/alerts/components/AlertDetailDialog";
 
 export function AlertsTable() {
   const { items, fetchItems, loading, markReviewed, markDiscarded } = useAlertsStore();
+  const [selectedAlert, setSelectedAlert] = useState<AlertItemType | null>(null);
 
   useEffect(() => {
     fetchItems();
@@ -15,57 +23,23 @@ export function AlertsTable() {
 
   if (loading) return <div>Cargando...</div>;
 
-  const getNivelRiesgoBadge = (nivel: string) => {
-    const styles: Record<string, string> = {
-      alto: "bg-red-100 text-red-800 border-red-200",
-      medio: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      bajo: "bg-green-100 text-green-800 border-green-200",
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[nivel] || ""}`}>
-        {nivel.charAt(0).toUpperCase() + nivel.slice(1)}
-      </span>
-    );
-  };
-
-  const getOrigenBadge = (origen: string) => {
-    const styles: Record<string, string> = {
-      reglas: "bg-blue-100 text-blue-800 border-blue-200",
-      ml: "bg-purple-100 text-purple-800 border-purple-200",
-      manual: "bg-gray-100 text-gray-800 border-gray-200",
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[origen] || ""}`}>
-        {origen.charAt(0).toUpperCase() + origen.slice(1)}
-      </span>
-    );
-  };
-
-  const getEstadoBadge = (estado: string) => {
-    const styles: Record<string, string> = {
-      pendiente: "bg-orange-100 text-orange-800 border-orange-200",
-      revisada: "bg-green-100 text-green-800 border-green-200",
-      descartada: "bg-gray-100 text-gray-500 border-gray-200",
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[estado] || ""}`}>
-        {estado.charAt(0).toUpperCase() + estado.slice(1)}
-      </span>
-    );
-  };
-
   const alertsColumns: ColumnDef<AlertItemType>[] = [
     {
       accessorKey: "producto_nombre",
       header: "Producto",
     },
     {
-      accessorKey: "categoria_nombre",
-      header: "Categoria",
+      id: "tipo",
+      accessorKey: "tipo",
+      header: "Tipo",
+      cell: ({ row }) => <TipoBadge tipo={row.original.tipo} />,
     },
     {
       accessorKey: "stock_minimo",
       header: "Stock Minimo",
+      meta: { align: "right" },
+      cell: ({ row }) =>
+        `${row.original.stock_minimo} c / ${row.original.stock_minimo_flotante ?? 0} u`,
     },
     {
       accessorKey: "fecha_alerta",
@@ -88,51 +62,65 @@ export function AlertsTable() {
       accessorKey: "periodo_agotamiento",
       header: "P. Agotamiento",
       meta: { align: "right" },
+      cell: ({ row }) => `${row.original.periodo_agotamiento} días`,
     },
     {
       id: "origen",
       accessorKey: "origen",
       header: "Origen",
-      cell: ({ row }) => getOrigenBadge(row.original.origen),
+      cell: ({ row }) => <OrigenBadge origen={row.original.origen} />,
     },
     {
       id: "estado",
       accessorKey: "estado",
       header: "Estado",
-      cell: ({ row }) => getEstadoBadge(row.original.estado),
+      cell: ({ row }) => <EstadoBadge estado={row.original.estado} />,
     },
     {
       id: "status",
       accessorKey: "nivel_riesgo",
       header: "N. Riesgo",
-      cell: ({ row }) => getNivelRiesgoBadge(row.original.nivel_riesgo),
+      cell: ({ row }) => <NivelRiesgoBadge nivel={row.original.nivel_riesgo} />,
     },
     {
       id: "acciones",
       header: "Acciones",
       cell: ({ row }) => {
         const alerta = row.original;
-        if (alerta.estado !== "pendiente") return null;
+        const puedeGestionar = alerta.estado === "pendiente";
         return (
           <div className="flex gap-1">
             <Button
               variant="ghost"
               size="sm"
               className="cursor-pointer"
-              onClick={() => markReviewed(alerta.id)}
-              title="Marcar como revisada"
+              onClick={() => setSelectedAlert(alerta)}
+              title="Ver detalle"
             >
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <Eye className="h-4 w-4 text-blue-600" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="cursor-pointer"
-              onClick={() => markDiscarded(alerta.id)}
-              title="Descartar"
-            >
-              <XCircle className="h-4 w-4 text-red-600" />
-            </Button>
+            {puedeGestionar && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => markReviewed(alerta.id)}
+                  title="Marcar como revisada"
+                >
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => markDiscarded(alerta.id)}
+                  title="Descartar"
+                >
+                  <XCircle className="h-4 w-4 text-red-600" />
+                </Button>
+              </>
+            )}
           </div>
         );
       },
@@ -140,12 +128,15 @@ export function AlertsTable() {
   ];
 
   return (
-    <DataTable
-      columns={alertsColumns}
-      data={items}
-      searchPlaceholder="Buscar por producto"
-      categories={["Alto", "Medio", "Bajo"]}
-      statusHeaderProps="N. Riesgo"
-    />
+    <>
+      <DataTable
+        columns={alertsColumns}
+        data={items}
+        searchPlaceholder="Buscar por producto"
+        categories={["Alto", "Medio", "Bajo"]}
+        statusHeaderProps="N. Riesgo"
+      />
+      <AlertDetailDialog alerta={selectedAlert} onClose={() => setSelectedAlert(null)} />
+    </>
   );
 }

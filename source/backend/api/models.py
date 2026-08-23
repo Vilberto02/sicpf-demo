@@ -48,6 +48,8 @@ class Producto(models.Model):
     presentacion_unidad = models.BooleanField(default=True, help_text="Se vende por unidad mínima (pastilla, ml)")
     
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
+    stock_minimo_real = models.IntegerField(default=10, help_text="Stock minimo en cajas cerradas")
+    stock_minimo_flotante = models.IntegerField(default=20, help_text="Stock minimo en unidades sueltas")
     unidad_medida = models.ForeignKey(UnidadMedida, on_delete=models.PROTECT)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
 
@@ -104,12 +106,20 @@ class Alerta(models.Model):
         ('ml', 'ML'),
         ('manual', 'Manual'),
     )
+    TIPO_CHOICES = (
+        ('stock_critico', 'Stock crítico'),
+        ('stock_bajo', 'Stock bajo'),
+        ('vencimiento', 'Vencimiento'),
+        ('quiebre', 'Quiebre estimado'),
+    )
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='alertas')
     prediccion = models.ForeignKey(PrediccionML, on_delete=models.SET_NULL, null=True, blank=True)
     alerta = models.CharField(max_length=200)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, null=True, blank=True)
     nivel_riesgo = models.CharField(max_length=50)
     periodo_agotamiento = models.IntegerField() # en dias
-    stock_minimo = models.IntegerField()
+    stock_minimo = models.IntegerField(help_text="Stock minimo en cajas (stock_real)")
+    stock_minimo_flotante = models.IntegerField(null=True, blank=True, help_text="Stock minimo en unidades sueltas (stock_flotante)")
     fecha_alerta = models.DateField()
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, default='reglas')
