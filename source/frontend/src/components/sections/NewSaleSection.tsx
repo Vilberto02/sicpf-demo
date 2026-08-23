@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Search, Plus, Trash2, Save, Printer, UserPlus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -10,6 +10,7 @@ import { useSalesStore } from "@/features/sales/store";
 import { useAuthStore } from "@/features/auth/store";
 import type { LoteType } from "@/types/types";
 import type { ClienteType } from "@/features/clients/types";
+import { SearchableSelect } from "../common/SearchableSelect";
 import {
   Dialog,
   DialogContent,
@@ -34,14 +35,10 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // Client Combobox states
-  const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClienteType | null>(null);
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
-  
-  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // New client form state
   const [newClientData, setNewClientData] = useState({
@@ -57,26 +54,9 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     fetchClients();
   }, [fetchInventory, fetchClients]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsClientDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [wrapperRef]);
-
   const filteredLotes = lotes.filter((l) =>
     l.producto_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.codigo_lote.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredClients = clients.filter((c) => 
-    `${c.nombre} ${c.apellido}`.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.email.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
   const getStockLimits = (lote: LoteType) => {
@@ -149,7 +129,6 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     if (client) {
       toast.success("Cliente creado y seleccionado.");
       setSelectedClient(client);
-      setClientSearch(`${client.nombre} ${client.apellido}`);
       setIsClientModalOpen(false);
       setNewClientData({ nombre: "", apellido: "", email: "", telefono: "", direccion: "" });
     }
@@ -280,46 +259,25 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
           <h4 className="text-xl font-semibold text-primary">Canasta de venta</h4>
           <div className="flex flex-col gap-3">
             <Label>Cliente</Label>
-            <div className="flex gap-2">
-              
-              <div className="relative w-full" ref={wrapperRef}>
-                <Input 
-                  placeholder="Buscar cliente..." 
-                  value={clientSearch}
-                  onChange={e => {
-                    setClientSearch(e.target.value); 
-                    setSelectedClient(null);
-                    setIsClientDropdownOpen(true);
-                  }}
-                  onFocus={() => setIsClientDropdownOpen(true)}
-                />
-                {isClientDropdownOpen && (
-                  <div className="absolute top-full left-0 w-full mt-1 bg-background border rounded-md shadow-lg z-50 overflow-hidden">
-                    {filteredClients.slice(0, 5).map(c => (
-                      <div 
-                        key={c.id} 
-                        className="p-3 hover:bg-muted cursor-pointer text-sm border-b last:border-0"
-                        onClick={() => { 
-                          setSelectedClient(c); 
-                          setClientSearch(`${c.nombre} ${c.apellido}`); 
-                          setIsClientDropdownOpen(false); 
-                        }}
-                      >
-                        <p className="font-medium">{c.nombre} {c.apellido}</p>
-                        <p className="text-xs text-muted-foreground">{c.email}</p>
-                      </div>
-                    ))}
-                    {filteredClients.length === 0 && <div className="p-3 text-sm text-muted-foreground">No se encontraron clientes</div>}
-                  </div>
-                )}
-              </div>
-              
-              <Dialog open={isClientModalOpen} onOpenChange={setIsClientModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="cursor-pointer" variant="outline" size="icon" title="Agregar nuevo cliente">
-                    <UserPlus size={18} />
-                  </Button>
-                </DialogTrigger>
+            <SearchableSelect
+              items={clients}
+              value={selectedClient}
+              onSelect={setSelectedClient}
+              getOptionLabel={(c) => `${c.nombre} ${c.apellido}`}
+              getOptionSubLabel={(c) => c.email}
+              filterMatch={(c, query) =>
+                `${c.nombre} ${c.apellido}`.toLowerCase().includes(query.toLowerCase()) ||
+                c.email.toLowerCase().includes(query.toLowerCase())
+              }
+              placeholder="Buscar cliente..."
+              emptyMessage="No se encontraron clientes"
+              actionButton={
+                <Dialog open={isClientModalOpen} onOpenChange={setIsClientModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="cursor-pointer" variant="outline" size="icon" title="Agregar nuevo cliente">
+                      <UserPlus size={18} />
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Nuevo cliente</DialogTitle>
@@ -352,8 +310,9 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
                     </DialogFooter>
                   </form>
                 </DialogContent>
-              </Dialog>
-            </div>
+                </Dialog>
+              }
+            />
           </div>
 
           <div className="h-[300px] overflow-y-auto border rounded-md mt-2">
