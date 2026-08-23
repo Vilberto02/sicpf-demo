@@ -45,7 +45,8 @@ class PrediccionMLAdmin(admin.ModelAdmin):
 
 @admin.register(Alerta)
 class AlertaAdmin(admin.ModelAdmin):
-    list_display = ('alerta', 'producto', 'nivel_riesgo', 'stock_minimo', 'fecha_alerta')
+    list_display = ('alerta', 'producto', 'nivel_riesgo', 'tipo', 'stock_minimo',
+                    'stock_minimo_flotante', 'fecha_alerta')
     list_filter = ('nivel_riesgo',)
 
 @admin.register(Recomendacion)

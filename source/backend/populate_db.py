@@ -60,6 +60,8 @@ def populate():
             unidades_por_caja=unidades_por_caja,
             unidades_por_blister=10 if unidades_por_caja >= 10 else 1,
             blisters_por_caja=unidades_por_caja // 10 if unidades_por_caja >= 10 else 1,
+            stock_minimo_real=random.randint(5, 15),
+            stock_minimo_flotante=random.randint(10, 40),
             presentacion=random.choice(presentaciones),
             categoria=cat
         )
@@ -91,7 +93,8 @@ def populate():
             alerta=f"Posible quiebre de stock para {prod.nombre}",
             nivel_riesgo=random.choice(["alto", "medio"]),
             periodo_agotamiento=random.randint(5, 15),
-            stock_minimo=random.randint(10, 30),
+            stock_minimo=prod.stock_minimo_real,
+            stock_minimo_flotante=prod.stock_minimo_flotante,
             fecha_alerta=datetime.now().date()
         )
 

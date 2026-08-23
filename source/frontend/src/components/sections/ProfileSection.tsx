@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Package,
   ShoppingCart,
-  Sparkles,
+  TrendingDown,
   TriangleAlert,
   User,
   ArrowLeft,
@@ -181,9 +181,9 @@ export function ProfileSection() {
             variant="danger"
           ></CardDashboard>
           <CardDashboard
-            title="Tendencia de consumo"
-            value={<AnimatedCounter value={alertsStats?.consumption_trend ? parseFloat(alertsStats.consumption_trend) : 0}  suffix=" %" isFloat />}
-            Icon={Sparkles}
+            title="Quiebres estimados"
+            value={<AnimatedCounter value={alertsStats?.quiebres_estimados ?? 0} />}
+            Icon={TrendingDown}
             variant="success"
           ></CardDashboard>
         </div>

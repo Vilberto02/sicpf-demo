@@ -175,10 +175,8 @@ class AlertStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         total_alerts = Alerta.objects.count()
-        
-        high_trend = Alerta.objects.filter(prediccion__tendencia_consumo="alta").count()
-        consumption_trend = round((high_trend / total_alerts * 100) if total_alerts > 0 else 0, 1)
-        
+
+        quiebres_estimados = Alerta.objects.filter(tipo="quiebre").count()
         critical_stock = Alerta.objects.filter(nivel_riesgo="alto").count()
         at_risk = Alerta.objects.filter(nivel_riesgo="medio").count()
         total_pendientes = Alerta.objects.filter(estado="pendiente").count()
@@ -190,7 +188,7 @@ class AlertStatsView(APIView):
         origen_ml = Alerta.objects.filter(origen="ml").count()
         
         return Response({
-            "consumption_trend": f"{consumption_trend} %",
+            "quiebres_estimados": quiebres_estimados,
             "critical_stock": critical_stock,
             "at_risk": at_risk,
             "total_pendientes": total_pendientes,

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Siren, Sparkles, TriangleAlert, Clock8, Activity, Zap } from "lucide-react";
+import { Siren, TrendingDown, TriangleAlert, Clock8, Activity, Zap } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
 import { AlertsTable } from "../table/AlertsTable";
 import { useAlertsStore } from "@/features/alerts/store";
@@ -49,10 +49,10 @@ export function AlertSection() {
       <div className="mt-8 flex flex-col gap-8">
         <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
           <CardDashboard
-            Icon={Sparkles}
-            title="Tendencia de consumo"
-            value={<AnimatedCounter value={stats?.consumption_trend ? parseFloat(stats.consumption_trend) : 0} suffix=" %" isFloat />}
-            variant="success"
+            Icon={TrendingDown}
+            title="Quiebres estimados"
+            value={<AnimatedCounter value={stats?.quiebres_estimados ?? 0} />}
+            variant="danger"
           ></CardDashboard>
           <CardDashboard
             Icon={Clock8}

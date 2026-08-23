@@ -80,22 +80,31 @@ flowchart TD
 #### Variables de Entrada
 
 - `stock_real` / `stock_flotante` del `Lote`
+- `stock_minimo_real` (cajas) y `stock_minimo_flotante` (unidades sueltas) configurables por `Producto`
 - `fecha_vencimiento` del `Lote`
 - `unidades_por_caja`, `unidades_por_blister` del `Producto`
 - Historial de ventas del producto (ultimos 30/60/90 dias)
-- `stock_minimo` (configurable por producto o categoria)
+
+> **Nota:** Los minimos se evaluan de forma **independiente** para cada presentacion
+> (cajas y unidades sueltas). La alerta se dispara si cualquiera de las dos dimensiones
+> incumple, y la explicacion indica cual fue.
 
 #### Reglas a Implementar
 
 | # | Regla | Condicion | Nivel de Riesgo |
 |---|-------|-----------|-----------------|
-| 1 | Stock critico | `stock_total < stock_minimo` | Alto |
-| 2 | Stock bajo | `stock_total <= stock_minimo * 1.5` | Medio |
+| 1 | Stock critico | `stock_real_total <= producto.stock_minimo_real` **o** `stock_flotante_total <= producto.stock_minimo_flotante` | Alto |
+| 2 | Stock bajo | alguna dimension dentro del `150%` de su minimo | Medio |
 | 3 | Vencimiento proximo | `fecha_vencimiento <= hoy + 15 dias` | Medio/Alto |
 | 4 | Producto vencido | `fecha_vencimiento < hoy` | Alto |
 | 5 | Prediccion de quiebre | `dias_cobertura <= 15 dias` | Alto/Medio |
 
 #### Codigo del Servicio
+
+> **Nota de implementacion:** La conversion a unidades minimas debe usar el mismo factor que
+> la venta (`VentaSerializer.create`): `max(unidades_por_caja, blisters_por_caja * unidades_por_blister)`.
+> El consumo por ventas debe incluir cajas (`cantidad_real`), blisters (`cantidad_blister * unidades_por_blister`)
+> y unidades sueltas (`cantidad_flotante`). El stock vendible excluye lotes vencidos.
 
 ```python
 class AlertGenerationService:
@@ -108,6 +117,7 @@ class AlertGenerationService:
         
         for producto in Producto.objects.all():
             lotes = producto.lotes.all()
+            lotes_vigentes = [l for l in lotes if l.fecha_vencimiento >= date.today()]
             stock_total_real = sum(l.stock_real for l in lotes)
             stock_total_flotante = sum(l.stock_flotante for l in lotes)
             
@@ -135,11 +145,11 @@ class AlertGenerationService:
                         producto, lote, 'medio', 'por vencer'
                     ))
             
-            # Regla 4: Prediccion de quiebre por rotacion
+            # Regla 4: Prediccion de quiebre por rotacion (solo si hay lotes vigentes)
             dias_cobertura = cls._calcular_dias_cobertura(
                 stock_total_real, stock_total_flotante, producto
             )
-            if dias_cobertura <= cls.DIAS_HORIZONTE:
+            if dias_cobertura <= cls.DIAS_HORIZONTE and lotes_vigentes:
                 alertas_generadas.append(cls._crear_alerta_quiebre(
                     producto, dias_cobertura
                 ))
@@ -147,15 +157,43 @@ class AlertGenerationService:
         return alertas_generadas
     
     @classmethod
+    def _unidades_equivalentes(cls, producto):
+        """Factor de conversion de 1 stock_real a unidades minimas."""
+        return max(
+            producto.unidades_por_caja,
+            producto.blisters_por_caja * producto.unidades_por_blister
+        )
+    
+    @classmethod
+    def _total_unidades(cls, stock_real, stock_flotante, producto):
+        return (stock_real * cls._unidades_equivalentes(producto)) + stock_flotante
+    
+    @classmethod
     def _calcular_dias_cobertura(cls, stock_real, stock_flotante, producto):
-        """Calcula cuantos dias durara el stock actual"""
+        """Dias de cobertura = unidades disponibles / consumo promedio diario."""
         ventas_promedio = cls._get_ventas_promedio(producto, dias=30)
+        total_unidades = cls._total_unidades(stock_real, stock_flotante, producto)
+        return int(total_unidades / ventas_promedio) if ventas_promedio > 0 else 999
+    
+    @classmethod
+    def _get_ventas_promedio(cls, producto, dias=30):
+        """Consumo promedio diario en unidades minimas (cajas + blisters + sueltas)."""
+        ventas = DetalleVenta.objects.filter(
+            producto=producto,
+            venta__fecha__date__gte=date.today() - timedelta(days=dias),
+            venta__estado='Completado'
+        ).aggregate(
+            total_real=Sum('cantidad_real'),
+            total_flotante=Sum('cantidad_flotante'),
+            total_blister=Sum('cantidad_blister')
+        )
         
-        if ventas_promedio == 0:
-            ventas_promedio = 1  # Estimacion conservadora
-        
-        total_unidades = (stock_real * producto.unidades_por_caja) + stock_flotante
-        return total_unidades / ventas_promedio if ventas_promedio > 0 else 999
+        total_unidades = (
+            (ventas['total_real'] or 0) * cls._unidades_equivalentes(producto) +
+            (ventas['total_blister'] or 0) * producto.unidades_por_blister +
+            (ventas['total_flotante'] or 0)
+        )
+        return total_unidades / dias if dias > 0 else 0
 ```
 
 ### 3.2 Modelo `Alerta` Extendido
@@ -174,9 +212,40 @@ class Alerta(models.Model):
         ('ml', 'ML'),
         ('manual', 'Manual')
     ], default='reglas')
+    TIPO_CHOICES = (
+        ('stock_critico', 'Stock crítico'),
+        ('stock_bajo', 'Stock bajo'),
+        ('vencimiento', 'Vencimiento'),
+        ('quiebre', 'Quiebre estimado'),
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 ```
+
+> **Nota:** `periodo_agotamiento` guarda los dias de cobertura calculados con el consumo
+> real de ventas para **todas** las alertas (no solo las de quiebre).
+>
+> **Stock minimo dual:** `Alerta.stock_minimo` = minimo de cajas (stock real) y
+> `Alerta.stock_minimo_flotante` = minimo de unidades sueltas (stock flotante), ambos
+> snapshot del valor configurado en `Producto` al momento de generar la alerta.
+
+### 3.2.1 Contexto de Detalle (Explicacion de la Alerta)
+
+Para la accion "Ver detalle" del frontend, `AlertaSerializer` agrega campos calculados en vivo:
+
+| Campo | Descripcion |
+|-------|-------------|
+| `tipo` | Tipo de regla que genero la alerta |
+| `explicacion` | Texto legible que explica por que se genero la alerta (regla, consumo promedio y cobertura) |
+| `stock_actual_real` / `stock_actual_flotante` | Stock actual del producto por presentacion |
+| `total_unidades` | Stock normalizado a unidades minimas |
+| `ventas_promedio_diario_30d` | Consumo promedio diario (ultimos 30 dias) |
+| `dias_cobertura` | Cobertura actual recalculada |
+| `lotes_afectados` | Lista de lotes con codigo, vencimiento, dias restantes y stock |
+
+El componente `AlertDetailDialog.tsx` (`src/features/alerts/components/`) consume estos
+campos embebidos en la respuesta de la lista, sin necesidad de un endpoint adicional.
 
 ### 3.3 Nuevos Endpoints
 
@@ -233,6 +302,10 @@ flowchart TD
     
     Q --> R[Retornar alertas generadas]
 ```
+
+> **Nota:** Antes de regenerar, `AlertGenerationService._delete_old_alerts` elimina las
+> alertas pendientes de origen "reglas" de cada producto. **Decision:** se mantiene este
+> comportamiento; no se requiere historial de alertas por ahora.
 
 ---
 

@@ -1,8 +1,11 @@
+from datetime import date
+
 from rest_framework import serializers
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
+    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
 )
+from .services import AlertGenerationService
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,6 +59,15 @@ class LoteSerializer(serializers.ModelSerializer):
     def get_producto_estado(self, obj):
         return obj.producto.estado
 
+class LoteDetalleSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    codigo_lote = serializers.CharField()
+    fecha_vencimiento = serializers.DateField()
+    dias_restantes = serializers.IntegerField()
+    vencido = serializers.BooleanField()
+    stock_real = serializers.IntegerField()
+    stock_flotante = serializers.IntegerField()
+
 class PrediccionMLSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrediccionML
@@ -66,6 +78,15 @@ class AlertaSerializer(serializers.ModelSerializer):
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     tendencia_consumo = serializers.SerializerMethodField()
+    stock_actual_real = serializers.SerializerMethodField()
+    stock_actual_flotante = serializers.SerializerMethodField()
+    producto_stock_minimo_real = serializers.ReadOnlyField(source='producto.stock_minimo_real')
+    producto_stock_minimo_flotante = serializers.ReadOnlyField(source='producto.stock_minimo_flotante')
+    total_unidades = serializers.SerializerMethodField()
+    ventas_promedio_diario_30d = serializers.SerializerMethodField()
+    dias_cobertura = serializers.SerializerMethodField()
+    explicacion = serializers.SerializerMethodField()
+    lotes_afectados = serializers.SerializerMethodField()
 
     class Meta:
         model = Alerta
@@ -75,6 +96,128 @@ class AlertaSerializer(serializers.ModelSerializer):
         if obj.prediccion:
             return obj.prediccion.tendencia_consumo
         return None
+
+    def _contexto_producto(self, obj):
+        lotes = list(obj.producto.lotes.all())
+        stock_real = sum(l.stock_real for l in lotes)
+        stock_flotante = sum(l.stock_flotante for l in lotes)
+        return {
+            'lotes': lotes,
+            'stock_real': stock_real,
+            'stock_flotante': stock_flotante,
+            'total_unidades': AlertGenerationService._total_unidades(
+                stock_real, stock_flotante, obj.producto
+            ),
+            'ventas_promedio': AlertGenerationService._get_ventas_promedio(
+                obj.producto, dias=30
+            ),
+        }
+
+    def get_stock_actual_real(self, obj):
+        return self._contexto_producto(obj)['stock_real']
+
+    def get_stock_actual_flotante(self, obj):
+        return self._contexto_producto(obj)['stock_flotante']
+
+    def get_total_unidades(self, obj):
+        return self._contexto_producto(obj)['total_unidades']
+
+    def get_ventas_promedio_diario_30d(self, obj):
+        return round(self._contexto_producto(obj)['ventas_promedio'], 2)
+
+    def get_dias_cobertura(self, obj):
+        ctx = self._contexto_producto(obj)
+        return AlertGenerationService._calcular_dias_cobertura(
+            ctx['stock_real'], ctx['stock_flotante'], obj.producto
+        )
+
+    def get_explicacion(self, obj):
+        ctx = self._contexto_producto(obj)
+        unidades = int(ctx['total_unidades'])
+        consumo = round(ctx['ventas_promedio'], 2)
+
+        if obj.tipo in ('stock_critico', 'stock_bajo'):
+            stock_real = ctx['stock_real']
+            stock_flotante = ctx['stock_flotante']
+            minimo_real = obj.stock_minimo
+            minimo_flotante = obj.stock_minimo_flotante
+
+            incumplidas = []
+            if minimo_real is not None and stock_real <= minimo_real:
+                incumplidas.append(
+                    f"el stock real ({stock_real} cajas) esta por debajo o igual al "
+                    f"minimo de cajas definido ({minimo_real} cajas)"
+                )
+            if minimo_flotante is not None and stock_flotante <= minimo_flotante:
+                incumplidas.append(
+                    f"el stock flotante ({stock_flotante} unidades sueltas) esta por debajo "
+                    f"o igual al minimo de unidades sueltas definido ({minimo_flotante} unidades)"
+                )
+
+            detalle_incumplimiento = (
+                "Se genera la alerta porque " + " y tambien porque ".join(incumplidas)
+                if incumplidas
+                else (
+                    f"Se genera la alerta porque el stock real ({stock_real} cajas) o el "
+                    f"stock flotante ({stock_flotante} unidades sueltas) se aproxima a los "
+                    f"minimos definidos ({minimo_real} cajas / {minimo_flotante} unidades, "
+                    f"umbral de alerta temprana: 150% del minimo)"
+                )
+            )
+
+            prefijo = (
+                "El stock disponible es igual o menor al minimo definido."
+                if obj.tipo == 'stock_critico'
+                else "El stock disponible esta por debajo del 150% del minimo definido."
+            )
+            return (
+                f"{prefijo} {detalle_incumplimiento}. Los minimos se evaluan de forma "
+                f"independiente para cada presentacion: cajas cerradas (stock real) y "
+                f"unidades sueltas (stock flotante). Con un consumo promedio de {consumo} "
+                f"unidades/dia (ultimos 30 dias), la cobertura actual es de aproximadamente "
+                f"{obj.periodo_agotamiento} dias."
+            )
+        elif obj.tipo == 'vencimiento':
+            hoy = date.today()
+            lotes_proximos = [
+                l for l in ctx['lotes']
+                if (l.fecha_vencimiento - hoy).days <= 15
+            ]
+            detalle_lotes = ", ".join(
+                f"{l.codigo_lote} (vence {l.fecha_vencimiento.strftime('%d/%m/%Y')})"
+                for l in lotes_proximos
+            ) or "lote no especificado"
+            return (
+                f"Hay lotes con vencimiento proximo o vencido: {detalle_lotes}. "
+                f"Este stock no debe venderse despues de su fecha de vencimiento, por lo que "
+                f"se recomienda priorizar su rotacion (FEFO) o retirarlo del inventario."
+            )
+        elif obj.tipo == 'quiebre':
+            return (
+                f"Con base en las ventas registradas en los ultimos 30 dias "
+                f"({consumo} unidades/dia) y el stock actual de {unidades} unidades "
+                f"({ctx['stock_real']} caja(s) + {ctx['stock_flotante']} unidades sueltas), "
+                f"se estima que el producto se agotara en aproximadamente "
+                f"{obj.periodo_agotamiento} dias."
+            )
+        else:
+            return obj.alerta
+
+    def get_lotes_afectados(self, obj):
+        hoy = date.today()
+        lotes = []
+        for lote in obj.producto.lotes.all().order_by('fecha_vencimiento'):
+            dias = (lote.fecha_vencimiento - hoy).days
+            lotes.append({
+                'id': lote.id,
+                'codigo_lote': lote.codigo_lote,
+                'fecha_vencimiento': lote.fecha_vencimiento,
+                'dias_restantes': dias,
+                'vencido': dias < 0,
+                'stock_real': lote.stock_real,
+                'stock_flotante': lote.stock_flotante,
+            })
+        return LoteDetalleSerializer(lotes, many=True).data
 
 class RecomendacionSerializer(serializers.ModelSerializer):
     class Meta:
