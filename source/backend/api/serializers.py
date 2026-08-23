@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    Categoria, Producto, Lote, PrediccionML, Alerta, 
+    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
 )
 
@@ -9,18 +9,30 @@ class CategoriaSerializer(serializers.ModelSerializer):
         model = Categoria
         fields = '__all__'
 
+class PresentacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Presentacion
+        fields = '__all__'
+
 class ProductoSerializer(serializers.ModelSerializer):
     # Optional: include category name for easier frontend display
     categoria_nombre = serializers.ReadOnlyField(source='categoria.nombre')
-    
+    presentacion_nombre = serializers.ReadOnlyField(source='presentacion.nombre')
+    # Estado derivado de los lotes con stock (solo lectura)
+    estado = serializers.SerializerMethodField()
+
     class Meta:
         model = Producto
         fields = '__all__'
 
+    def get_estado(self, obj):
+        return obj.estado
+
 class LoteSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
-    producto_estado = serializers.ReadOnlyField(source='producto.estado')
+    producto_estado = serializers.SerializerMethodField()
+    estado = serializers.SerializerMethodField()
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     precio_real = serializers.ReadOnlyField(source='producto.precio_real')
     precio_flotante = serializers.ReadOnlyField(source='producto.precio_flotante')
@@ -31,12 +43,18 @@ class LoteSerializer(serializers.ModelSerializer):
     presentacion_principal = serializers.ReadOnlyField(source='producto.presentacion_principal')
     presentacion_blister = serializers.ReadOnlyField(source='producto.presentacion_blister')
     presentacion_unidad = serializers.ReadOnlyField(source='producto.presentacion_unidad')
-    unidad_medida_nombre = serializers.ReadOnlyField(source='producto.unidad_medida.nombre')
-    unidad_medida_abrev = serializers.ReadOnlyField(source='producto.unidad_medida.abreviatura')
-    
+    presentacion_nombre = serializers.ReadOnlyField(source='producto.presentacion.nombre')
+    presentacion_abrev = serializers.ReadOnlyField(source='producto.presentacion.abreviatura')
+
     class Meta:
         model = Lote
         fields = '__all__'
+
+    def get_estado(self, obj):
+        return obj.estado
+
+    def get_producto_estado(self, obj):
+        return obj.producto.estado
 
 class PrediccionMLSerializer(serializers.ModelSerializer):
     class Meta:
@@ -83,7 +101,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
     lote_codigo = serializers.ReadOnlyField(source='lote.codigo_lote')
-    unidad_medida_abrev = serializers.ReadOnlyField(source='producto.unidad_medida.abreviatura')
+    presentacion_abrev = serializers.ReadOnlyField(source='producto.presentacion.abreviatura')
     
     class Meta:
         model = DetalleVenta
@@ -113,6 +131,11 @@ class VentaSerializer(serializers.ModelSerializer):
         for detalle_data in detalles_data:
             lote = detalle_data.get('lote')
             if lote:
+                if lote.estado == 'vencido':
+                    raise serializers.ValidationError(
+                        f"No se puede vender el lote vencido: {lote.codigo_lote}"
+                    )
+                
                 if lote.id not in lotes_temp:
                     lotes_temp[lote.id] = {'stock_real': lote.stock_real, 'stock_flotante': lote.stock_flotante, 'obj': lote}
                 
