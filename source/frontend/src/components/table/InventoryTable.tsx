@@ -1,17 +1,31 @@
 // pages/ProductosTable.tsx
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/table/DataTable";
 import type { InventoryItemType } from "@/features/inventory/types";
 import { useInventoryStore } from "@/features/inventory/store";
+import { LoteDetailsModal } from "../modals/LoteDetailsModal";
+import { LoteSheet } from "../modals/LoteSheet";
 
 export default function InventoryTable() {
-  const { items, categories, fetchItems, fetchCategories, loading } = useInventoryStore();
+  const { items, categories, fetchItems, fetchCategories, loading, fetchStats } = useInventoryStore();
+  const [viewingLote, setViewingLote] = useState<InventoryItemType | null>(null);
+  const [editingLote, setEditingLote] = useState<InventoryItemType | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     fetchItems();
     fetchCategories();
   }, [fetchItems, fetchCategories]);
+
+  const recentItemsFirst = useMemo(
+    () =>
+      [...items].sort(
+        (a, b) =>
+          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      ),
+    [items]
+  );
 
   if (loading) return <div>Cargando...</div>;
 
@@ -99,29 +113,44 @@ export default function InventoryTable() {
     },
     {
       id: "status",
-      accessorKey: "producto_estado",
+      accessorKey: "estado",
       header: "Estado",
-      cell: ({ row }) => getEstadoBadge(row.original.producto_estado) 
+      cell: ({ row }) => getEstadoBadge(row.original.estado) 
     },
   ];
 
   const handleView = (row: InventoryItemType) => {
-    console.log("View item:", row);
+    setViewingLote(row);
   };
 
   const handleEdit = (row: InventoryItemType) => {
-    console.log("Edit item:", row);
+    setEditingLote(row);
+    setIsEditOpen(true);
   };
 
   return (
-    <DataTable
-      columns={inventoryColumns}
-      data={items}
-      searchPlaceholder="Buscar por nombre o lote"
-      categories={categories?.labels || []}
-      statusHeaderProps="Estado"
-      onView={handleView}
-      onEdit={handleEdit}
-    />
+    <>
+      <DataTable
+        columns={inventoryColumns}
+        data={recentItemsFirst}
+        searchPlaceholder="Buscar por nombre o lote"
+        categories={categories?.labels || []}
+        statusHeaderProps="Estado"
+        onView={handleView}
+        onEdit={handleEdit}
+      />
+
+      <LoteDetailsModal
+        lote={viewingLote}
+        onClose={() => setViewingLote(null)}
+      />
+
+      <LoteSheet
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        lote={editingLote}
+        onSaved={() => fetchStats()}
+      />
+    </>
   );
 }

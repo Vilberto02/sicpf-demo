@@ -18,7 +18,7 @@ interface InventoryState {
   fetchItems: () => Promise<void>;
   fetchStats: () => Promise<void>;
   fetchCategories: () => Promise<void>;
-  addItem: (data: InventoryItemType) => Promise<void>;
+  addItem: (data: Partial<InventoryItemType>) => Promise<void>;
   updateItem: (id: number, data: Partial<InventoryItemType>) => Promise<void>;
   removeItem: (id: number) => Promise<void>;
 }
@@ -54,12 +54,13 @@ export const useInventoryStore = create<InventoryState>((set) => ({
       console.error(error);
     }
   },
-  addItem: async (data) => {
+  addItem: async (data: Partial<InventoryItemType>) => {
     try {
       const newItem = await createInventoryItem(data);
       set((state) => ({ items: [...state.items, newItem] }));
     } catch (error: any) {
       set({ error: error.message });
+      throw error;
     }
   },
   updateItem: async (id, data) => {
@@ -70,6 +71,7 @@ export const useInventoryStore = create<InventoryState>((set) => ({
       }));
     } catch (error: any) {
       set({ error: error.message });
+      throw error;
     }
   },
   removeItem: async (id) => {

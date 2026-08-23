@@ -5,7 +5,7 @@ export const getInventoryStats = () => apiClient<any>("/inventory/stats/");
 export const getInventoryCategories = () => apiClient<any>("/inventory/categories/");
 
 export const getInventory = () => apiClient<InventoryItemType[]>("/lotes/");
-export const createInventoryItem = (data: InventoryItemType) =>
+export const createInventoryItem = (data: Partial<InventoryItemType>) =>
   apiClient<InventoryItemType>("/lotes/create/", {
     method: "POST",
     body: JSON.stringify(data),
