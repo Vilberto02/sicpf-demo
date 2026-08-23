@@ -10,7 +10,7 @@ django.setup()
 
 from api.models import (
     Categoria, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, UnidadMedida, Sede
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Presentacion, Sede
 )
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
@@ -24,7 +24,7 @@ def populate():
     PrediccionML.objects.all().delete()
     Lote.objects.all().delete()
     Producto.objects.all().delete()
-    UnidadMedida.objects.all().delete()
+    Presentacion.objects.all().delete()
     Categoria.objects.all().delete()
     Cliente.objects.all().delete()
     Usuario.objects.all().delete()
@@ -37,11 +37,11 @@ def populate():
     for nombre in categorias_nombres:
         categorias.append(Categoria.objects.create(nombre=nombre))
 
-    print("Insertando Unidades de Medida...")
-    unidades_nombres = ["pastilla", "frasco", "blister", "tubo", "caja"]
-    unidades_medida = []
-    for nombre in unidades_nombres:
-        unidades_medida.append(UnidadMedida.objects.create(nombre=nombre))
+    print("Insertando Presentaciones...")
+    presentaciones_nombres = ["pastilla", "frasco", "blister", "tubo", "caja"]
+    presentaciones = []
+    for nombre in presentaciones_nombres:
+        presentaciones.append(Presentacion.objects.create(nombre=nombre))
 
     print("Insertando Productos y Lotes...")
     productos = []
@@ -60,8 +60,7 @@ def populate():
             unidades_por_caja=unidades_por_caja,
             unidades_por_blister=10 if unidades_por_caja >= 10 else 1,
             blisters_por_caja=unidades_por_caja // 10 if unidades_por_caja >= 10 else 1,
-            estado=random.choice(["activo", "activo", "por vencer"]),
-            unidad_medida=random.choice(unidades_medida),
+            presentacion=random.choice(presentaciones),
             categoria=cat
         )
         productos.append(prod)
