@@ -1,10 +1,13 @@
 from datetime import date
 
 from rest_framework import serializers
+# pyrefly: ignore [missing-import]
+from django.contrib.auth.models import User
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede
 )
+from .permissions import sync_user_groups
 from .services import AlertGenerationService
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -229,17 +232,112 @@ class ClienteSerializer(serializers.ModelSerializer):
         model = Cliente
         fields = '__all__'
 
+class SedeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Sede
+        fields = '__all__'
+
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
         fields = '__all__'
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    # La fuente de verdad para estos campos es el User de Django; el acceso
+    # se mantiene bajo los mismos nombres para no romper el contrato del frontend.
+    nombre = serializers.CharField(required=False, source='user.first_name')
+    apellido = serializers.CharField(required=False, allow_blank=True, source='user.last_name')
+    email = serializers.EmailField(required=False, source='user.email')
     rol_nombre = serializers.ReadOnlyField(source='rol.nombre')
-    
+    user_username = serializers.ReadOnlyField(source='user.username')
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    username = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
+    is_active = serializers.SerializerMethodField()
+
     class Meta:
         model = Usuario
         fields = '__all__'
+
+    def get_is_active(self, obj):
+        return obj.user.is_active if obj.user_id else True
+
+    def validate_username(self, value):
+        qs = User.objects.filter(username=value)
+        if self.instance and self.instance.user_id:
+            qs = qs.exclude(pk=self.instance.user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Ya existe un usuario con ese nombre de usuario.")
+        return value
+
+    def validate_email(self, value):
+        qs = Usuario.objects.filter(user__email__iexact=value)
+        if self.instance and self.instance.user_id:
+            qs = qs.exclude(user=self.instance.user)
+        if qs.exists():
+            raise serializers.ValidationError("Ya existe un usuario con ese email.")
+        return value
+
+    def _validar_password(self, password):
+        try:
+            # pyrefly: ignore [missing-import]
+            from django.contrib.auth.password_validation import validate_password
+        except ImportError:
+            return password
+        user_for_validation = self.instance.user if self.instance and self.instance.user_id else None
+        validate_password(password, user=user_for_validation)
+        return password
+
+    def validate_password(self, value):
+        return self._validar_password(value)
+
+    def create(self, validated_data):
+        username = validated_data.pop('username', None)
+        password = validated_data.pop('password', None)
+        if not username or not password:
+            raise serializers.ValidationError(
+                {"username": "username y password son obligatorios para crear un usuario."}
+            )
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            email=validated_data.get('email', ''),
+            first_name=validated_data.get('nombre', ''),
+            last_name=validated_data.get('apellido', ''),
+        )
+        instance = Usuario.objects.create(user=user, **validated_data)
+        sync_user_groups(user, instance.rol)
+        return instance
+
+    def update(self, instance, validated_data):
+        rol_anterior = instance.rol_id
+        username = validated_data.pop('username', None)
+        password = validated_data.pop('password', None)
+        nombre = validated_data.pop('nombre', None)
+        apellido = validated_data.pop('apellido', None)
+        email = validated_data.pop('email', None)
+
+        user = instance.user
+        if user:
+            if username:
+                user.username = username
+            if password:
+                user.set_password(password)
+            if nombre is not None:
+                user.first_name = nombre
+            if apellido is not None:
+                user.last_name = apellido
+            if email is not None:
+                user.email = email
+            if any(v is not None for v in (username, password, nombre, apellido, email)):
+                user.save()
+
+        instance = super().update(instance, validated_data)
+
+        if instance.rol_id != rol_anterior or 'rol' in validated_data:
+            sync_user_groups(instance.user, instance.rol)
+
+        return instance
 
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')

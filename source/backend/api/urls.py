@@ -13,6 +13,9 @@ urlpatterns = [
     # Presentaciones
     path('presentaciones/', views.PresentacionListView.as_view(), name='presentacion-list'),
 
+    # Sedes (solo lectura para formularios)
+    path('sedes/', views.SedeListView.as_view(), name='sede-list'),
+
     # Producto
     path('productos/', views.ProductoListView.as_view(), name='producto-list'),
     path('productos/create/', views.ProductoCreateView.as_view(), name='producto-create'),
@@ -43,6 +46,14 @@ urlpatterns = [
     path('usuarios/<int:pk>/', views.UsuarioDetailView.as_view(), name='usuario-detail'),
     path('usuarios/<int:pk>/update/', views.UsuarioUpdateView.as_view(), name='usuario-update'),
     path('usuarios/<int:pk>/delete/', views.UsuarioDeleteView.as_view(), name='usuario-delete'),
+    path('usuarios/<int:pk>/active/', views.UsuarioToggleActiveView.as_view(), name='usuario-toggle-active'),
+
+    # Rol
+    path('roles/', views.RolListView.as_view(), name='rol-list'),
+    path('roles/create/', views.RolCreateView.as_view(), name='rol-create'),
+    path('roles/<int:pk>/', views.RolDetailView.as_view(), name='rol-detail'),
+    path('roles/<int:pk>/update/', views.RolUpdateView.as_view(), name='rol-update'),
+    path('roles/<int:pk>/delete/', views.RolDeleteView.as_view(), name='rol-delete'),
 
     # Venta
     path('ventas/', views.VentaListView.as_view(), name='venta-list'),
@@ -69,9 +80,11 @@ urlpatterns = [
     path('inventory/stats/', views.InventoryStatsView.as_view(), name='inventory-stats'),
     path('inventory/categories/', views.InventoryCategoriesView.as_view(), name='inventory-categories'),
     path('sales/stats/', views.SaleStatsView.as_view(), name='sale-stats'),
+    path('sales/stats/mine/', views.MySaleStatsView.as_view(), name='sale-stats-mine'),
     path('alerts/stats/', views.AlertStatsView.as_view(), name='alert-stats'),
     path('alerts/generate/', views.AlertGenerateView.as_view(), name='alert-generate'),
     path('alerts/pending/', views.AlertPendingView.as_view(), name='alert-pending'),
     path('dashboard/chart/', views.DashboardChartView.as_view(), name='dashboard-chart'),
     path('auth/profile/', views.UserProfileView.as_view(), name='auth-profile'),
+    path('auth/change-password/', views.ChangePasswordView.as_view(), name='auth-change-password'),
 ]
