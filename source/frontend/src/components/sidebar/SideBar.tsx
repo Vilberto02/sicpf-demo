@@ -36,10 +36,9 @@ export function SideBar({
           {items.map((item) => (
             <SidebarItem
               key={item.id}
-              name={item.name}
-              Icon={item.Icon}
-              isActive={activeItem === item.id}
-              onClick={() => setActiveItem(item.id)}
+              item={item}
+              activeItem={activeItem}
+              onSelect={setActiveItem}
             ></SidebarItem>
           ))}
         </nav>

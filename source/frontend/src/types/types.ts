@@ -9,6 +9,12 @@ export type SideBarItemType = {
   id: string;
   name: string;
   Icon: LucideIcon;
+  children?: SideBarSubItemType[];
+}
+
+export type SideBarSubItemType = {
+  id: string;
+  name: string;
 }
 
 export interface DoughnutChartProps {

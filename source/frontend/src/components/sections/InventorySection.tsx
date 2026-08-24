@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Boxes, Coins, Package, PackagePlus, Clock8, TriangleAlert, Package2 } from "lucide-react";
+import { Boxes, Coins, Package, Plus, Clock8, TriangleAlert } from "lucide-react";
 import { CardDashboard } from "../CardDashboard";
 import InventoryTable from "../table/InventoryTable";
 import { useInventoryStore } from "@/features/inventory/store";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AnimatedCounter } from "../AnimatedCounter";
 import { LoteSheet } from "../modals/LoteSheet";
 
-export function InventorySection({ onViewProducts }: { onViewProducts?: () => void }) {
+export function InventorySection() {
   const { stats, fetchStats } = useInventoryStore();
 
   useEffect(() => {
@@ -19,18 +19,15 @@ export function InventorySection({ onViewProducts }: { onViewProducts?: () => vo
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
           <Package width={36} height={36}></Package>
-          <h3 className="mt-1">Inventario</h3>
+          <h3 className="mt-1">Lotes</h3>
         </div>
 
         <div className="flex gap-4">
-          <Button variant="outline" className="cursor-pointer" onClick={onViewProducts}>
-            <Package2></Package2> Ver productos
-          </Button>
           <LoteSheet
             onSaved={fetchStats}
           >
             <Button className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm">
-              <PackagePlus></PackagePlus> Agregar Lote
+              <Plus></Plus> Agregar Lote
             </Button>
           </LoteSheet>
         </div>

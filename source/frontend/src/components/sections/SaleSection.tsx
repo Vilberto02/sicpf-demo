@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import {
   Plus,
-  ShoppingCart,
+  Store,
   ShoppingBasket,
   Clock8,
   CircleCheckBig,
@@ -24,8 +24,8 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
     <div className="flex flex-col gap-8 min-w-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
-          <ShoppingCart width={36} height={36}></ShoppingCart>
-          <h3 className="mt-1">Ventas</h3>
+          <Store width={36} height={36}></Store>
+          <h3 className="mt-1">Historial de ventas</h3>
         </div>
 
         <Button
