@@ -5,12 +5,13 @@ import { ProductSection } from "@/components/sections/ProductSection";
 import { ProfileSection } from "@/components/sections/ProfileSection";
 import { SaleSection } from "@/components/sections/SaleSection";
 import { NewSaleSection } from "@/components/sections/NewSaleSection";
+import { UsersSection } from "@/components/sections/UsersSection";
 import { SideBar } from "@/components/sidebar/SideBar";
 import type { SideBarItemType } from "@/types";
 import {
   Menu,
   ChartNoAxesColumnDecreasing,
-  Package,
+  Box,
   ShoppingCart,
   Siren,
   User,
@@ -34,8 +35,24 @@ import {
 
 const sidebarItems: SideBarItemType[] = [
   { id: "general", name: "General", Icon: ChartNoAxesColumnDecreasing },
-  { id: "inventario", name: "Inventario", Icon: Package },
-  { id: "ventas", name: "Ventas", Icon: ShoppingCart },
+  {
+    id: "inventario",
+    name: "Inventario",
+    Icon: Box,
+    children: [
+      { id: "inventario", name: "Lotes" },
+      { id: "productos", name: "Productos" },
+    ],
+  },
+  {
+    id: "ventas",
+    name: "Ventas",
+    Icon: ShoppingCart,
+    children: [
+      { id: "ventas", name: "Historial de ventas" },
+      { id: "nueva_venta", name: "Nueva venta" },
+    ],
+  },
   { id: "alertas", name: "Alertas", Icon: Siren },
   { id: "perfil", name: "Perfil", Icon: User },
 ];
@@ -75,17 +92,23 @@ export function MainPage() {
   const [isSidebarOpen, setIsSiderOpen] = useState(true);
   const { isAuthenticated, isCheckingAuth, fetchProfile, userProfile } = useAuthStore();
 
+  const isAdminUser =
+    userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
+
   const sections: Record<string, React.ReactNode> = {
     general: <OverviewSection />,
-    inventario: (
-      <InventorySection onViewProducts={() => setActiveItem("productos")} />
-    ),
-    productos: <ProductSection onBack={() => setActiveItem("inventario")} />,
+    inventario: <InventorySection />,
+    productos: <ProductSection />,
     ventas: <SaleSection onNewSale={() => setActiveItem("nueva_venta")} />,
     alertas: <AlertSection />,
     perfil: <ProfileSection />,
     nueva_venta: <NewSaleSection onBack={() => setActiveItem("ventas")} />,
+    usuarios: <UsersSection />,
   };
+
+  const navItems: SideBarItemType[] = isAdminUser
+    ? [...sidebarItems, { id: "usuarios", name: "Usuarios", Icon: ShieldCheck }]
+    : sidebarItems;
 
   useEffect(() => {
     fetchProfile();
@@ -110,7 +133,7 @@ export function MainPage() {
   return (
     <div className="flex w-screen h-screen">
       <SideBar
-        items={sidebarItems}
+        items={navItems}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         isOpen={isSidebarOpen}
@@ -162,12 +185,12 @@ export function MainPage() {
                   <div className="flex flex-col gap-1 items-center text-center">
                     <ShieldCheck size={20} className="text-primary" />
                     <span className="text-xs font-semibold text-muted-foreground uppercase">Rol</span>
-                    <span className="text-sm font-medium">Administrador</span>
+                    <span className="text-sm font-medium">{userProfile?.role || "Usuario"}</span>
                   </div>
                   <div className="flex flex-col gap-1 items-center text-center">
                     <MapPin size={20} className="text-primary" />
                     <span className="text-xs font-semibold text-muted-foreground uppercase">Sede</span>
-                    <span className="text-sm font-medium">Central</span>
+                    <span className="text-sm font-medium">{userProfile?.location || "Sede Central"}</span>
                   </div>
                 </div>
               </div>
