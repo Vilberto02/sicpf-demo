@@ -1,14 +1,23 @@
 import { create } from "zustand";
 import type { SaleItemType } from "./types";
-import { getSales, createSale, updateSale, deleteSale, getSalesStats } from "./api";
+import {
+  getSales,
+  createSale,
+  updateSale,
+  deleteSale,
+  getSalesStats,
+  getMySalesStats,
+} from "./api";
 
 interface SalesState {
   items: SaleItemType[];
   stats: any | null;
+  myStats: any | null;
   loading: boolean;
   error: string | null;
   fetchItems: () => Promise<void>;
   fetchStats: () => Promise<void>;
+  fetchMyStats: () => Promise<void>;
   addItem: (data: SaleItemType) => Promise<void>;
   updateItem: (id: number, data: Partial<SaleItemType>) => Promise<void>;
   removeItem: (id: number) => Promise<void>;
@@ -17,6 +26,7 @@ interface SalesState {
 export const useSalesStore = create<SalesState>((set) => ({
   items: [],
   stats: null,
+  myStats: null,
   loading: false,
   error: null,
   fetchItems: async () => {
@@ -33,6 +43,14 @@ export const useSalesStore = create<SalesState>((set) => ({
       const data = await getSalesStats();
       set({ stats: data });
     } catch (error: any) {
+      console.error(error);
+    }
+  },
+  fetchMyStats: async () => {
+    try {
+      const data = await getMySalesStats();
+      set({ myStats: data });
+    } catch (error) {
       console.error(error);
     }
   },

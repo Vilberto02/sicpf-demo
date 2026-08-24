@@ -3,6 +3,8 @@ import type { SaleItemType } from "./types";
 
 export const getSalesStats = () => apiClient<any>("/sales/stats/");
 
+export const getMySalesStats = () => apiClient<any>("/sales/stats/mine/");
+
 export const getSales = () => apiClient<SaleItemType[]>("/ventas/");
 export const createSale = (data: SaleItemType) =>
   apiClient<SaleItemType>("/ventas/create/", {

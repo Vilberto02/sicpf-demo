@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { login, getProfile } from "./api";
+import { login, getProfile, updateProfile, changePassword } from "./api";
 
 interface AuthState {
   token: string | null;
@@ -10,6 +10,10 @@ interface AuthState {
   loginUser: (credentials: any) => Promise<void>;
   logoutUser: () => void;
   fetchProfile: () => Promise<void>;
+  editProfile: (data: Record<string, unknown>) => Promise<boolean>;
+  changeOwnPassword: (
+    data: { current_password: string; new_password: string }
+  ) => Promise<{ ok: boolean; logoutRequired?: boolean }>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -46,5 +50,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem("token");
       set({ token: null, isAuthenticated: false, userProfile: null, isCheckingAuth: false });
     }
+  },
+  editProfile: async (data) => {
+    try {
+      const updated = await updateProfile(data);
+      set({ userProfile: updated });
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  },
+  changeOwnPassword: async (data) => {
+    const result = await changePassword(data);
+    return { ok: true, logoutRequired: result.logout_required };
   }
 }));
