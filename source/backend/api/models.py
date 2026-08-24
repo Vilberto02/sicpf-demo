@@ -1,9 +1,16 @@
 # pyrefly: ignore [missing-import]
 from django.db import models
 # pyrefly: ignore [missing-import]
+from datetime import date
+# pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User, Permission
 # pyrefly: ignore [missing-import]
 from django.utils import timezone
+
+# pyrefly: ignore [missing-import]
+from django.utils import timezone
+
+DIAS_HORIZONTE_VENCIMIENTO = 15
 
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100)
@@ -15,23 +22,18 @@ class Categoria(models.Model):
     def __str__(self):
         return self.nombre
 
-class UnidadMedida(models.Model):
+class Presentacion(models.Model):
     nombre = models.CharField(max_length=50, unique=True)
     abreviatura = models.CharField(max_length=10, blank=True, null=True)
 
     class Meta:
-        verbose_name_plural = 'Unidades de Medida'
-        verbose_name = 'Unidad de Medida'
+        verbose_name_plural = 'Presentaciones'
+        verbose_name = 'Presentación'
 
     def __str__(self):
         return self.nombre
 
 class Producto(models.Model):
-    ESTADO_CHOICES = (
-        ('activo', 'Activo'),
-        ('por vencer', 'Por vencer'),
-        ('vencido', 'Vencido'),
-    )
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
@@ -41,17 +43,17 @@ class Producto(models.Model):
     unidades_por_caja = models.IntegerField(default=1)
     unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
     blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
-    
+
     # Nuevos campos de presentacion
     presentacion_principal = models.BooleanField(default=True, help_text="Se vende por su presentación principal (Caja, Frasco, Tubo, etc.)")
     presentacion_blister = models.BooleanField(default=True, help_text="Se vende por blister")
     presentacion_unidad = models.BooleanField(default=True, help_text="Se vende por unidad mínima (pastilla, ml)")
-    
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
+
+    presentacion = models.ForeignKey(Presentacion, on_delete=models.PROTECT)
     stock_minimo_real = models.IntegerField(default=10, help_text="Stock minimo en cajas cerradas")
     stock_minimo_flotante = models.IntegerField(default=20, help_text="Stock minimo en unidades sueltas")
-    unidad_medida = models.ForeignKey(UnidadMedida, on_delete=models.PROTECT)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name_plural = 'Productos'
@@ -64,6 +66,20 @@ class Producto(models.Model):
             self.precio_blister = round(Decimal(precio_calculado), 2)
         super().save(*args, **kwargs)
 
+    @property
+    def estado(self):
+        estados_lotes_con_stock = [
+            lote.estado for lote in self.lotes.all()
+            if lote.stock_real > 0 or lote.stock_flotante > 0
+        ]
+        if not estados_lotes_con_stock:
+            return "activo"
+        if all(estado == "vencido" for estado in estados_lotes_con_stock):
+            return "vencido"
+        if any(estado == "por vencer" for estado in estados_lotes_con_stock):
+            return "por vencer"
+        return "activo"
+
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
@@ -73,6 +89,16 @@ class Lote(models.Model):
     fecha_vencimiento = models.DateField()
     stock_real = models.IntegerField(default=0)
     stock_flotante = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def estado(self):
+        dias_para_vencer = (self.fecha_vencimiento - date.today()).days
+        if dias_para_vencer <= 0:
+            return "vencido"
+        if dias_para_vencer <= DIAS_HORIZONTE_VENCIMIENTO:
+            return "por vencer"
+        return "activo"
 
     class Meta:
         verbose_name_plural = 'Lotes'

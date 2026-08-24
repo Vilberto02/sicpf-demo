@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Printer,
+  Trash2,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
@@ -30,6 +31,7 @@ interface DataTableProps<TData, TValue> {
   statusHeaderProps: string;
   onView?: (row: TData) => void;
   onEdit?: (row: TData) => void;
+  onDelete?: (row: TData) => void;
   onFinance?: (row: TData) => void;
   onBlock?: (row: TData) => void;
   onPrint?: (row: TData) => void;
@@ -43,6 +45,7 @@ export function DataTable<TData, TValue>({
   statusHeaderProps = "Estado",
   onView,
   onEdit,
+  onDelete,
   onFinance,
   onBlock,
   onPrint,
@@ -113,6 +116,16 @@ export function DataTable<TData, TValue>({
           <Edit className="h-4 w-4" />
         </Button>
       )}
+      {onDelete && (
+        <Button
+          onClick={() => onDelete(row)}
+          variant="ghost"
+          className="p-1 text-red-600 hover:text-red-400 transition-colors cursor-pointer"
+          title="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
       {onFinance && (
         <Button
           onClick={() => onFinance(row)}
@@ -157,7 +170,7 @@ export function DataTable<TData, TValue>({
           return <StatusBadge status={status} />;
         },
       }]),
-      ...((onView || onEdit || onFinance || onBlock || onPrint)
+      ...((onView || onEdit || onDelete || onFinance || onBlock || onPrint)
         ? [
             {
               id: "actions",
@@ -169,7 +182,7 @@ export function DataTable<TData, TValue>({
           ]
         : []),
     ];
-  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onFinance, onBlock, onPrint]);
+  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onDelete, onFinance, onBlock, onPrint]);
 
   const enhancedTable = useReactTable({
     data,

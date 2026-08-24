@@ -2,8 +2,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 from django.db.models import Sum
 from .models import (
-    Categoria, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta,
+    DIAS_HORIZONTE_VENCIMIENTO
 )
 
 class BaseService:
@@ -37,6 +38,9 @@ class BaseService:
 class CategoriaService(BaseService):
     model = Categoria
 
+class PresentacionService(BaseService):
+    model = Presentacion
+
 class ProductoService(BaseService):
     model = Producto
 
@@ -69,7 +73,7 @@ class DetalleVentaService(BaseService):
 
 
 class AlertGenerationService:
-    DIAS_HORIZONTE = 15
+    DIAS_HORIZONTE = DIAS_HORIZONTE_VENCIMIENTO
 
     @classmethod
     def generate_all(cls):

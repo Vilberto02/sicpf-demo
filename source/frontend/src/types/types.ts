@@ -43,8 +43,10 @@ export type LoteType = {
   presentacion_principal: boolean;
   presentacion_blister: boolean;
   presentacion_unidad: boolean;
-  unidad_medida_nombre: string;
-  unidad_medida_abrev: string;
+  presentacion_nombre: string;
+  presentacion_abrev: string;
+  estado: string;
+  created_at?: string;
 };
 
 export type VentaType = {

@@ -1,6 +1,7 @@
 import { AlertSection } from "@/components/sections/AlertSection";
 import { InventorySection } from "@/components/sections/InventorySection";
 import { OverviewSection } from "@/components/sections/OverviewSection";
+import { ProductSection } from "@/components/sections/ProductSection";
 import { ProfileSection } from "@/components/sections/ProfileSection";
 import { SaleSection } from "@/components/sections/SaleSection";
 import { NewSaleSection } from "@/components/sections/NewSaleSection";
@@ -76,7 +77,10 @@ export function MainPage() {
 
   const sections: Record<string, React.ReactNode> = {
     general: <OverviewSection />,
-    inventario: <InventorySection />,
+    inventario: (
+      <InventorySection onViewProducts={() => setActiveItem("productos")} />
+    ),
+    productos: <ProductSection onBack={() => setActiveItem("inventario")} />,
     ventas: <SaleSection onNewSale={() => setActiveItem("nueva_venta")} />,
     alertas: <AlertSection />,
     perfil: <ProfileSection />,

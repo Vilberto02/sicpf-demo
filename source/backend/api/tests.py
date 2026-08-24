@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.models import User
 from decimal import Decimal
-from .models import Categoria, Producto
+from .models import Categoria, Presentacion, Producto
 from .services import CategoriaService, ProductoService
 
 class CategoriaServiceTest(TestCase):
@@ -35,14 +35,14 @@ class ProductoAPITest(TestCase):
         
         # Setup Data
         self.categoria = Categoria.objects.create(nombre="Antibióticos")
+        self.presentacion = Presentacion.objects.create(nombre="Pastilla", abreviatura="past")
         self.producto_data = {
             "codigo": "PROD-TEST",
             "nombre": "Amoxicilina",
             "precio_real": "15.50",
             "precio_flotante": "1.55",
             "unidades_por_caja": 10,
-            "estado": "activo",
-            "unidad_medida": "pastilla",
+            "presentacion": self.presentacion.id,
             "categoria": self.categoria.id
         }
 
@@ -60,8 +60,8 @@ class ProductoAPITest(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
         Producto.objects.create(
             codigo="PROD-TEST2", nombre="Penicilina", precio_real=Decimal("20.00"), 
-            precio_flotante=Decimal("2.00"), unidades_por_caja=10, estado="activo", 
-            unidad_medida="pastilla", categoria=self.categoria
+            precio_flotante=Decimal("2.00"), unidades_por_caja=10, 
+            presentacion=self.presentacion, categoria=self.categoria
         )
         response = self.client.get(reverse('producto-list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)

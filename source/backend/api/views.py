@@ -9,20 +9,21 @@ from datetime import datetime, timedelta
 # pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
 # pyrefly: ignore [missing-import]
-from django.db.models import Sum, Count
+from django.db.models import Q, Sum, Count
 
 from .models import (
-    Categoria, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta
+    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta,
+    DIAS_HORIZONTE_VENCIMIENTO
 )
 from .serializers import (
-    CategoriaSerializer, ProductoSerializer, LoteSerializer,
+    CategoriaSerializer, PresentacionSerializer, ProductoSerializer, LoteSerializer,
     PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
     ClienteSerializer, RolSerializer, UsuarioSerializer,
     VentaSerializer, DetalleVentaSerializer
 )
 from .services import (
-    CategoriaService, ProductoService, LoteService,
+    CategoriaService, PresentacionService, ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService,
     VentaService, DetalleVentaService, AlertGenerationService
@@ -73,6 +74,8 @@ def create_generic_views(model_service, model_serializer):
 # Categoria Views
 CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(CategoriaService, CategoriaSerializer)
 
+# Presentacion Views (solo lectura para formularios)
+PresentacionListView = create_generic_views(PresentacionService, PresentacionSerializer)[0]
 # Producto Views
 ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(ProductoService, ProductoSerializer)
 
@@ -95,18 +98,55 @@ AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteVie
 RecommendationListView, RecommendationCreateView, RecommendationDetailView, RecommendationUpdateView, RecommendationDeleteView = create_generic_views(RecomendacionService, RecomendacionSerializer)
 
 
+class ProductStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        productos = Producto.objects.all()
+        stats = {"total": len(productos), "activos": 0, "por_vencer": 0, "vencidos": 0}
+        for producto in productos:
+            estado = producto.estado
+            if estado == "vencido":
+                stats["vencidos"] += 1
+            elif estado == "por vencer":
+                stats["por_vencer"] += 1
+            else:
+                stats["activos"] += 1
+        return Response(stats)
+
+
 class InventoryStatsView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        total_products = Producto.objects.count()
+        from decimal import Decimal
+        total_lotes = Lote.objects.count()
         # Sumamos el stock_real de todos los lotes y agrupamos por producto para ver cuáles tienen poco stock.
         # Una forma más sencilla para el demo: Lotes con poco stock real.
         low_stock = Lote.objects.filter(stock_real__lte=15).count()
-        expiring_soon = Producto.objects.filter(estado="por vencer").count()
+        
+        hoy = datetime.now().date()
+        limite_por_vencer = hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
+        lotes_con_stock = Lote.objects.filter(
+            Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
+        )
+        expiring_soon = lotes_con_stock.filter(
+            fecha_vencimiento__gt=hoy,
+            fecha_vencimiento__lte=limite_por_vencer
+        ).count()
+        expired = lotes_con_stock.filter(fecha_vencimiento__lte=hoy).count()
+
+        inventory_value = Decimal("0")
+        for lote in lotes_con_stock.select_related("producto"):
+            inventory_value += (
+                Decimal(lote.stock_real) * lote.producto.precio_real
+                + Decimal(lote.stock_flotante) * lote.producto.precio_flotante
+            )
+        
         return Response({
-            "total_products": total_products,
+            "total_lotes": total_lotes,
+            "inventory_value": float(inventory_value),
             "low_stock": low_stock,
-            "expiring_soon": expiring_soon
+            "expiring_soon": expiring_soon,
+            "expired": expired
         })
 
 class SaleStatsView(APIView):
