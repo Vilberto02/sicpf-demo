@@ -22,6 +22,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Input } from "../ui/input";
 import { Button } from "@/components/ui/button";
+import { DataTableSkeleton } from "./DataTableSkeleton";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -29,6 +30,7 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string;
   categories?: string[];
   statusHeaderProps: string;
+  loading?: boolean;
   onView?: (row: TData) => void;
   onEdit?: (row: TData) => void;
   onDelete?: (row: TData) => void;
@@ -37,12 +39,19 @@ interface DataTableProps<TData, TValue> {
   onPrint?: (row: TData) => void;
 }
 
+const ALIGN_CLASSES = {
+  left: "text-left",
+  right: "text-right",
+  center: "text-center",
+} as const;
+
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder = "Buscar...",
   categories = [],
   statusHeaderProps = "Estado",
+  loading = false,
   onView,
   onEdit,
   onDelete,
@@ -213,6 +222,10 @@ export function DataTable<TData, TValue>({
     }
   };
 
+  if (loading) {
+    return <DataTableSkeleton rows={6} columns={Math.min(columns.length + 2, 8)} />;
+  }
+
   return (
     <div className="w-full rounded-xl bg-card shadow-sm ring-1 ring-black/5 overflow-hidden">
       {/* Barra superior */}
@@ -266,7 +279,7 @@ export function DataTable<TData, TValue>({
                   return (
                   <th
                     key={header.id}
-                    className={`py-3 px-4 text-sm font-medium bg-muted/30 text-${align}`}
+                    className={`py-3 px-4 text-sm font-medium bg-muted/30 ${ALIGN_CLASSES[align as keyof typeof ALIGN_CLASSES] ?? ALIGN_CLASSES.left}`}
                   >
                     {header.isPlaceholder
                       ? null
@@ -296,7 +309,7 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => {
                     const align = (cell.column.columnDef.meta as any)?.align || "left";
                     return (
-                    <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums text-${align}`}>
+                    <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums ${ALIGN_CLASSES[align as keyof typeof ALIGN_CLASSES] ?? ALIGN_CLASSES.left}`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                     );
@@ -327,11 +340,12 @@ export function DataTable<TData, TValue>({
           </button>
 
           <div className="flex items-center gap-1">
-            {Array.from(
-              { length: Math.min(5, enhancedTable.getPageCount()) },
-              (_, i) => {
-                const pageIndex = i;
-                const isActive = enhancedTable.getState().pagination.pageIndex === pageIndex;
+            {(() => {
+              const pageCount = enhancedTable.getPageCount();
+              const current = enhancedTable.getState().pagination.pageIndex;
+
+              const renderPageButton = (pageIndex: number) => {
+                const isActive = current === pageIndex;
                 return (
                   <button
                     key={pageIndex}
@@ -345,21 +359,25 @@ export function DataTable<TData, TValue>({
                     {pageIndex + 1}
                   </button>
                 );
+              };
+
+              if (pageCount <= 4) {
+                return Array.from({ length: pageCount }, (_, i) => renderPageButton(i));
               }
-            )}
-            {enhancedTable.getPageCount() > 5 && (
-              <>
-                <span className="text-stone-500 px-1">...</span>
-                <button
-                  onClick={() =>
-                    enhancedTable.setPageIndex(enhancedTable.getPageCount() - 1)
-                  }
-                  className="min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm font-medium text-stone-500 hover:bg-stone-100 transition-colors px-2 cursor-pointer"
-                >
-                  {enhancedTable.getPageCount()}
-                </button>
-              </>
-            )}
+
+              const visible = [...new Set([0, 1, current, pageCount - 2, pageCount - 1])]
+                .filter((p) => p >= 0 && p < pageCount)
+                .sort((a, b) => a - b);
+
+              return visible.map((pageIndex, i) => (
+                <div key={pageIndex} className="flex items-center gap-1">
+                  {i > 0 && pageIndex - visible[i - 1] > 1 && (
+                    <span className="text-stone-500 px-1">...</span>
+                  )}
+                  {renderPageButton(pageIndex)}
+                </div>
+              ));
+            })()}
           </div>
           
           <button

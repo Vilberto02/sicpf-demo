@@ -27,8 +27,6 @@ export default function InventoryTable() {
     [items]
   );
 
-  if (loading) return <div>Cargando...</div>;
-
   const getEstadoBadge = (estado: string) => {
     const styles: Record<string, string> = {
       vencido: "bg-red-100 text-red-800 border-red-200",
@@ -136,6 +134,7 @@ export default function InventoryTable() {
         searchPlaceholder="Buscar por nombre o lote"
         categories={categories?.labels || []}
         statusHeaderProps="Estado"
+        loading={loading}
         onView={handleView}
         onEdit={handleEdit}
       />

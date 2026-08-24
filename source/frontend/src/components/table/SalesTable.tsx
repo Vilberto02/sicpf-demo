@@ -14,8 +14,6 @@ export function SalesTable() {
     fetchItems();
   }, [fetchItems]);
 
-  if (loading) return <div>Cargando...</div>;
-
   const getEstadoBadge = (estado: string) => {
     const styles: Record<string, string> = {
       Cancelado: "bg-red-100 text-red-800 border-red-200",
@@ -201,6 +199,7 @@ export function SalesTable() {
         searchPlaceholder="Buscar por cliente"
         categories={["Completado", "Pendiente", "Cancelado"]}
         statusHeaderProps="Estado"
+        loading={loading}
         onView={handleView}
         onPrint={handlePrint}
         onBlock={handleBlock}

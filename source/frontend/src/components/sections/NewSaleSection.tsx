@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Search, Plus, Trash2, Save, Printer, UserPlus } from "lucide-react";
+import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useInventoryStore } from "@/features/inventory/store";
 import { useClientStore } from "@/features/clients/store";
@@ -27,12 +28,97 @@ type CartItem = {
   type: "Caja" | "Unidad" | "Blíster";
 };
 
+const CATALOG_SKELETON_ROWS = 6;
+
+function CatalogRowSkeleton() {
+  return (
+    <div className="flex flex-col xl:flex-row justify-between xl:items-center p-4 gap-4">
+      <div className="flex flex-col gap-2 min-w-0 flex-1">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-56 max-w-full" />
+        <div className="flex flex-wrap gap-2 mt-1">
+          <Skeleton className="h-5 w-28 rounded-md" />
+          <Skeleton className="h-5 w-24 rounded-md" />
+          <Skeleton className="h-5 w-20 rounded-md" />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-8 w-[70px] rounded-md" />
+        <Skeleton className="h-8 w-[84px] rounded-md" />
+        <Skeleton className="h-8 w-[64px] rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+function NewSaleSectionSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 min-w-0 pb-10" aria-hidden="true">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="flex gap-3 items-center">
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-8 w-44 rounded-lg" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">
+        {/* Catálogo */}
+        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-9 w-full" />
+          <div className="mt-2 border rounded-md divide-y divide-border overflow-hidden">
+            {Array.from({ length: CATALOG_SKELETON_ROWS }).map((_, i) => (
+              <CatalogRowSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+
+        {/* Canasta */}
+        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4 h-full">
+          <Skeleton className="h-6 w-40" />
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+          <div className="border rounded-md mt-2 overflow-hidden">
+            <div className="flex bg-muted/50 border-b px-3 py-3 gap-4">
+              <Skeleton className="h-3 flex-1" />
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <div className="divide-y divide-border">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center px-3 py-3 gap-4">
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-2.5 w-1/3" />
+                  </div>
+                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-3.5 w-16" />
+                  <Skeleton className="h-7 w-7 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-between items-center mt-2 p-3 bg-muted/30 rounded-lg">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+          <Skeleton className="h-10 w-full mt-2" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function NewSaleSection({ onBack }: { onBack: () => void }) {
-  const { items: lotes, fetchItems: fetchInventory } = useInventoryStore();
-  const { clients, fetchClients, addClient } = useClientStore();
+  const { items: lotes, fetchItems: fetchInventory, loading: inventoryLoading } = useInventoryStore();
+  const { clients, fetchClients, addClient, loading: clientsLoading } = useClientStore();
   const { addItem: addSale } = useSalesStore();
   const { userProfile } = useAuthStore();
-  
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -53,6 +139,10 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     fetchInventory();
     fetchClients();
   }, [fetchInventory, fetchClients]);
+
+  if (inventoryLoading || clientsLoading) {
+    return <NewSaleSectionSkeleton />;
+  }
 
   const filteredLotes = lotes.filter((l) =>
     l.producto_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -170,20 +260,19 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
       toast.success("Venta completada exitosamente.");
       setCart([]);
       onBack();
-    } catch (error: any) {
-      toast.error(`Error al registrar la venta: ${error.message || "Contacte a soporte"}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Contacte a soporte";
+      toast.error(`Error al registrar la venta: ${message}`);
     }
   };
 
   return (
     <div className="flex flex-col gap-6 min-w-0 pb-10">
       <div className="flex items-center gap-4">
-        <Button className="cursor-pointer" variant="outline" size="icon" onClick={onBack}>
-          <ArrowLeft size={18} />
-        </Button>
         <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
-          <h3>Nueva venta</h3>
-        </div>
+            <Handbag width={36} height={36}></Handbag>
+            <h3 className="mt-1">Nueva venta</h3>
+          </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">
@@ -255,7 +344,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* Canasta de Compra */}
-        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4">
+        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4 h-full">
           <h4 className="text-xl font-semibold text-primary">Canasta de venta</h4>
           <div className="flex flex-col gap-3">
             <Label>Cliente</Label>

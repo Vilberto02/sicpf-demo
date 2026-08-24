@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Package, ArrowLeft, Plus } from "lucide-react";
+import { Package, Plus, Package2 } from "lucide-react";
 import { toast } from "sonner";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/table/DataTable";
@@ -11,8 +11,8 @@ import { ProductDetailsModal } from "@/components/modals/ProductDetailsModal";
 import { useProductStore } from "@/features/products/store";
 import type { ProductoType } from "@/features/products/types";
 
-export function ProductSection({ onBack }: { onBack?: () => void }) {
-  const { products, stats, fetchProducts, fetchStats, removeProduct } = useProductStore();
+export function ProductSection() {
+  const { products, stats, fetchProducts, fetchStats, removeProduct, loading } = useProductStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductoType | null>(null);
   const [viewingProduct, setViewingProduct] = useState<ProductoType | null>(null);
@@ -129,13 +129,8 @@ export function ProductSection({ onBack }: { onBack?: () => void }) {
     <div className="flex flex-col gap-8 min-w-0 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex gap-4 items-center">
-          {onBack && (
-            <Button className="cursor-pointer" variant="outline" size="icon" onClick={onBack}>
-              <ArrowLeft size={18} />
-            </Button>
-          )}
           <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
-            <Package width={36} height={36}></Package>
+            <Package2 width={36} height={36}></Package2>
             <h3 className="mt-1">Productos</h3>
           </div>
         </div>
@@ -190,6 +185,7 @@ export function ProductSection({ onBack }: { onBack?: () => void }) {
           searchPlaceholder="Buscar por código o nombre"
           categories={categories}
           statusHeaderProps="Estado"
+          loading={loading}
           onView={setViewingProduct}
           onEdit={openEditDialog}
           onDelete={handleDelete}

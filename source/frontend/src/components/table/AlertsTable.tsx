@@ -21,8 +21,6 @@ export function AlertsTable() {
     fetchItems();
   }, [fetchItems]);
 
-  if (loading) return <div>Cargando...</div>;
-
   const alertsColumns: ColumnDef<AlertItemType>[] = [
     {
       accessorKey: "producto_nombre",
@@ -135,6 +133,7 @@ export function AlertsTable() {
         searchPlaceholder="Buscar por producto"
         categories={["Alto", "Medio", "Bajo"]}
         statusHeaderProps="N. Riesgo"
+        loading={loading}
       />
       <AlertDetailDialog alerta={selectedAlert} onClose={() => setSelectedAlert(null)} />
     </>
