@@ -2,8 +2,10 @@ import os
 # pyrefly: ignore [missing-import]
 import django
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
+
+from django.utils import timezone
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sicpf_core.settings')
 django.setup()
@@ -131,12 +133,13 @@ def populate():
 
     admin_django_user = User.objects.filter(username="admin@example.com").first()
     if admin_django_user:
+        if not admin_django_user.first_name:
+            admin_django_user.first_name = "Admin"
+            admin_django_user.last_name = "Sistema"
+            admin_django_user.save()
         usuario_admin, _ = Usuario.objects.get_or_create(
             user=admin_django_user,
             defaults={
-                'nombre': "Admin",
-                'apellido': "Sistema",
-                'email': "admin@example.com",
                 'rol': rol_admin,
                 'sede': sede_central
             }
@@ -150,19 +153,16 @@ def populate():
     vendedores = []
     if usuario_admin:
         vendedores.append(usuario_admin)
-    
+
     for i in range(2):
         django_user, created = User.objects.get_or_create(username=f"vendedor{i}", email=f"vendedor{i}@local.com")
         if created:
             django_user.set_password('password123')
             django_user.save()
-            
+
         vend, _ = Usuario.objects.get_or_create(
             user=django_user,
             defaults={
-                'nombre': f"Vendedor {i}",
-                'apellido': "Ventas",
-                'email': f"vendedor{i}@local.com",
                 'rol': rol_vendedor,
                 'sede': random.choice(sedes)
             }
@@ -178,7 +178,12 @@ def populate():
             codigo=f"VNT-2024-{i:04d}",
             cliente=cliente,
             usuario=vendedor,
-            fecha=datetime.now().date() - timedelta(days=random.randint(0, 150)),
+            fecha=timezone.make_aware(
+                datetime.combine(
+                    datetime.now().date() - timedelta(days=random.randint(0, 150)),
+                    time.min,
+                )
+            ),
             total=Decimal("0.00"),
             estado=random.choice(["Completado", "Completado", "Pendiente", "Cancelado"])
         )

@@ -65,7 +65,12 @@ class RolAdmin(admin.ModelAdmin):
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'apellido', 'email', 'rol', 'sede')
+    list_display = ('nombre', 'apellido', 'username_display', 'email', 'rol', 'sede')
+    search_fields = ('user__first_name', 'user__last_name', 'user__username', 'user__email')
+
+    @admin.display(description='Usuario')
+    def username_display(self, obj):
+        return obj.user.username if obj.user_id else '-'
 
 class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta

@@ -211,10 +211,13 @@ class Sede(models.Model):
         return self.nombre
 
 class Usuario(models.Model):
+    """Perfil del negocio vinculado al User de Django.
+
+    La fuente de verdad para nombre, apellido y email es el User relacionado;
+    este modelo solo agrega datos propios del dominio (telefono, direccion,
+    rol y sede).
+    """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='usuario_perfil')
-    nombre = models.CharField(max_length=100)
-    apellido = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
     telefono = models.CharField(max_length=50, blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
     rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True)
@@ -224,8 +227,20 @@ class Usuario(models.Model):
         verbose_name_plural = 'Usuarios'
         verbose_name = 'Usuario'
 
+    @property
+    def nombre(self):
+        return self.user.first_name if self.user_id else ""
+
+    @property
+    def apellido(self):
+        return self.user.last_name if self.user_id else ""
+
+    @property
+    def email(self):
+        return self.user.email if self.user_id else ""
+
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.nombre} {self.apellido}".strip() or f"Usuario #{self.pk}"
 
 class Venta(models.Model):
     ESTADO_CHOICES = (
