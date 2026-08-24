@@ -1,9 +1,10 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from django.utils import timezone
 from django.db.models import Sum
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta,
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
     DIAS_HORIZONTE_VENCIMIENTO
 )
 
@@ -58,6 +59,9 @@ class RecomendacionService(BaseService):
 
 class ClienteService(BaseService):
     model = Cliente
+
+class SedeService(BaseService):
+    model = Sede
 
 class RolService(BaseService):
     model = Rol
@@ -180,11 +184,15 @@ class AlertGenerationService:
     @classmethod
     def _get_ventas_promedio(cls, producto, dias=30):
         """Consumo promedio diario en unidades minimas (cajas + blisters + sueltas)."""
-        fecha_inicio = date.today() - timedelta(days=dias)
+        # Se usa un rango de datetimes en lugar del lookup __date porque en SQLite
+        # este ultimo falla si hay filas con fecha almacenada sin componente horario.
+        fecha_inicio = timezone.make_aware(
+            datetime.combine(date.today() - timedelta(days=dias), time.min)
+        )
 
         ventas = DetalleVenta.objects.filter(
             producto=producto,
-            venta__fecha__date__gte=fecha_inicio,
+            venta__fecha__gte=fecha_inicio,
             venta__estado='Completado'
         ).aggregate(
             total_real=Sum('cantidad_real'),
