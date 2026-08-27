@@ -49,7 +49,7 @@ export function SearchableSelect<T>({
     if (!value) setQuery("");
   }, [value]);
 
-  const filteredItems = items.filter((item) =>
+  const filteredItems = (items || []).filter((item) =>
     filterMatch
       ? filterMatch(item, query)
       : getOptionLabel(item).toLowerCase().includes(query.toLowerCase())

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { useInventoryStore } from "@/features/inventory/store";
+import { getLoteCatalogo } from "@/features/inventory/api";
 import { useClientStore } from "@/features/clients/store";
 import { useSalesStore } from "@/features/sales/store";
 import { useAuthStore } from "@/features/auth/store";
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 
 type CartItem = {
-  id: string; // unique cart item id because same Lote can be added as Caja, Unidad and Blíster
+  id: string;
   lote: LoteType;
   qty: number;
   type: "Caja" | "Unidad" | "Blíster";
@@ -54,7 +54,6 @@ function CatalogRowSkeleton() {
 function NewSaleSectionSkeleton() {
   return (
     <div className="flex flex-col gap-6 min-w-0 pb-10" aria-hidden="true">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <div className="flex gap-3 items-center">
           <Skeleton className="h-9 w-9 rounded-full" />
@@ -63,7 +62,6 @@ function NewSaleSectionSkeleton() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">
-        {/* Catálogo */}
         <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4">
           <Skeleton className="h-6 w-24" />
           <Skeleton className="h-9 w-full" />
@@ -74,7 +72,6 @@ function NewSaleSectionSkeleton() {
           </div>
         </div>
 
-        {/* Canasta */}
         <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4 h-full">
           <Skeleton className="h-6 w-40" />
           <div className="flex flex-col gap-3">
@@ -114,19 +111,19 @@ function NewSaleSectionSkeleton() {
 }
 
 export function NewSaleSection({ onBack }: { onBack: () => void }) {
-  const { items: lotes, fetchItems: fetchInventory, loading: inventoryLoading } = useInventoryStore();
   const { clients, fetchClients, addClient, loading: clientsLoading } = useClientStore();
   const { addItem: addSale } = useSalesStore();
   const { userProfile } = useAuthStore();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [lotes, setLotes] = useState<LoteType[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  // Client Combobox states
   const [selectedClient, setSelectedClient] = useState<ClienteType | null>(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
 
-  // New client form state
   const [newClientData, setNewClientData] = useState({
     nombre: "",
     apellido: "",
@@ -135,24 +132,40 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     direccion: "",
   });
 
-  useEffect(() => {
-    fetchInventory();
-    fetchClients();
-  }, [fetchInventory, fetchClients]);
+  const fetchCatalog = useCallback(async (search?: string) => {
+    setCatalogLoading(true);
+    try {
+      const data = await getLoteCatalogo({ page_size: 100, search: search || undefined });
+      setLotes(data.results);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
 
-  if (inventoryLoading || clientsLoading) {
+  useEffect(() => {
+    fetchCatalog();
+    fetchClients();
+  }, [fetchCatalog, fetchClients]);
+
+  const handleCatalogSearch = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => {
+      fetchCatalog(value);
+    }, 300);
+    setDebounceTimer(timer);
+  }, [debounceTimer, fetchCatalog]);
+
+  if (clientsLoading) {
     return <NewSaleSectionSkeleton />;
   }
-
-  const filteredLotes = lotes.filter((l) =>
-    l.producto_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.codigo_lote.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const getStockLimits = (lote: LoteType) => {
     const unidades_en_principal = Math.max(lote.unidades_por_caja, lote.blisters_por_caja * lote.unidades_por_blister);
     const total_flotante = lote.stock_flotante + (lote.stock_real * unidades_en_principal);
-    
+
     return {
       "Caja": lote.stock_real + Math.floor(lote.stock_flotante / unidades_en_principal),
       "Unidad": total_flotante,
@@ -164,7 +177,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     setCart((prev) => {
       const cartId = `${lote.id}-${type}`;
       const existing = prev.find((item) => item.id === cartId);
-      
+
       const requestedQty = existing ? existing.qty + 1 : 1;
       const limits = getStockLimits(lote);
       const stockLimit = limits[type];
@@ -193,7 +206,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     setCart((prev) => {
       const item = prev.find(i => i.id === cartId);
       if (!item) return prev;
-      
+
       const limits = getStockLimits(item.lote);
       const stockLimit = limits[item.type as "Caja" | "Unidad" | "Blíster"];
 
@@ -285,60 +298,68 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
               placeholder="Buscar por nombre o lote..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleCatalogSearch(e.target.value)}
             />
           </div>
           <div className="h-[500px] overflow-y-auto mt-2 border rounded-md divide-y">
-            {filteredLotes.map((lote) => {
-              const limits = getStockLimits(lote);
-              const maxCajas = limits["Caja"];
-              const maxBlisters = limits["Blíster"];
-              const maxUnidades = limits["Unidad"];
-              
-              return (
-              <div key={lote.id} className="flex flex-col xl:flex-row justify-between xl:items-center p-4 hover:bg-muted/50 transition-colors gap-4">
-                <div>
-                  <p className="font-semibold text-primary">{lote.producto_nombre}</p>
-                  <p className="text-xs text-muted-foreground mb-1">Lote: {lote.codigo_lote} | Vence: {lote.fecha_vencimiento} </p>
-                  <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium">
-                    {lote.presentacion_principal !== false && (
-                      <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">
-                        Cajas: {lote.stock_real} (S/{Number(lote.precio_real || 0).toFixed(2)})
-                      </span>
-                    )}
-                    {lote.presentacion_blister !== false && (
-                      <span className="bg-purple-500/10 text-purple-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxBlisters}`}>
-                        Blísters: {Math.floor(lote.stock_flotante / (lote.unidades_por_blister || 1))} (S/{Number(lote.precio_blister || 0).toFixed(2)})
-                      </span>
-                    )}
-                    {lote.presentacion_unidad !== false && (
-                      <span className="bg-orange-500/10 text-orange-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxUnidades}`}>
-                        Unds: {lote.stock_flotante} (S/{Number(lote.precio_flotante || 0).toFixed(2)})
-                      </span>
-                    )}
+            {catalogLoading ? (
+              Array.from({ length: CATALOG_SKELETON_ROWS }).map((_, i) => (
+                <CatalogRowSkeleton key={i} />
+              ))
+            ) : (
+              <>
+                {lotes.map((lote) => {
+                  const limits = getStockLimits(lote);
+                  const maxCajas = limits["Caja"];
+                  const maxBlisters = limits["Blíster"];
+                  const maxUnidades = limits["Unidad"];
+
+                  return (
+                  <div key={lote.id} className="flex flex-col xl:flex-row justify-between xl:items-center p-4 hover:bg-muted/50 transition-colors gap-4">
+                    <div>
+                      <p className="font-semibold text-primary">{lote.producto_nombre}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Lote: {lote.codigo_lote} | Vence: {lote.fecha_vencimiento} </p>
+                      <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium">
+                        {lote.presentacion_principal !== false && (
+                          <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">
+                            Cajas: {lote.stock_real} (S/{Number(lote.precio_real || 0).toFixed(2)})
+                          </span>
+                        )}
+                        {lote.presentacion_blister !== false && (
+                          <span className="bg-purple-500/10 text-purple-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxBlisters}`}>
+                            Blísters: {Math.floor(lote.stock_flotante / (lote.unidades_por_blister || 1))} (S/{Number(lote.precio_blister || 0).toFixed(2)})
+                          </span>
+                        )}
+                        {lote.presentacion_unidad !== false && (
+                          <span className="bg-orange-500/10 text-orange-600 px-2 py-1 rounded-md" title={`Total equivalente incluyendo cajas: ${maxUnidades}`}>
+                            Unds: {lote.stock_flotante} (S/{Number(lote.precio_flotante || 0).toFixed(2)})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {lote.presentacion_principal !== false && (
+                        <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer text-sm" variant="outline" disabled={maxCajas <= 0}>
+                          <Plus size={12} className="mr-1" /> Caja
+                        </Button>
+                      )}
+                      {lote.presentacion_blister !== false && (
+                        <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer text-sm" variant="outline" disabled={maxBlisters <= 0}>
+                          <Plus size={12} className="mr-1" /> Blíster
+                        </Button>
+                      )}
+                      {lote.presentacion_unidad !== false && (
+                        <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer text-sm" variant="secondary" disabled={maxUnidades <= 0}>
+                          <Plus size={12} className="mr-1" /> Und
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {lote.presentacion_principal !== false && (
-                    <Button size="sm" onClick={() => addToCart(lote, "Caja")} className="cursor-pointer text-sm" variant="outline" disabled={maxCajas <= 0}>
-                      <Plus size={12} className="mr-1" /> Caja
-                    </Button>
-                  )}
-                  {lote.presentacion_blister !== false && (
-                    <Button size="sm" onClick={() => addToCart(lote, "Blíster")} className="cursor-pointer text-sm" variant="outline" disabled={maxBlisters <= 0}>
-                      <Plus size={12} className="mr-1" /> Blíster
-                    </Button>
-                  )}
-                  {lote.presentacion_unidad !== false && (
-                    <Button size="sm" onClick={() => addToCart(lote, "Unidad")} className="cursor-pointer text-sm" variant="secondary" disabled={maxUnidades <= 0}>
-                      <Plus size={12} className="mr-1" /> Und
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )})}
-            {filteredLotes.length === 0 && (
-              <p className="p-4 text-center text-sm text-muted-foreground">No se encontraron productos.</p>
+                )})}
+                {lotes.length === 0 && (
+                  <p className="p-4 text-center text-sm text-muted-foreground">No se encontraron productos.</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -450,12 +471,12 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
               </tbody>
             </table>
           </div>
-          
+
           <div className="flex justify-between items-center mt-2 p-3 bg-muted/30 rounded-lg">
             <span className="text-lg font-semibold">Total a cobrar:</span>
             <span className="text-2xl font-bold text-primary">S/{total.toFixed(2)}</span>
           </div>
-          
+
           <div className="flex gap-3 mt-2">
             <Button className="flex-1 cursor-pointer" onClick={handleSaveSale}>
               <Save size={18} className="mr-2" /> Completar venta

@@ -88,7 +88,7 @@ export function LoginPage() {
             {...register("password", {
               required: {
                 value: true,
-                message: "La constraseña es requerida.",
+                message: "La contraseña es requerida.",
               },
             })}
           ></Input>

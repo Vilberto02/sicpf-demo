@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 # pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
 # pyrefly: ignore [missing-import]
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, F, Case, When, Value, IntegerField, CharField, DateField, Subquery, OuterRef
+from django.utils import timezone
 
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
@@ -29,13 +30,24 @@ from .services import (
     ClienteService, RolService, UsuarioService, SedeService,
     VentaService, DetalleVentaService, AlertGenerationService
 )
+from .pagination import CatalogPagination
 
-def create_generic_views(model_service, model_serializer, permission_class=IsAuthenticated):
+
+def create_generic_views(model_service, model_serializer, permission_class=IsAuthenticated,
+                         search_fields=None, ordering_fields=None, filterset_fields=None):
+    _search_fields = search_fields or []
+    _ordering_fields = ordering_fields or '__all__'
+    _filterset_fields = filterset_fields
+
     class ListView(generics.ListAPIView):
         permission_classes = [permission_class]
         serializer_class = model_serializer
+        search_fields = _search_fields
+        ordering_fields = _ordering_fields
+        filterset_fields = _filterset_fields
+
         def get_queryset(self):
-            return model_service.get_all()
+            return model_service.get_queryset()
 
     class CreateView(generics.CreateAPIView):
         permission_classes = [permission_class]
@@ -73,23 +85,57 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
     return ListView, CreateView, DetailView, UpdateView, DeleteView
 
 # Categoria Views
-CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(CategoriaService, CategoriaSerializer)
+CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(
+    CategoriaService, CategoriaSerializer,
+    search_fields=['nombre'],
+    ordering_fields=['nombre'],
+)
 
 # Presentacion Views (solo lectura para formularios)
-PresentacionListView = create_generic_views(PresentacionService, PresentacionSerializer)[0]
+PresentacionListView = create_generic_views(
+    PresentacionService, PresentacionSerializer,
+    ordering_fields=['nombre'],
+)[0]
+
 # Sede Views (solo lectura para formularios)
-SedeListView = create_generic_views(SedeService, SedeSerializer)[0]
+SedeListView = create_generic_views(
+    SedeService, SedeSerializer,
+    ordering_fields=['nombre'],
+)[0]
+
 # Producto Views
-ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(ProductoService, ProductoSerializer)
+ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(
+    ProductoService, ProductoSerializer,
+    search_fields=['codigo', 'nombre', 'descripcion'],
+    ordering_fields=['codigo', 'nombre', 'precio_real', 'created_at', 'categoria'],
+    filterset_fields=['categoria', 'categoria__nombre'],
+)
 
 # Lote Views
-LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(LoteService, LoteSerializer)
+LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(
+    LoteService, LoteSerializer,
+    search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo'],
+    ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at'],
+    filterset_fields=['producto', 'producto__categoria__nombre'],
+)
 
 # Cliente Views
-ClienteListView, ClienteCreateView, ClienteDetailView, ClienteUpdateView, ClienteDeleteView = create_generic_views(ClienteService, ClienteSerializer)
+ClienteListView, ClienteCreateView, ClienteDetailView, ClienteUpdateView, ClienteDeleteView = create_generic_views(
+    ClienteService, ClienteSerializer,
+    search_fields=['nombre', 'apellido', 'email', 'telefono'],
+    ordering_fields=['nombre', 'apellido', 'email'],
+)
 
-# Usuario Views (solo dueño/administrador)
-UsuarioListView, UsuarioCreateView, UsuarioDetailView, UsuarioUpdateView = create_generic_views(UsuarioService, UsuarioSerializer, permission_class=IsOwnerOrAdmin)[:4]
+_usuario_views = create_generic_views(
+    UsuarioService, UsuarioSerializer,
+    permission_class=IsOwnerOrAdmin,
+    search_fields=['user__username', 'user__first_name', 'user__last_name', 'user__email'],
+    ordering_fields=['user__first_name', 'user__last_name', 'user__email'],
+)
+UsuarioListView = _usuario_views[0]
+UsuarioCreateView = _usuario_views[1]
+UsuarioDetailView = _usuario_views[2]
+UsuarioUpdateView = _usuario_views[3]
 
 
 class UsuarioDeleteView(APIView):
@@ -105,7 +151,11 @@ class UsuarioDeleteView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 # Rol Views (solo dueño/administrador)
-RolListView, RolCreateView, RolDetailView, RolUpdateView, RolDeleteView = create_generic_views(RolService, RolSerializer, permission_class=IsOwnerOrAdmin)
+RolListView, RolCreateView, RolDetailView, RolUpdateView, RolDeleteView = create_generic_views(
+    RolService, RolSerializer,
+    permission_class=IsOwnerOrAdmin,
+    ordering_fields=['nombre'],
+)
 
 
 class UsuarioToggleActiveView(APIView):
@@ -121,81 +171,148 @@ class UsuarioToggleActiveView(APIView):
 
 
 # Venta Views
-VentaListView, VentaCreateView, VentaDetailView, VentaUpdateView, VentaDeleteView = create_generic_views(VentaService, VentaSerializer)
+_venta_views = create_generic_views(
+    VentaService, VentaSerializer,
+    search_fields=['codigo', 'cliente__nombre', 'usuario__user__first_name'],
+    ordering_fields=['codigo', 'total', 'fecha', 'estado'],
+    filterset_fields=['estado', 'cliente', 'usuario'],
+)
+
+class CustomVentaListView(_venta_views[0]):
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        is_admin = user.is_superuser
+        if hasattr(user, 'usuario') and user.usuario.rol and user.usuario.rol.nombre in ['Administrador', 'Superusuario']:
+            is_admin = True
+        
+        if not is_admin:
+            qs = qs.filter(usuario__user=user)
+        return qs
+
+VentaListView = CustomVentaListView
+VentaCreateView = _venta_views[1]
+VentaDetailView = _venta_views[2]
+VentaUpdateView = _venta_views[3]
+VentaDeleteView = _venta_views[4]
 
 # Alerta Views
-AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(AlertaService, AlertaSerializer)
+AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(
+    AlertaService, AlertaSerializer,
+    search_fields=['alerta', 'producto__nombre'],
+    ordering_fields=['fecha_alerta', 'nivel_riesgo', 'estado', 'created_at'],
+    filterset_fields=['estado', 'tipo', 'origen', 'nivel_riesgo'],
+)
 
 # Recomendacion Views
-RecommendationListView, RecommendationCreateView, RecommendationDetailView, RecommendationUpdateView, RecommendationDeleteView = create_generic_views(RecomendacionService, RecomendacionSerializer)
+RecommendationListView, RecommendationCreateView, RecommendationDetailView, RecommendationUpdateView, RecommendationDeleteView = create_generic_views(
+    RecomendacionService, RecomendacionSerializer,
+    search_fields=['titulo', 'descripcion'],
+)
 
 
 class ProductStatsView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        productos = Producto.objects.all()
-        stats = {"total": len(productos), "activos": 0, "por_vencer": 0, "vencidos": 0}
-        for producto in productos:
-            estado = producto.estado
-            if estado == "vencido":
-                stats["vencidos"] += 1
-            elif estado == "por vencer":
-                stats["por_vencer"] += 1
-            else:
-                stats["activos"] += 1
-        return Response(stats)
+        from django.utils import timezone as tz
+        hoy = tz.localdate()
+
+        lotes_by_producto = Lote.objects.filter(
+            stock_real__gt=0
+        ).values('producto').annotate(
+            total_real=Sum('stock_real')
+        )
+
+        lotes_por_vencer = Lote.objects.filter(
+            stock_real__gt=0,
+            fecha_vencimiento__gt=hoy,
+            fecha_vencimiento__lte=hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
+        ).values('producto').annotate(
+            total_real=Sum('stock_real')
+        )
+
+        lotes_vencidos = Lote.objects.filter(
+            stock_real__gt=0,
+            fecha_vencimiento__lte=hoy
+        ).values('producto').annotate(
+            total_real=Sum('stock_real')
+        )
+
+        ids_con_stock = set(d['producto'] for d in lotes_by_producto)
+        ids_por_vencer = set(d['producto'] for d in lotes_por_vencer)
+        ids_vencidos = set(d['producto'] for d in lotes_vencidos)
+
+        total = Producto.objects.count()
+        activos = len(ids_con_stock - ids_vencidos)
+        por_vencer = len(ids_por_vencer - ids_vencidos)
+        vencidos = len(ids_vencidos)
+
+        return Response({
+            "total": total,
+            "activos": activos,
+            "por_vencer": por_vencer,
+            "vencidos": vencidos,
+        })
 
 
 class InventoryStatsView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         from decimal import Decimal
-        total_lotes = Lote.objects.count()
-        # Sumamos el stock_real de todos los lotes y agrupamos por producto para ver cuáles tienen poco stock.
-        # Una forma más sencilla para el demo: Lotes con poco stock real.
-        low_stock = Lote.objects.filter(stock_real__lte=15).count()
-        
         hoy = datetime.now().date()
         limite_por_vencer = hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
-        lotes_con_stock = Lote.objects.filter(
-            Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
-        )
-        expiring_soon = lotes_con_stock.filter(
-            fecha_vencimiento__gt=hoy,
-            fecha_vencimiento__lte=limite_por_vencer
-        ).count()
-        expired = lotes_con_stock.filter(fecha_vencimiento__lte=hoy).count()
 
-        inventory_value = Decimal("0")
-        for lote in lotes_con_stock.select_related("producto"):
-            inventory_value += (
-                Decimal(lote.stock_real) * lote.producto.precio_real
-                + Decimal(lote.stock_flotante) * lote.producto.precio_flotante
-            )
-        
+        agg = Lote.objects.filter(
+            Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
+        ).aggregate(
+            total_lotes=Count('id'),
+            low_stock=Count('id', filter=Q(stock_real__lte=15)),
+            expiring_soon=Count('id', filter=Q(
+                fecha_vencimiento__gt=hoy,
+                fecha_vencimiento__lte=limite_por_vencer,
+            )),
+            expired=Count('id', filter=Q(fecha_vencimiento__lte=hoy)),
+            inventory_value=Sum(
+                F('stock_real') * F('producto__precio_real') +
+                F('stock_flotante') * F('producto__precio_flotante')
+            ),
+        )
+
         return Response({
-            "total_lotes": total_lotes,
-            "inventory_value": float(inventory_value),
-            "low_stock": low_stock,
-            "expiring_soon": expiring_soon,
-            "expired": expired
+            "total_lotes": agg['total_lotes'] or 0,
+            "inventory_value": float(agg['inventory_value'] or 0),
+            "low_stock": agg['low_stock'] or 0,
+            "expiring_soon": agg['expiring_soon'] or 0,
+            "expired": agg['expired'] or 0,
         })
+
 
 class SaleStatsView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        total_orders = Venta.objects.count()
-        pending_orders = Venta.objects.filter(estado="Pendiente").count()
-        completed_orders = Venta.objects.filter(estado="Completado").count()
-        
-        # Total revenue of the current week
+        qs = Venta.objects.all()
+        user = request.user
+        is_admin = user.is_superuser
+        if hasattr(user, 'usuario') and user.usuario.rol and user.usuario.rol.nombre in ['Administrador', 'Superusuario']:
+            is_admin = True
+            
+        if not is_admin:
+            qs = qs.filter(usuario__user=user)
+
+        total_orders = qs.count()
+        pending_orders = qs.filter(estado="Pendiente").count()
+        completed_orders = qs.filter(estado="Completado").count()
+
         today = datetime.now().date()
         start_of_week = today - timedelta(days=today.weekday())
-        total_revenue = Venta.objects.filter(
-            estado="Completado", 
+        total_revenue = qs.filter(
+            estado="Completado",
             fecha__gte=start_of_week
         ).aggregate(total=Sum('total'))['total'] or 0
-        
+
         return Response({
             "total_orders": total_orders,
             "pending_orders": pending_orders,
@@ -205,34 +322,34 @@ class SaleStatsView(APIView):
 
 class AlertStatsView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        total_alerts = Alerta.objects.count()
 
-        quiebres_estimados = Alerta.objects.filter(tipo="quiebre").count()
-        critical_stock = Alerta.objects.filter(nivel_riesgo="alto").count()
-        at_risk = Alerta.objects.filter(nivel_riesgo="medio").count()
-        total_pendientes = Alerta.objects.filter(estado="pendiente").count()
-        
+    def get(self, request):
         today = datetime.now().date()
-        generadas_hoy = Alerta.objects.filter(fecha_alerta=today).count()
-        
-        origen_regla = Alerta.objects.filter(origen="reglas").count()
-        origen_ml = Alerta.objects.filter(origen="ml").count()
-        
+        agg = Alerta.objects.aggregate(
+            total_alerts=Count('id'),
+            quiebres_estimados=Count('id', filter=Q(tipo="quiebre")),
+            critical_stock=Count('id', filter=Q(nivel_riesgo="alto")),
+            at_risk=Count('id', filter=Q(nivel_riesgo="medio")),
+            total_pendientes=Count('id', filter=Q(estado="pendiente")),
+            generadas_hoy=Count('id', filter=Q(fecha_alerta=today)),
+            origen_regla=Count('id', filter=Q(origen="reglas")),
+            origen_ml=Count('id', filter=Q(origen="ml")),
+        )
+
         return Response({
-            "quiebres_estimados": quiebres_estimados,
-            "critical_stock": critical_stock,
-            "at_risk": at_risk,
-            "total_pendientes": total_pendientes,
-            "generadas_hoy": generadas_hoy,
-            "origen_regla": origen_regla,
-            "origen_ml": origen_ml
+            "quiebres_estimados": agg['quiebres_estimados'],
+            "critical_stock": agg['critical_stock'],
+            "at_risk": agg['at_risk'],
+            "total_pendientes": agg['total_pendientes'],
+            "generadas_hoy": agg['generadas_hoy'],
+            "origen_regla": agg['origen_regla'],
+            "origen_ml": agg['origen_ml']
         })
 
 
 class AlertGenerateView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         alertas = AlertGenerationService.generate_all()
         return Response({
@@ -243,29 +360,35 @@ class AlertGenerateView(APIView):
 
 class AlertPendingView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
-        pendientes = Alerta.objects.filter(estado='pendiente')
+        pendientes = Alerta.objects.filter(estado='pendiente').select_related(
+            'producto', 'producto__categoria', 'prediccion'
+        )
         return Response(AlertaSerializer(pendientes, many=True).data)
 
 class DashboardChartView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         five_months_ago = datetime.now().date() - timedelta(days=150)
-        sales = Venta.objects.filter(fecha__gte=five_months_ago, estado="Completado").annotate(month=TruncMonth('fecha')).values('month').annotate(total=Sum('total'), count=Count('id')).order_by('month')
-        
+        sales = Venta.objects.filter(
+            fecha__gte=five_months_ago, estado="Completado"
+        ).annotate(month=TruncMonth('fecha')).values('month').annotate(
+            total=Sum('total'), count=Count('id')
+        ).order_by('month')
+
         labels = []
         dataset01 = []
         dataset02 = []
-        
+
         for s in sales:
             if s['month']:
                 month_name = s['month'].strftime("%B")
                 if month_name not in labels:
                     labels.append(month_name)
                     dataset01.append(float(s['total'] or 0))
-                    dataset02.append(s['count'] * 100) 
-        
+                    dataset02.append(s['count'] * 100)
+
         return Response({
             "labels": labels,
             "dataset01": dataset01,
@@ -294,7 +417,7 @@ class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile, _ = Usuario.objects.get_or_create(
+        profile, _ = Usuario.objects.select_related('user', 'rol', 'sede').get_or_create(
             user=request.user,
             defaults={
                 "telefono": "",
@@ -390,15 +513,15 @@ class MySaleStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from django.utils import timezone
-
         ventas_propias = Venta.objects.filter(usuario__user=request.user)
         ahora = timezone.localtime()
         inicio_mes = ahora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         completadas = ventas_propias.filter(estado="Completado")
         ventas_mes = completadas.filter(fecha__gte=inicio_mes).aggregate(total=Sum("total"))
-        ultimas = ventas_propias.order_by("-fecha")[:5]
+        ultimas = ventas_propias.select_related('cliente', 'usuario', 'usuario__user').prefetch_related(
+            'detalles', 'detalles__producto'
+        ).order_by("-fecha")[:5]
 
         return Response({
             "total_orders": ventas_propias.count(),
@@ -419,3 +542,20 @@ class InventoryCategoriesView(APIView):
             "labels": labels,
             "values": values
         })
+
+
+class LoteCatalogoView(generics.ListAPIView):
+    """Endpoint ligero para autocompletado de lotes al crear ventas."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = LoteSerializer
+    pagination_class = CatalogPagination
+    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo']
+    ordering_fields = ['producto__nombre', 'fecha_vencimiento', 'created_at']
+    filterset_fields = ['producto']
+
+    def get_queryset(self):
+        return Lote.objects.select_related(
+            'producto', 'producto__categoria', 'producto__presentacion'
+        ).filter(
+            Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
+        )

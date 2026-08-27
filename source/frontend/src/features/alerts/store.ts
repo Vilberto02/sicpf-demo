@@ -13,12 +13,23 @@ import {
 
 interface AlertsState {
   items: AlertItemType[];
+  count: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  ordering: string;
   stats: any | null;
   loading: boolean;
   error: string | null;
   generating: boolean;
   fetchItems: () => Promise<void>;
   fetchStats: () => Promise<void>;
+  setPage: (page: number) => void;
+  setSearch: (search: string) => void;
+  setOrdering: (ordering: string) => void;
+  setPageSize: (size: number) => void;
+  status: string | null;
+  setStatus: (status: string | null) => void;
   addItem: (data: AlertItemType) => Promise<void>;
   updateItem: (id: number, data: Partial<AlertItemType>) => Promise<void>;
   removeItem: (id: number) => Promise<void>;
@@ -27,17 +38,28 @@ interface AlertsState {
   markDiscarded: (id: number) => Promise<void>;
 }
 
-export const useAlertsStore = create<AlertsState>((set) => ({
+export const useAlertsStore = create<AlertsState>((set, get) => ({
   items: [],
+  count: 0,
+  page: 1,
+  pageSize: 20,
+  search: "",
+  ordering: "-created_at",
+  status: null,
+  setStatus: (status) => {
+    set({ status, page: 1 });
+    get().fetchItems();
+  },
   stats: null,
   loading: false,
   error: null,
   generating: false,
   fetchItems: async () => {
+    const { page, pageSize, search, ordering, status } = get();
     set({ loading: true, error: null });
     try {
-      const data = await getAlerts();
-      set({ items: data, loading: false });
+      const data = await getAlerts({ page, page_size: pageSize, search, ordering, nivel_riesgo: status?.toLowerCase() || undefined });
+      set({ items: data.results, count: data.count, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -50,20 +72,34 @@ export const useAlertsStore = create<AlertsState>((set) => ({
       console.error(error);
     }
   },
+  setPage: (page) => {
+    set({ page });
+    get().fetchItems();
+  },
+  setSearch: (search) => {
+    set({ search, page: 1 });
+    get().fetchItems();
+  },
+  setOrdering: (ordering) => {
+    set({ ordering, page: 1 });
+    get().fetchItems();
+  },
+  setPageSize: (pageSize) => {
+    set({ pageSize, page: 1 });
+    get().fetchItems();
+  },
   addItem: async (data) => {
     try {
-      const newItem = await createAlert(data);
-      set((state) => ({ items: [...state.items, newItem] }));
+      await createAlert(data);
+      get().fetchItems();
     } catch (error: any) {
       set({ error: error.message });
     }
   },
   updateItem: async (id, data) => {
     try {
-      const updatedItem = await updateAlert(id, data);
-      set((state) => ({
-        items: state.items.map((item) => (item.id === id ? updatedItem : item)),
-      }));
+      await updateAlert(id, data);
+      get().fetchItems();
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -71,9 +107,7 @@ export const useAlertsStore = create<AlertsState>((set) => ({
   removeItem: async (id) => {
     try {
       await deleteAlert(id);
-      set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
-      }));
+      get().fetchItems();
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -93,20 +127,16 @@ export const useAlertsStore = create<AlertsState>((set) => ({
   },
   markReviewed: async (id) => {
     try {
-      const updatedItem = await markAlertReviewed(id);
-      set((state) => ({
-        items: state.items.map((item) => (item.id === id ? updatedItem : item)),
-      }));
+      await markAlertReviewed(id);
+      get().fetchItems();
     } catch (error: any) {
       set({ error: error.message });
     }
   },
   markDiscarded: async (id) => {
     try {
-      const updatedItem = await markAlertDiscarded(id);
-      set((state) => ({
-        items: state.items.map((item) => (item.id === id ? updatedItem : item)),
-      }));
+      await markAlertDiscarded(id);
+      get().fetchItems();
     } catch (error: any) {
       set({ error: error.message });
     }

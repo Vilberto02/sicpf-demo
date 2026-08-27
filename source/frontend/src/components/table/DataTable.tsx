@@ -1,13 +1,13 @@
 import {
   useReactTable,
   type ColumnDef,
+  type ColumnFiltersState,
   getCoreRowModel,
   getPaginationRowModel,
   getFilteredRowModel,
   flexRender,
-  type ColumnFiltersState,
 } from "@tanstack/react-table";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ListFilter,
   Eye,
@@ -37,6 +37,14 @@ interface DataTableProps<TData, TValue> {
   onFinance?: (row: TData) => void;
   onBlock?: (row: TData) => void;
   onPrint?: (row: TData) => void;
+  serverSide?: boolean;
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onSearch?: (search: string) => void;
+  onCategoryFilter?: (category: string) => void;
+  customFilters?: React.ReactNode;
 }
 
 const ALIGN_CLASSES = {
@@ -58,20 +66,44 @@ export function DataTable<TData, TValue>({
   onFinance,
   onBlock,
   onPrint,
+  serverSide = false,
+  totalCount = 0,
+  page = 0,
+  pageSize = 10,
+  onPageChange,
+  onSearch,
+  onCategoryFilter,
+  customFilters,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const [itemsPerPage] = useState(10);
+  
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: itemsPerPage,
+    pageIndex: serverSide ? page : 0,
+    pageSize: serverSide ? pageSize : 10,
   });
 
-  const handleSearch = (value: string) => {
+  const handleSearch = useCallback((value: string) => {
     setGlobalFilter(value);
-  };
+    if (serverSide && onSearch) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      const timer = setTimeout(() => {
+        onSearch(value);
+      }, 300);
+      debounceTimerRef.current = timer;
+    }
+  }, [serverSide, onSearch]);
+
+
 
 
   const StatusBadge = ({ status }: { status: string }) => {
@@ -193,38 +225,86 @@ export function DataTable<TData, TValue>({
     ];
   }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onDelete, onFinance, onBlock, onPrint]);
 
+  const displayData = useMemo(() => {
+    if (serverSide) return data;
+    // Client-side filtering as fallback
+    let filtered = data;
+    if (globalFilter) {
+      const term = globalFilter.toLowerCase();
+      filtered = filtered.filter((row) =>
+        Object.values(row as any).some(
+          (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(term)
+        )
+      );
+    }
+    if (selectedCategory && selectedCategory !== "Todos" && selectedCategory !== "Todas las categorias") {
+      filtered = filtered.filter((row) => {
+        const r = row as any;
+        return r.categoria === selectedCategory || r.categoria_nombre === selectedCategory ||
+               r.status === selectedCategory || r.nivel_riesgo === selectedCategory;
+      });
+    }
+    return filtered;
+  }, [data, serverSide, globalFilter, selectedCategory]);
+
+  const effectiveTotalCount = serverSide ? totalCount : displayData.length;
+  const effectivePageCount = Math.max(1, Math.ceil(effectiveTotalCount / (serverSide ? pageSize : pagination.pageSize)));
+  const effectivePageIndex = serverSide ? page : pagination.pageIndex;
+
   const enhancedTable = useReactTable({
-    data,
+    data: displayData,
     columns: enhancedColumns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    getFilteredRowModel: serverSide ? undefined : getFilteredRowModel(),
+    getPaginationRowModel: serverSide ? undefined : getPaginationRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
-    onPaginationChange: setPagination,
+    onPaginationChange: (updater) => {
+      if (!serverSide) {
+        setPagination(updater);
+      }
+    },
+    manualPagination: serverSide,
+    pageCount: effectivePageCount,
     state: {
       columnFilters,
-      globalFilter,
-      pagination,
+      globalFilter: serverSide ? "" : globalFilter,
+      pagination: {
+        pageIndex: effectivePageIndex,
+        pageSize: serverSide ? pageSize : pagination.pageSize,
+      },
     },
   });
 
-  const handleFilterClick = () => {
-    const col = enhancedTable.getColumn("categoria") || enhancedTable.getColumn("category") || enhancedTable.getColumn("status");
-    if (!col) {
-      console.warn("No filterable column found");
-      return;
-    }
-    if (selectedCategory === "Todos" || selectedCategory === "Todas las categorias") {
-      col.setFilterValue("");
+
+  const handleCategoryChange = useCallback((value: string) => {
+    setSelectedCategory(value);
+    const normalizedCategory = value === "Todos" || value === "Todas las categorias" ? "" : value;
+    if (serverSide) {
+      if (onCategoryFilter) {
+        onCategoryFilter(normalizedCategory);
+      }
     } else {
-      col.setFilterValue(selectedCategory);
+      const col = enhancedTable.getColumn("categoria") || enhancedTable.getColumn("category") || enhancedTable.getColumn("status") || enhancedTable.getColumn("estado");
+      if (col) {
+        col.setFilterValue(normalizedCategory);
+      }
+    }
+  }, [serverSide, onCategoryFilter, enhancedTable]);
+
+  const handlePageChange = (newPage: number) => {
+    if (serverSide && onPageChange) {
+      onPageChange(newPage);
+    } else {
+      enhancedTable.setPageIndex(newPage);
     }
   };
 
   if (loading) {
     return <DataTableSkeleton rows={6} columns={Math.min(columns.length + 2, 8)} />;
   }
+
+  const startItem = effectivePageIndex * (serverSide ? pageSize : pagination.pageSize) + 1;
+  const endItem = Math.min((effectivePageIndex + 1) * (serverSide ? pageSize : pagination.pageSize), effectiveTotalCount);
 
   return (
     <div className="w-full rounded-xl bg-card shadow-sm ring-1 ring-black/5 overflow-hidden">
@@ -244,7 +324,7 @@ export function DataTable<TData, TValue>({
           {categories.length > 0 && (
             <Select
               value={selectedCategory}
-              onValueChange={setSelectedCategory}
+              onValueChange={handleCategoryChange}
             >
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Selecciona una opción" />
@@ -259,13 +339,9 @@ export function DataTable<TData, TValue>({
               </SelectContent>
             </Select>
           )}
-        </div>
 
-        {/* Botón de filtro */}
-        <Button className="cursor-pointer" onClick={handleFilterClick}>
-          <ListFilter className="h-4 w-4" />
-          Filtrar
-        </Button>
+          {customFilters}
+        </div>
       </div>
 
       {/* Tabla */}
@@ -325,15 +401,16 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center justify-between p-4 ">
         <div className="flex items-center gap-2">
           <span className="text-sm text-stone-600">
-            Mostrando {enhancedTable.getState().pagination.pageIndex * enhancedTable.getState().pagination.pageSize + 1} a {Math.min((enhancedTable.getState().pagination.pageIndex + 1) * enhancedTable.getState().pagination.pageSize, enhancedTable.getFilteredRowModel().rows.length)} de {enhancedTable.getFilteredRowModel().rows.length} resultados
+            Mostrando {effectiveTotalCount > 0 ? startItem : 0} a {endItem} de {effectiveTotalCount} resultados
           </span>
         </div>
 
         {/* Navegación de páginas */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => enhancedTable.previousPage()}
-            disabled={!enhancedTable.getCanPreviousPage()}
+            type="button"
+            onClick={() => handlePageChange(effectivePageIndex - 1)}
+            disabled={effectivePageIndex <= 0}
             className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -341,15 +418,16 @@ export function DataTable<TData, TValue>({
 
           <div className="flex items-center gap-1">
             {(() => {
-              const pageCount = enhancedTable.getPageCount();
-              const current = enhancedTable.getState().pagination.pageIndex;
+              const pageCount = effectivePageCount;
+              const current = effectivePageIndex;
 
               const renderPageButton = (pageIndex: number) => {
                 const isActive = current === pageIndex;
                 return (
                   <button
+                    type="button"
                     key={pageIndex}
-                    onClick={() => enhancedTable.setPageIndex(pageIndex)}
+                    onClick={() => handlePageChange(pageIndex)}
                     className={`min-w-[32px] h-8 flex items-center justify-center rounded-md text-sm transition-colors px-2 cursor-pointer ${
                       isActive
                         ? "bg-primary text-primary-foreground font-bold shadow-sm"
@@ -379,10 +457,11 @@ export function DataTable<TData, TValue>({
               ));
             })()}
           </div>
-          
+
           <button
-            onClick={() => enhancedTable.nextPage()}
-            disabled={!enhancedTable.getCanNextPage()}
+            type="button"
+            onClick={() => handlePageChange(effectivePageIndex + 1)}
+            disabled={effectivePageIndex >= effectivePageCount - 1}
             className="p-1 text-stone-500 hover:text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <ChevronRight className="h-5 w-5" />

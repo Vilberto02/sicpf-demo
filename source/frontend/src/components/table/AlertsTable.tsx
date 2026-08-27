@@ -14,7 +14,10 @@ import {
 import { AlertDetailDialog } from "@/features/alerts/components/AlertDetailDialog";
 
 export function AlertsTable() {
-  const { items, fetchItems, loading, markReviewed, markDiscarded } = useAlertsStore();
+  const {
+    items, fetchItems, loading, markReviewed, markDiscarded,
+    count, page, pageSize, setPage, setSearch, setStatus
+  } = useAlertsStore();
   const [selectedAlert, setSelectedAlert] = useState<AlertItemType | null>(null);
 
   useEffect(() => {
@@ -133,7 +136,14 @@ export function AlertsTable() {
         searchPlaceholder="Buscar por producto"
         categories={["Alto", "Medio", "Bajo"]}
         statusHeaderProps="N. Riesgo"
+        onCategoryFilter={setStatus}
         loading={loading}
+        serverSide
+        totalCount={count}
+        page={page - 1}
+        pageSize={pageSize}
+        onPageChange={(p) => setPage(p + 1)}
+        onSearch={setSearch}
       />
       <AlertDetailDialog alerta={selectedAlert} onClose={() => setSelectedAlert(null)} />
     </>

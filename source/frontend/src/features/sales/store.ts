@@ -11,6 +11,11 @@ import {
 
 interface SalesState {
   items: SaleItemType[];
+  count: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  ordering: string;
   stats: any | null;
   myStats: any | null;
   loading: boolean;
@@ -18,22 +23,46 @@ interface SalesState {
   fetchItems: () => Promise<void>;
   fetchStats: () => Promise<void>;
   fetchMyStats: () => Promise<void>;
+  setPage: (page: number) => void;
+  setSearch: (search: string) => void;
+  setOrdering: (ordering: string) => void;
+  setPageSize: (size: number) => void;
+  usuarioId: string | null;
+  setUsuarioId: (id: string | null) => void;
+  status: string | null;
+  setStatus: (status: string | null) => void;
   addItem: (data: SaleItemType) => Promise<void>;
   updateItem: (id: number, data: Partial<SaleItemType>) => Promise<void>;
   removeItem: (id: number) => Promise<void>;
 }
 
-export const useSalesStore = create<SalesState>((set) => ({
+export const useSalesStore = create<SalesState>((set, get) => ({
   items: [],
+  count: 0,
+  page: 1,
+  pageSize: 20,
+  search: "",
+  ordering: "-fecha",
   stats: null,
   myStats: null,
   loading: false,
   error: null,
+  usuarioId: null,
+  setUsuarioId: (id) => {
+    set({ usuarioId: id, page: 1 });
+    get().fetchItems();
+  },
+  status: null,
+  setStatus: (status) => {
+    set({ status, page: 1 });
+    get().fetchItems();
+  },
   fetchItems: async () => {
+    const { page, pageSize, search, ordering, usuarioId, status } = get();
     set({ loading: true, error: null });
     try {
-      const data = await getSales();
-      set({ items: data, loading: false });
+      const data = await getSales({ page, page_size: pageSize, search, ordering, usuario: usuarioId || undefined, estado: status || undefined });
+      set({ items: data.results, count: data.count, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -54,10 +83,27 @@ export const useSalesStore = create<SalesState>((set) => ({
       console.error(error);
     }
   },
+  setPage: (page) => {
+    set({ page });
+    get().fetchItems();
+  },
+  setSearch: (search) => {
+    set({ search, page: 1 });
+    get().fetchItems();
+  },
+  setOrdering: (ordering) => {
+    set({ ordering, page: 1 });
+    get().fetchItems();
+  },
+  setPageSize: (pageSize) => {
+    set({ pageSize, page: 1 });
+    get().fetchItems();
+  },
   addItem: async (data) => {
     try {
-      const newItem = await createSale(data);
-      set((state) => ({ items: [...state.items, newItem] }));
+      await createSale(data);
+      get().fetchItems();
+      get().fetchStats();
     } catch (error: any) {
       set({ error: error.message });
       throw error;
@@ -65,10 +111,9 @@ export const useSalesStore = create<SalesState>((set) => ({
   },
   updateItem: async (id, data) => {
     try {
-      const updatedItem = await updateSale(id, data);
-      set((state) => ({
-        items: state.items.map((item) => (item.id === id ? updatedItem : item)),
-      }));
+      await updateSale(id, data);
+      get().fetchItems();
+      get().fetchStats();
     } catch (error: any) {
       set({ error: error.message });
       throw error;
@@ -77,9 +122,8 @@ export const useSalesStore = create<SalesState>((set) => ({
   removeItem: async (id) => {
     try {
       await deleteSale(id);
-      set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
-      }));
+      get().fetchItems();
+      get().fetchStats();
     } catch (error: any) {
       set({ error: error.message });
       throw error;

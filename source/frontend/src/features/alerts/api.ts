@@ -1,9 +1,11 @@
 import { apiClient } from "@/lib/apiClient";
 import type { AlertItemType } from "./types";
+import type { PaginatedResponse } from "@/types";
 
 export const getAlertsStats = () => apiClient<any>("/alerts/stats/");
 
-export const getAlerts = () => apiClient<AlertItemType[]>("/alertas/");
+export const getAlerts = (params?: Record<string, string | number | boolean | undefined | null>) =>
+  apiClient<PaginatedResponse<AlertItemType>>("/alertas/", { params });
 export const createAlert = (data: AlertItemType) =>
   apiClient<AlertItemType>("/alertas/create/", {
     method: "POST",

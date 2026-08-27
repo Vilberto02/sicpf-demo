@@ -23,7 +23,7 @@ export function DoughnutChart({ labels, values, colors }: DoughnutChartProps) {
   }
 
   // Dataset y opciones ajustadas para replicar el estilo del diseño.
-  const total = values.reduce((sum, cur) => sum + cur, 0);
+  const total = (values || []).reduce((sum, cur) => sum + cur, 0);
   const data = {
     labels: labels,
     datasets: [

@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useInventoryStore } from "@/features/inventory/store";
+import { getLoteCatalogo } from "@/features/inventory/api";
 import type { ProductoType } from "@/features/products/types";
+import type { LoteType } from "@/types/types";
 
 interface ProductDetailsModalProps {
   product: ProductoType | null;
@@ -22,14 +23,18 @@ const getLoteEstadoBadge = (estado: string) => {
 };
 
 export function ProductDetailsModal({ product, onClose }: ProductDetailsModalProps) {
-  const { items: lotes, fetchItems } = useInventoryStore();
+  const [lotesProducto, setLotesProducto] = useState<LoteType[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (product) fetchItems();
-  }, [product?.id]);
-  const lotesProducto = product
-    ? lotes.filter((lote) => lote.producto === product.id)
-    : [];
+    if (product) {
+      setLoading(true);
+      getLoteCatalogo({ producto: product.id, page_size: 100 })
+        .then((data) => setLotesProducto(data.results))
+        .catch(() => setLotesProducto([]))
+        .finally(() => setLoading(false));
+    }
+  }, [product]);
 
   return (
     <Dialog open={!!product} onOpenChange={(open) => !open && onClose()}>
@@ -110,21 +115,31 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {lotesProducto.map((lote) => (
-                      <tr key={lote.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium">{lote.codigo_lote}</td>
-                        <td className="px-4 py-3">{new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(lote.fecha_vencimiento))}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{lote.stock_real}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{lote.stock_flotante}</td>
-                        <td className="px-4 py-3">{getLoteEstadoBadge(lote.estado)}</td>
-                      </tr>
-                    ))}
-                    {lotesProducto.length === 0 && (
+                    {loading ? (
                       <tr>
                         <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                          Este producto no tiene lotes registrados.
+                          Cargando lotes...
                         </td>
                       </tr>
+                    ) : (
+                      <>
+                        {lotesProducto.map((lote) => (
+                          <tr key={lote.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-4 py-3 font-medium">{lote.codigo_lote}</td>
+                            <td className="px-4 py-3">{new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(lote.fecha_vencimiento))}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{lote.stock_real}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{lote.stock_flotante}</td>
+                            <td className="px-4 py-3">{getLoteEstadoBadge(lote.estado)}</td>
+                          </tr>
+                        ))}
+                        {lotesProducto.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                              Este producto no tiene lotes registrados.
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     )}
                   </tbody>
                 </table>

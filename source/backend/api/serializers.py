@@ -95,16 +95,24 @@ class AlertaSerializer(serializers.ModelSerializer):
         model = Alerta
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._ctx_cache = {}
+
     def get_tendencia_consumo(self, obj):
         if obj.prediccion:
             return obj.prediccion.tendencia_consumo
         return None
 
     def _contexto_producto(self, obj):
+        obj_id = obj.id
+        if obj_id in self._ctx_cache:
+            return self._ctx_cache[obj_id]
+
         lotes = list(obj.producto.lotes.all())
         stock_real = sum(l.stock_real for l in lotes)
         stock_flotante = sum(l.stock_flotante for l in lotes)
-        return {
+        ctx = {
             'lotes': lotes,
             'stock_real': stock_real,
             'stock_flotante': stock_flotante,
@@ -115,6 +123,8 @@ class AlertaSerializer(serializers.ModelSerializer):
                 obj.producto, dias=30
             ),
         }
+        self._ctx_cache[obj_id] = ctx
+        return ctx
 
     def get_stock_actual_real(self, obj):
         return self._contexto_producto(obj)['stock_real']
@@ -298,12 +308,19 @@ class UsuarioSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"username": "username y password son obligatorios para crear un usuario."}
             )
+
+        # Extraer los datos mapeados a 'user'
+        user_data = validated_data.pop('user', {})
+        email = user_data.get('email', '')
+        first_name = user_data.get('first_name', '')
+        last_name = user_data.get('last_name', '')
+
         user = User.objects.create_user(
             username=username,
             password=password,
-            email=validated_data.get('email', ''),
-            first_name=validated_data.get('nombre', ''),
-            last_name=validated_data.get('apellido', ''),
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
         )
         instance = Usuario.objects.create(user=user, **validated_data)
         sync_user_groups(user, instance.rol)
@@ -313,9 +330,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
         rol_anterior = instance.rol_id
         username = validated_data.pop('username', None)
         password = validated_data.pop('password', None)
-        nombre = validated_data.pop('nombre', None)
-        apellido = validated_data.pop('apellido', None)
-        email = validated_data.pop('email', None)
+        
+        # Extraer los datos del dict anidado 'user'
+        user_data = validated_data.pop('user', {})
+        first_name = user_data.get('first_name')
+        last_name = user_data.get('last_name')
+        email = user_data.get('email')
 
         user = instance.user
         if user:
@@ -323,13 +343,13 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 user.username = username
             if password:
                 user.set_password(password)
-            if nombre is not None:
-                user.first_name = nombre
-            if apellido is not None:
-                user.last_name = apellido
+            if first_name is not None:
+                user.first_name = first_name
+            if last_name is not None:
+                user.last_name = last_name
             if email is not None:
                 user.email = email
-            if any(v is not None for v in (username, password, nombre, apellido, email)):
+            if any(v is not None for v in (username, password, first_name, last_name, email)):
                 user.save()
 
         instance = super().update(instance, validated_data)

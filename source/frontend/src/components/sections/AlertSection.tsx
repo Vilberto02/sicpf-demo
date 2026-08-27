@@ -18,7 +18,7 @@ export function AlertSection() {
     try {
       const result = await generateAlerts();
       toast.success(`Se generaron ${result.generadas} alertas`);
-    } catch (error) {
+    } catch {
       toast.error("Error al generar alertas");
     }
   };

@@ -3,6 +3,7 @@ import { ChartNoAxesColumn } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Skeleton } from "../ui/skeleton";
 import { InventoryItem } from "../InventoryItem";
+import type { StateType, LevelType } from "../InventoryItem";
 import { RecommendationItem } from "../RecommendationItem";
 import { BarChart } from "../charts/BarChart";
 import { useRecommendationsStore } from "@/features/recommendations/store";
@@ -101,18 +102,18 @@ export function OverviewSection() {
                       if (a.producto_estado !== "vencido" && b.producto_estado === "vencido") return 1;
                       return 0;
                     });
-                  
+
                   if (filteredAndSortedInvItems.length === 0) {
                     return <p className="text-sm text-muted-foreground mt-4">Aún no hay productos con estados críticos registrados.</p>;
                   }
-                  
+
                   return filteredAndSortedInvItems.map((product) => (
                     <InventoryItem
                       key={product.codigo_lote}
                       variant="state"
                       code={product.producto_codigo}
                       title={product.producto_nombre}
-                      state={product.producto_estado as any}
+                      state={product.producto_estado as StateType}
                     ></InventoryItem>
                   ));
                 })()}
@@ -135,7 +136,7 @@ export function OverviewSection() {
                       key={product.id}
                       variant="level"
                       title={product.producto_nombre}
-                      level={product.nivel_riesgo as any}
+                      level={product.nivel_riesgo as LevelType}
                     ></InventoryItem>
                   ))
                 )}
