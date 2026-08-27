@@ -18,6 +18,7 @@ class Categoria(models.Model):
     class Meta:
         verbose_name_plural = 'Categorías'
         verbose_name = 'Categoría'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -58,6 +59,11 @@ class Producto(models.Model):
     class Meta:
         verbose_name_plural = 'Productos'
         verbose_name = 'Producto'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='idx_producto_created_at'),
+            models.Index(fields=['categoria'], name='idx_producto_categoria'),
+        ]
 
     def save(self, *args, **kwargs):
         from decimal import Decimal
@@ -103,6 +109,12 @@ class Lote(models.Model):
     class Meta:
         verbose_name_plural = 'Lotes'
         verbose_name = 'Lote'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='idx_lote_created_at'),
+            models.Index(fields=['fecha_vencimiento'], name='idx_lote_fecha_venc'),
+            models.Index(fields=['producto'], name='idx_lote_producto'),
+        ]
 
     def __str__(self):
         return f"Lote {self.codigo_lote} ({self.producto.nombre})"
@@ -155,6 +167,13 @@ class Alerta(models.Model):
     class Meta:
         verbose_name_plural = 'Alertas'
         verbose_name = 'Alerta'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='idx_alerta_created_at'),
+            models.Index(fields=['estado'], name='idx_alerta_estado'),
+            models.Index(fields=['fecha_alerta'], name='idx_alerta_fecha'),
+            models.Index(fields=['producto'], name='idx_alerta_producto'),
+        ]
 
     def __str__(self):
         return f"Alerta: {self.alerta} - Riesgo: {self.nivel_riesgo}"
@@ -181,6 +200,7 @@ class Cliente(models.Model):
     class Meta:
         verbose_name_plural = 'Clientes'
         verbose_name = 'Cliente'
+        ordering = ['nombre', 'apellido']
 
     def __str__(self):
         if self.apellido:
@@ -226,6 +246,7 @@ class Usuario(models.Model):
     class Meta:
         verbose_name_plural = 'Usuarios'
         verbose_name = 'Usuario'
+        ordering = ['user__first_name']
 
     @property
     def nombre(self):
@@ -258,6 +279,12 @@ class Venta(models.Model):
     class Meta:
         verbose_name_plural = 'Ventas'
         verbose_name = 'Venta'
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['-fecha'], name='idx_venta_fecha'),
+            models.Index(fields=['estado'], name='idx_venta_estado'),
+            models.Index(fields=['cliente'], name='idx_venta_cliente'),
+        ]
 
     def __str__(self):
         return f"Venta {self.codigo}"

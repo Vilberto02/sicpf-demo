@@ -1,9 +1,9 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Count, F, Q
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
+    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
     DIAS_HORIZONTE_VENCIMIENTO
 )
@@ -12,8 +12,12 @@ class BaseService:
     model = None
 
     @classmethod
-    def get_all(cls):
+    def get_queryset(cls):
         return cls.model.objects.all()
+
+    @classmethod
+    def get_all(cls):
+        return cls.get_queryset()
 
     @classmethod
     def get_by_id(cls, pk):
@@ -45,14 +49,30 @@ class PresentacionService(BaseService):
 class ProductoService(BaseService):
     model = Producto
 
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.select_related('categoria', 'presentacion').prefetch_related('lotes')
+
 class LoteService(BaseService):
     model = Lote
+
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.select_related(
+            'producto', 'producto__categoria', 'producto__presentacion'
+        )
 
 class PrediccionMLService(BaseService):
     model = PrediccionML
 
 class AlertaService(BaseService):
     model = Alerta
+
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.select_related(
+            'producto', 'producto__categoria', 'producto__presentacion', 'prediccion'
+        )
 
 class RecomendacionService(BaseService):
     model = Recomendacion
@@ -69,8 +89,16 @@ class RolService(BaseService):
 class UsuarioService(BaseService):
     model = Usuario
 
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.select_related('user', 'rol', 'sede')
+
 class VentaService(BaseService):
     model = Venta
+
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.select_related('cliente', 'usuario', 'usuario__user').prefetch_related('detalles', 'detalles__producto')
 
 class DetalleVentaService(BaseService):
     model = DetalleVenta
@@ -83,10 +111,10 @@ class AlertGenerationService:
     def generate_all(cls):
         alertas_generadas = []
 
-        for producto in Producto.objects.all():
+        for producto in Producto.objects.select_related('presentacion').prefetch_related('lotes').all():
             cls._delete_old_alerts(producto)
 
-            lotes = producto.lotes.all()
+            lotes = list(producto.lotes.all())
             lotes_vigentes = [l for l in lotes if l.fecha_vencimiento >= date.today()]
             stock_total_real = sum(l.stock_real for l in lotes)
             stock_total_flotante = sum(l.stock_flotante for l in lotes)
@@ -155,11 +183,6 @@ class AlertGenerationService:
 
     @classmethod
     def _unidades_equivalentes(cls, producto):
-        """Factor de conversion de 1 stock_real a unidades minimas.
-
-        Debe coincidir con la conversion usada al registrar ventas
-        (VentaSerializer.create).
-        """
         return max(
             producto.unidades_por_caja,
             producto.blisters_por_caja * producto.unidades_por_blister
@@ -167,29 +190,21 @@ class AlertGenerationService:
 
     @classmethod
     def _total_unidades(cls, stock_real, stock_flotante, producto):
-        """Convierte stock real + flotante a unidades minimas vendibles."""
         return (stock_real * cls._unidades_equivalentes(producto)) + stock_flotante
 
     @classmethod
     def _calcular_dias_cobertura(cls, stock_real, stock_flotante, producto):
-        """Dias de cobertura = unidades disponibles / consumo promedio diario."""
         ventas_promedio = cls._get_ventas_promedio(producto, dias=30)
         total_unidades = cls._total_unidades(stock_real, stock_flotante, producto)
-
         if ventas_promedio == 0:
             return 999
-
         return int(total_unidades / ventas_promedio)
 
     @classmethod
     def _get_ventas_promedio(cls, producto, dias=30):
-        """Consumo promedio diario en unidades minimas (cajas + blisters + sueltas)."""
-        # Se usa un rango de datetimes en lugar del lookup __date porque en SQLite
-        # este ultimo falla si hay filas con fecha almacenada sin componente horario.
         fecha_inicio = timezone.make_aware(
             datetime.combine(date.today() - timedelta(days=dias), time.min)
         )
-
         ventas = DetalleVenta.objects.filter(
             producto=producto,
             venta__fecha__gte=fecha_inicio,
@@ -199,17 +214,14 @@ class AlertGenerationService:
             total_flotante=Sum('cantidad_flotante'),
             total_blister=Sum('cantidad_blister')
         )
-
         total_real = ventas['total_real'] or 0
         total_flotante = ventas['total_flotante'] or 0
         total_blister = ventas['total_blister'] or 0
-
         total_unidades = (
             (total_real * cls._unidades_equivalentes(producto)) +
             (total_blister * producto.unidades_por_blister) +
             total_flotante
         )
-
         return total_unidades / dias if dias > 0 else 0
 
     @classmethod
@@ -220,7 +232,6 @@ class AlertGenerationService:
             incumplidas.append(f"cajas ({stock_total} <= {min_real})")
         if stock_flotante <= min_flotante:
             incumplidas.append(f"unidades sueltas ({stock_flotante} <= {min_flotante})")
-
         etiqueta = "Stock critico" if tipo == 'critico' else "Stock bajo"
         mensaje = (
             f"{etiqueta} para {producto.nombre}. "
@@ -228,7 +239,6 @@ class AlertGenerationService:
             f"Minimo definido: {min_real} cajas / {min_flotante} unidades. "
             f"Incumple: {', '.join(incumplidas)}"
         )
-
         return Alerta.objects.create(
             producto=producto,
             alerta=mensaje,
@@ -247,12 +257,10 @@ class AlertGenerationService:
                                   total_unidades, dias_cobertura, min_real, min_flotante,
                                   nivel, tipo):
         dias_vencimiento = (lote.fecha_vencimiento - date.today()).days
-
         if tipo == 'vencido':
             mensaje = f"Producto {producto.nombre} vencido. Lote: {lote.codigo_lote}"
         else:
             mensaje = f"Producto {producto.nombre} vence en {dias_vencimiento} dias. Lote: {lote.codigo_lote}"
-
         return Alerta.objects.create(
             producto=producto,
             alerta=mensaje,
@@ -270,7 +278,6 @@ class AlertGenerationService:
     def _crear_alerta_quiebre(cls, producto, stock_total, stock_flotante, total_unidades,
                               dias_cobertura, min_real, min_flotante, nivel):
         mensaje = f"Riesgo de quiebre para {producto.nombre} en {dias_cobertura} dias"
-
         return Alerta.objects.create(
             producto=producto,
             alerta=mensaje,

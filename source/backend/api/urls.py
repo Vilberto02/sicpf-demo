@@ -28,6 +28,7 @@ urlpatterns = [
 
     # Lote
     path('lotes/', views.LoteListView.as_view(), name='lote-list'),
+    path('lotes/catalogo/', views.LoteCatalogoView.as_view(), name='lote-catalogo'),
     path('lotes/create/', views.LoteCreateView.as_view(), name='lote-create'),
     path('lotes/<int:pk>/', views.LoteDetailView.as_view(), name='lote-detail'),
     path('lotes/<int:pk>/update/', views.LoteUpdateView.as_view(), name='lote-update'),
