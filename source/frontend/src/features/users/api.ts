@@ -1,9 +1,11 @@
 import { apiClient } from "@/lib/apiClient";
 import type { RolItemType, UsuarioItemType } from "./types";
+import type { PaginatedResponse } from "@/types";
 
-export const getUsers = () => apiClient<UsuarioItemType[]>("/usuarios/");
-export const getRoles = () => apiClient<RolItemType[]>("/roles/");
-export const getSedes = () => apiClient<{ id: number; nombre: string; direccion?: string | null }[]>("/sedes/");
+export const getUsers = (params?: Record<string, string | number | boolean | undefined | null>) =>
+  apiClient<PaginatedResponse<UsuarioItemType>>("/usuarios/", { params });
+export const getRoles = () => apiClient<PaginatedResponse<RolItemType>>("/roles/");
+export const getSedes = () => apiClient<PaginatedResponse<{ id: number; nombre: string; direccion?: string | null }>>("/sedes/");
 
 export const createUser = (data: Partial<UsuarioItemType>) =>
   apiClient<UsuarioItemType>("/usuarios/create/", {

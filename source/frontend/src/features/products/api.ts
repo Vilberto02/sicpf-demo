@@ -4,8 +4,10 @@ import type {
   CategoriaType,
   PresentacionType,
 } from "./types";
+import type { PaginatedResponse } from "@/types";
 
-export const getProducts = () => apiClient<ProductoType[]>("/productos/");
+export const getProducts = (params?: Record<string, string | number | boolean | undefined | null>) =>
+  apiClient<PaginatedResponse<ProductoType>>("/productos/", { params });
 export const createProduct = (data: Partial<ProductoType>) =>
   apiClient<ProductoType>("/productos/create/", {
     method: "POST",
@@ -25,6 +27,6 @@ export const getProductStats = () =>
     por_vencer: number;
     vencidos: number;
   }>("/productos/stats/");
-export const getCategorias = () => apiClient<CategoriaType[]>("/categorias/");
+export const getCategorias = () => apiClient<PaginatedResponse<CategoriaType>>("/categorias/");
 export const getPresentaciones = () =>
-  apiClient<PresentacionType[]>("/presentaciones/");
+  apiClient<PaginatedResponse<PresentacionType>>("/presentaciones/");

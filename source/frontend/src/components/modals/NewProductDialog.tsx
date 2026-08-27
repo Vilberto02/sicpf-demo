@@ -87,10 +87,10 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
   useEffect(() => {
     if (!isOpen) return;
     getCategorias()
-      .then(setCategorias)
+      .then((data) => setCategorias(Array.isArray(data) ? data : data.results ?? []))
       .catch((e) => toast.error(`Error al cargar categorías: ${e.message}`));
     getPresentaciones()
-      .then(setPresentaciones)
+      .then((data) => setPresentaciones(Array.isArray(data) ? data : data.results ?? []))
       .catch((e) => toast.error(`Error al cargar presentaciones: ${e.message}`));
   }, [isOpen]);
 

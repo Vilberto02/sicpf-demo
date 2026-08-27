@@ -89,7 +89,7 @@ function MainPageSkeleton() {
 
 export function MainPage() {
   const [activeItem, setActiveItem] = useState("general");
-  const [isSidebarOpen, setIsSiderOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { isAuthenticated, isCheckingAuth, fetchProfile, userProfile } = useAuthStore();
 
   const isAdminUser =
@@ -127,7 +127,7 @@ export function MainPage() {
   const email = userProfile?.email || "usuario@ejemplo.com";
 
   const toggleSidebar = () => {
-    setIsSiderOpen(!isSidebarOpen);
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
   return (

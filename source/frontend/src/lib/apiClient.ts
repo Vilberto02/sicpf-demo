@@ -2,13 +2,24 @@ const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 interface ApiClientOptions extends RequestInit {
   body?: any;
+  params?: Record<string, string | number | boolean | undefined | null>;
+}
+
+function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      qs.append(key, String(value));
+    }
+  }
+  return qs.toString();
 }
 
 export async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {}
 ): Promise<T> {
-  const { headers, ...customConfig } = options;
+  const { headers, params, ...customConfig } = options;
 
   // You can extract token from localStorage if you use one
   const token = localStorage.getItem("token");
@@ -23,7 +34,11 @@ export async function apiClient<T>(
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  const url = params
+    ? `${API_BASE_URL}${endpoint}${endpoint.includes("?") ? "&" : "?"}${buildQueryString(params)}`
+    : `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, config);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

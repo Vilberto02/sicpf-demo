@@ -1,8 +1,9 @@
 import { apiClient } from "@/lib/apiClient";
 import type { RecommendationItemType } from "./types";
+import type { PaginatedResponse } from "@/types";
 
-export const getRecommendations = () =>
-  apiClient<RecommendationItemType[]>("/recomendaciones/");
+export const getRecommendations = (params?: Record<string, string | number | boolean | undefined | null>) =>
+  apiClient<PaginatedResponse<RecommendationItemType>>("/recomendaciones/", { params });
 export const createRecommendation = (data: RecommendationItemType) =>
   apiClient<RecommendationItemType>("/recomendaciones/create/", {
     method: "POST",
