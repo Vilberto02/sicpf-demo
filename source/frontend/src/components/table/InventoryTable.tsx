@@ -1,5 +1,5 @@
 // pages/ProductosTable.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/table/DataTable";
 import type { InventoryItemType } from "@/features/inventory/types";
@@ -8,7 +8,10 @@ import { LoteDetailsModal } from "../modals/LoteDetailsModal";
 import { LoteSheet } from "../modals/LoteSheet";
 
 export default function InventoryTable() {
-  const { items, categories, fetchItems, fetchCategories, loading, fetchStats } = useInventoryStore();
+  const {
+    items, categories, fetchItems, fetchCategories, loading, fetchStats,
+    count, page, pageSize, setPage, setStatus
+  } = useInventoryStore();
   const [viewingLote, setViewingLote] = useState<InventoryItemType | null>(null);
   const [editingLote, setEditingLote] = useState<InventoryItemType | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -17,15 +20,6 @@ export default function InventoryTable() {
     fetchItems();
     fetchCategories();
   }, [fetchItems, fetchCategories]);
-
-  const recentItemsFirst = useMemo(
-    () =>
-      [...items].sort(
-        (a, b) =>
-          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-      ),
-    [items]
-  );
 
   const getEstadoBadge = (estado: string) => {
     const styles: Record<string, string> = {
@@ -113,7 +107,7 @@ export default function InventoryTable() {
       id: "status",
       accessorKey: "estado",
       header: "Estado",
-      cell: ({ row }) => getEstadoBadge(row.original.estado) 
+      cell: ({ row }) => getEstadoBadge(row.original.estado)
     },
   ];
 
@@ -130,13 +124,20 @@ export default function InventoryTable() {
     <>
       <DataTable
         columns={inventoryColumns}
-        data={recentItemsFirst}
+        data={items}
         searchPlaceholder="Buscar por nombre o lote"
         categories={categories?.labels || []}
         statusHeaderProps="Estado"
+        onCategoryFilter={setStatus}
         loading={loading}
         onView={handleView}
         onEdit={handleEdit}
+        serverSide
+        totalCount={count}
+        page={page - 1}
+        pageSize={pageSize}
+        onPageChange={(p) => setPage(p + 1)}
+        onSearch={(search) => useInventoryStore.getState().setSearch(search)}
       />
 
       <LoteDetailsModal

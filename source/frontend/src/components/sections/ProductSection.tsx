@@ -9,23 +9,26 @@ import { Button } from "@/components/ui/button";
 import { NewProductDialog } from "@/components/modals/NewProductDialog";
 import { ProductDetailsModal } from "@/components/modals/ProductDetailsModal";
 import { useProductStore } from "@/features/products/store";
+import { useInventoryStore } from "@/features/inventory/store";
 import type { ProductoType } from "@/features/products/types";
 
 export function ProductSection() {
-  const { products, stats, fetchProducts, fetchStats, removeProduct, loading } = useProductStore();
+  const {
+    products, stats, count, page, pageSize,
+    fetchProducts, fetchStats, removeProduct, loading,
+    setPage, setSearch, setCategory
+  } = useProductStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductoType | null>(null);
   const [viewingProduct, setViewingProduct] = useState<ProductoType | null>(null);
 
+  const { categories: inventoryCategories, fetchCategories } = useInventoryStore();
+
   useEffect(() => {
     fetchProducts();
     fetchStats();
-  }, [fetchProducts, fetchStats]);
-
-  const recentProductsFirst = [...products].sort(
-    (a, b) =>
-      new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-  );
+    fetchCategories();
+  }, [fetchProducts, fetchStats, fetchCategories]);
 
   const getEstadoBadge = (estado: string) => {
     const styles: Record<string, string> = {
@@ -121,10 +124,6 @@ export function ProductSection() {
     },
   ];
 
-  const categories = Array.from(
-    new Set(products.map((p) => p.categoria_nombre).filter(Boolean))
-  ) as string[];
-
   return (
     <div className="flex flex-col gap-8 min-w-0 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -181,14 +180,21 @@ export function ProductSection() {
       <div className="w-full min-w-0">
         <DataTable
           columns={productColumns}
-          data={recentProductsFirst}
+          data={products}
           searchPlaceholder="Buscar por código o nombre"
-          categories={categories}
+          categories={inventoryCategories?.labels || []}
+          onCategoryFilter={setCategory}
           statusHeaderProps="Estado"
           loading={loading}
           onView={setViewingProduct}
           onEdit={openEditDialog}
           onDelete={handleDelete}
+          serverSide
+          totalCount={count}
+          page={page - 1}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p + 1)}
+          onSearch={setSearch}
         />
       </div>
 

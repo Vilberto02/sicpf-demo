@@ -62,7 +62,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   changeOwnPassword: async (data) => {
-    const result = await changePassword(data);
-    return { ok: true, logoutRequired: result.logout_required };
+    try {
+      const result = await changePassword(data);
+      return { ok: true, logoutRequired: result.logout_required };
+    } catch (error) {
+      throw error;
+    }
   }
 }));

@@ -5,14 +5,34 @@ import type { SaleItemType } from "@/features/sales/types";
 import { useSalesStore } from "@/features/sales/store";
 import { toast } from "sonner";
 import { SaleDetailsModal } from "@/components/modals/SaleDetailsModal";
+import { useAuthStore } from "@/features/auth/store";
+import { getUsers } from "@/features/users/api";
+import type { UsuarioItemType } from "@/features/users/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function SalesTable() {
-  const { items, fetchItems, loading, updateItem, fetchStats } = useSalesStore();
+  const {
+    items, fetchItems, loading, updateItem, fetchStats,
+    count, page, pageSize, setPage, setSearch,
+    usuarioId, setUsuarioId, setStatus
+  } = useSalesStore();
   const [selectedSale, setSelectedSale] = useState<SaleItemType | null>(null);
+  
+  const { userProfile } = useAuthStore();
+  const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
+  const [vendedores, setVendedores] = useState<UsuarioItemType[]>([]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      getUsers({ page_size: 100 }).then(data => {
+        setVendedores(Array.isArray(data) ? data : data.results ?? []);
+      }).catch(err => console.error(err));
+    }
+  }, [isAdmin]);
 
   const getEstadoBadge = (estado: string) => {
     const styles: Record<string, string> = {
@@ -82,7 +102,7 @@ export function SalesTable() {
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
-    
+
     let filasHTML = '';
     if (row.detalles) {
       row.detalles.forEach((d: any) => {
@@ -92,7 +112,7 @@ export function SalesTable() {
         if (d.cantidad_real > 0) { qty = d.cantidad_real; type = 'Cj'; total = d.cantidad_real * d.precio_real; }
         else if (d.cantidad_blister > 0) { qty = d.cantidad_blister; type = 'Bl'; total = d.cantidad_blister * d.precio_blister; }
         else if (d.cantidad_flotante > 0) { qty = d.cantidad_flotante; type = 'Und'; total = d.cantidad_flotante * d.precio_flotante; }
-        
+
         if (qty > 0) {
            filasHTML += `<tr>
              <td>${qty} ${type}</td>
@@ -148,7 +168,7 @@ export function SalesTable() {
         </body>
       </html>
     `;
-    
+
     if (iframe.contentWindow) {
       iframe.contentWindow.document.write(content);
       iframe.contentWindow.document.close();
@@ -163,9 +183,9 @@ export function SalesTable() {
       toast.error("Esta venta ya ha sido anulada");
       return;
     }
-    
+
     const { default: Swal } = await import('sweetalert2');
-    
+
     const result = await Swal.fire({
        title: '¿Anular Venta?',
        text: `¿Estás seguro que deseas anular la venta ${row.codigo}? El stock de los productos será devuelto al inventario.`,
@@ -176,7 +196,7 @@ export function SalesTable() {
        confirmButtonText: 'Sí, anular',
        cancelButtonText: 'Cancelar'
     });
-    
+
     if (result.isConfirmed) {
        try {
          await updateItem(row.id!, { estado: "Cancelado" });
@@ -189,20 +209,42 @@ export function SalesTable() {
     }
   };
 
-  const sortedItems = [...items].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
   return (
     <div className="space-y-4">
       <DataTable
         columns={salesColumns}
-        data={sortedItems}
+        data={items}
         searchPlaceholder="Buscar por cliente"
         categories={["Completado", "Pendiente", "Cancelado"]}
         statusHeaderProps="Estado"
+        onCategoryFilter={setStatus}
         loading={loading}
         onView={handleView}
         onPrint={handlePrint}
         onBlock={handleBlock}
+        serverSide
+        totalCount={count}
+        page={page - 1}
+        pageSize={pageSize}
+        onPageChange={(p) => setPage(p + 1)}
+        onSearch={setSearch}
+        customFilters={
+          isAdmin && (
+            <Select value={usuarioId || "Todos"} onValueChange={(val) => setUsuarioId(val === "Todos" ? null : val)}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Vendedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos los vendedores</SelectItem>
+                {vendedores.map((v) => (
+                  <SelectItem key={v.id} value={v.id.toString()}>
+                    {v.nombre} {v.apellido}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
       />
 
       <SaleDetailsModal sale={selectedSale} onClose={() => setSelectedSale(null)} />
