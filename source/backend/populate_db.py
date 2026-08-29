@@ -4,6 +4,7 @@ import django
 import random
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from faker import Faker
 
 from django.utils import timezone
 
@@ -16,6 +17,8 @@ from api.models import (
 )
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
+
+fake = Faker('es_ES')
 
 def populate():
     print("Limpiando base de datos (Django ORM)...")
@@ -32,40 +35,59 @@ def populate():
     Usuario.objects.all().delete()
     Rol.objects.all().delete()
     Sede.objects.all().delete()
+    User.objects.exclude(username="admin@example.com").delete()
 
     print("Insertando Categorías...")
-    categorias_nombres = ["Analgésicos", "Antibióticos", "Antihistamínicos", "Vitaminas", "Primeros Auxilios"]
+    categorias_nombres = ["Analgésicos", "Antibióticos", "Antihistamínicos", "Vitaminas", "Primeros Auxilios", "Cardiología", "Dermatología"]
     categorias = []
     for nombre in categorias_nombres:
         categorias.append(Categoria.objects.create(nombre=nombre))
 
     print("Insertando Presentaciones...")
-    presentaciones_nombres = ["pastilla", "frasco", "blister", "tubo", "caja"]
+    presentaciones_nombres = ["Caja", "Frasco", "Tubo", "Ampolla", "Sobre"]
     presentaciones = []
     for nombre in presentaciones_nombres:
         presentaciones.append(Presentacion.objects.create(nombre=nombre))
 
     print("Insertando Productos y Lotes...")
     productos = []
-    for i in range(20):
+    medicamentos_base = [
+        "Paracetamol", "Ibuprofeno", "Amoxicilina", "Omeprazol", "Losartán", 
+        "Loratadina", "Diclofenaco", "Naproxeno", "Metformina", "Cetirizina", 
+        "Azitromicina", "Clonazepam", "Atorvastatina", "Enalapril", "Ciprofloxacino"
+    ]
+    dosificaciones = ["500mg", "1g", "50mg", "20mg", "400mg", "250mg", "10mg", "100mg", "5ml"]
+
+    for i in range(30):
         cat = random.choice(categorias)
-        precio_real = Decimal(round(random.uniform(5.0, 100.0), 2))
-        unidades_por_caja = random.choice([1, 10, 20, 30])
+        nombre_base = random.choice(medicamentos_base)
+        dosis = random.choice(dosificaciones)
+        nombre_completo = f"{nombre_base} {dosis}"
+
+        precio_real = Decimal(round(random.uniform(10.0, 150.0), 2))
+        unidades_por_caja = random.choice([1, 10, 20, 30, 50, 100])
         precio_flotante = precio_real / unidades_por_caja if unidades_por_caja > 1 else Decimal("0.00")
         
+        unidades_por_blister = 10 if unidades_por_caja >= 10 else 1
+        precio_blister = precio_flotante * unidades_por_blister if unidades_por_caja >= 10 else Decimal("0.00")
+        
         prod = Producto.objects.create(
-            codigo=f"PROD-{i:03d}",
-            nombre=f"{cat.nombre} Genérico {i}",
-            descripcion=f"Descripción de prueba para producto {i}",
+            codigo=fake.unique.bothify(text='PROD-####-??').upper(),
+            nombre=nombre_completo,
+            descripcion=fake.sentence(nb_words=12),
             precio_real=precio_real,
-            precio_flotante=precio_flotante,
+            precio_flotante=round(precio_flotante, 2),
+            precio_blister=round(precio_blister, 2),
             unidades_por_caja=unidades_por_caja,
-            unidades_por_blister=10 if unidades_por_caja >= 10 else 1,
-            blisters_por_caja=unidades_por_caja // 10 if unidades_por_caja >= 10 else 1,
+            unidades_por_blister=unidades_por_blister,
+            blisters_por_caja=unidades_por_caja // unidades_por_blister,
             stock_minimo_real=random.randint(5, 15),
             stock_minimo_flotante=random.randint(10, 40),
             presentacion=random.choice(presentaciones),
-            categoria=cat
+            categoria=cat,
+            presentacion_principal=True,
+            presentacion_blister=(unidades_por_blister > 1),
+            presentacion_unidad=(unidades_por_caja > 1)
         )
         productos.append(prod)
 
@@ -73,14 +95,14 @@ def populate():
         for j in range(random.randint(1, 3)):
             Lote.objects.create(
                 producto=prod,
-                codigo_lote=f"LOTE-{prod.id}-{j}",
+                codigo_lote=fake.bothify(text='LOTE-??-####').upper(),
                 fecha_vencimiento=datetime.now().date() + timedelta(days=random.randint(30, 730)),
                 stock_real=random.randint(0, 50),
                 stock_flotante=random.randint(0, unidades_por_caja - 1) if unidades_por_caja > 1 else 0
             )
 
     print("Insertando Predicciones, Alertas y Recomendaciones...")
-    for prod in random.sample(productos, 10):
+    for prod in random.sample(productos, 15):
         prediccion = PrediccionML.objects.create(
             producto=prod,
             fecha_prediccion=datetime.now().date(),
@@ -104,7 +126,7 @@ def populate():
             producto=prod,
             prediccion=prediccion,
             titulo=f"Comprar {prod.nombre}",
-            descripcion="Basado en el consumo reciente, se recomienda reabastecer pronto."
+            descripcion=f"Basado en el consumo reciente, se recomienda reabastecer {prod.nombre} pronto."
         )
 
     print("Insertando Clientes...")
@@ -115,17 +137,17 @@ def populate():
         email="mostrador@sistema.local",
         telefono="N/A"
     ))
-    for i in range(5):
+    for i in range(15):
         clientes.append(Cliente.objects.create(
-            nombre=f"ClienteName{i}",
-            apellido=f"Apellido{i}",
-            email=f"cliente{i}@email.com",
-            telefono=f"555-000{i}"
+            nombre=fake.first_name(),
+            apellido=fake.last_name(),
+            email=fake.unique.email(),
+            telefono=fake.phone_number()
         ))
 
     print("Verificando Sedes, Usuario y Roles...")
-    sede_central, _ = Sede.objects.get_or_create(nombre="Sede Central", direccion="Av. Principal 1")
-    sede_norte, _ = Sede.objects.get_or_create(nombre="Sede Norte", direccion="Av. Norte 2")
+    sede_central, _ = Sede.objects.get_or_create(nombre="Sede Central", direccion=fake.address().replace('\n', ', '))
+    sede_norte, _ = Sede.objects.get_or_create(nombre="Sede Norte", direccion=fake.address().replace('\n', ', '))
     sedes = [sede_central, sede_norte]
 
     rol_admin, _ = Rol.objects.get_or_create(nombre="Administrador", descripcion="Acceso total")
@@ -141,21 +163,28 @@ def populate():
             user=admin_django_user,
             defaults={
                 'rol': rol_admin,
-                'sede': sede_central
+                'sede': sede_central,
+                'telefono': fake.phone_number(),
+                'direccion': fake.address().replace('\n', ', ')
             }
         )
     else:
-        # Create a dummy user object if we don't have django user yet just for sales logic
         usuario_admin = None
         print("Advertencia: No se encontró admin@example.com de Django Auth.")
 
-    # Crear algunos vendedores si no hay
+    # Crear algunos vendedores
     vendedores = []
     if usuario_admin:
         vendedores.append(usuario_admin)
 
-    for i in range(2):
-        django_user, created = User.objects.get_or_create(username=f"vendedor{i}", email=f"vendedor{i}@local.com")
+    for i in range(4):
+        username = fake.unique.user_name()
+        django_user, created = User.objects.get_or_create(
+            username=username, 
+            email=fake.unique.email(),
+            first_name=fake.first_name(),
+            last_name=fake.last_name()
+        )
         if created:
             django_user.set_password('password123')
             django_user.save()
@@ -164,18 +193,20 @@ def populate():
             user=django_user,
             defaults={
                 'rol': rol_vendedor,
-                'sede': random.choice(sedes)
+                'sede': random.choice(sedes),
+                'telefono': fake.phone_number(),
+                'direccion': fake.address().replace('\n', ', ')
             }
         )
         vendedores.append(vend)
 
     print("Insertando Ventas y Detalles...")
-    for i in range(30):
+    for i in range(50):
         cliente = random.choice(clientes)
         vendedor = random.choice(vendedores) if vendedores else None
         
         venta = Venta.objects.create(
-            codigo=f"VNT-2024-{i:04d}",
+            codigo=f"VNT-2024-{fake.unique.random_number(digits=5, fix_len=True)}",
             cliente=cliente,
             usuario=vendedor,
             fecha=timezone.make_aware(
@@ -197,10 +228,15 @@ def populate():
             if not lote:
                 continue
                 
-            cant_real = random.randint(1, 3)
-            cant_flotante = random.randint(0, prod.unidades_por_caja - 1) if prod.unidades_por_caja > 1 else 0
+            cant_real = random.randint(0, 2)
+            cant_blister = random.randint(0, prod.blisters_por_caja - 1) if prod.blisters_por_caja > 1 else 0
+            cant_flotante = random.randint(0, prod.unidades_por_blister - 1) if prod.unidades_por_blister > 1 else 0
+
+            # Garantizar que al menos se lleve 1 unidad de algo
+            if cant_real == 0 and cant_blister == 0 and cant_flotante == 0:
+                cant_real = 1
             
-            subtotal = (Decimal(cant_real) * prod.precio_real) + (Decimal(cant_flotante) * prod.precio_flotante)
+            subtotal = (Decimal(cant_real) * prod.precio_real) + (Decimal(cant_blister) * prod.precio_blister) + (Decimal(cant_flotante) * prod.precio_flotante)
             total_venta += subtotal
             
             DetalleVenta.objects.create(
@@ -208,8 +244,10 @@ def populate():
                 producto=prod,
                 lote=lote,
                 cantidad_real=cant_real,
+                cantidad_blister=cant_blister,
                 cantidad_flotante=cant_flotante,
                 precio_real=prod.precio_real,
+                precio_blister=prod.precio_blister,
                 precio_flotante=prod.precio_flotante
             )
             
