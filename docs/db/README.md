@@ -16,11 +16,17 @@ La conversión matemática entre ambos tipos está definida por los atributos `u
 | 1 | pastilla | tab |
 | 2 | frasco | fco |
 
+### Tabla: Presentacion
+| id | nombre | abreviatura |
+|---|---|---|
+| 1 | Caja | CJA |
+| 2 | Frasco | FCO |
+
 ### Tabla: Producto
-| id | codigo | nombre | precio_real | precio_flotante | unidades_por_caja | unidades_por_blister | blisters_por_caja | unidad_medida_id | categoria_id |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | P-001 | Paracetamol 500mg | 10.00 | 1.20 | 10 | 10 | 1 | 1 | 1 |
-| 2 | J-001 | Jarabe para Tos 200ml | 15.00 | 0.00 | 1 | 1 | 1 | 2 | 2 |
+| id | codigo | nombre | precio_real | precio_flotante | precio_blister | unidades_por_caja | unidades_por_blister | blisters_por_caja | presentacion_principal | presentacion_blister | presentacion_unidad | presentacion_id | unidad_medida_id | categoria_id | stock_minimo_real | stock_minimo_flotante | estado |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | P-001 | Paracetamol 500mg | 10.00 | 0.12 | 1.20 | 100 | 10 | 10 | true | true | true | 1 | 1 | 1 | 10 | 20 | activo |
+| 2 | J-001 | Jarabe para Tos 200ml | 15.00 | 0.00 | 0.00 | 1 | 1 | 1 | true | false | false | 2 | 2 | 2 | 5 | 0 | activo |
 
 ### Tabla: Lote
 | id | producto_id | codigo_lote | fecha_vencimiento | stock_real | stock_flotante |
@@ -45,9 +51,9 @@ Para evitar campos nulos en clientes de paso, se utiliza el patrón de "Cliente 
 | 100 | V-001 | 1 | 5 | 2024-03-10 | 13.60 | completado |
 
 ### Tabla: Detalle_Venta
-| id | venta_id | producto_id | lote_id | cantidad_real | cantidad_flotante | precio_real | precio_flotante |
-|---|---|---|---|---|---|---|---|
-| 1001 | 100 | 1 | 1 | 1 | 3 | 10.00 | 1.20 |
+| id | venta_id | producto_id | lote_id | cantidad_real | cantidad_flotante | cantidad_blister | precio_real | precio_flotante | precio_blister |
+|---|---|---|---|---|---|---|---|---|---|
+| 1001 | 100 | 1 | 1 | 1 | 3 | 0 | 10.00 | 0.12 | 1.20 |
 
 *Nota del flujo:* En el ejemplo anterior, el cliente compró 1 caja entera y 3 pastillas sueltas de Paracetamol (total $13.60). El sistema deberá descontar 1 unidad del `stock_real` y 3 unidades del `stock_flotante` en la tabla `Lote`. En caso de no existir suficiente `stock_flotante`, la lógica de la aplicación debe restar 1 unidad adicional de `stock_real`, sumar el equivalente (`unidades_por_caja`) al `stock_flotante` y proceder con la sustracción.
 
@@ -61,9 +67,9 @@ Las entidades relacionadas al Machine Learning funcionan como un sistema de traz
 | 50 | 1 | 2024-03-10 | 0.89 | alta | v1.2 |
 
 ### Tabla: Alerta
-| id | producto_id | prediccion_id | alerta | nivel_riesgo | periodo_agotamiento | stock_minimo |
-|---|---|---|---|---|---|---|
-| 20 | 1 | 50 | Riesgo de quiebre de stock | alto | 5 | 10 |
+| id | producto_id | prediccion_id | alerta | nivel_riesgo | periodo_agotamiento | stock_minimo | stock_minimo_flotante |
+|---|---|---|---|---|---|---|---|
+| 20 | 1 | 50 | Riesgo de quiebre de stock | alto | 5 | 10 | 20 |
 
 ### Tabla: Recomendacion
 | id | producto_id | prediccion_id | titulo | descripcion |
@@ -86,9 +92,9 @@ El sistema utiliza un control basado en roles para separar funciones operativas 
 | 1 | Sucursal Centro | Av. Principal 123 |
 
 ### Tabla: Usuario
-| id | nombre | apellido | email | rol_id | sede_id |
+| id | auth_user_id | telefono | direccion | rol_id | sede_id |
 |---|---|---|---|---|---|
-| 5 | Carlos | Gómez | carlos@farmacia.local | 2 | 1 |
+| 5 | 12 | 555-9876 | Calle Falsa 123 | 2 | 1 |
 
 ## Resumen del Flujo de Información
 

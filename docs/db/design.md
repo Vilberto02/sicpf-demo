@@ -10,6 +10,7 @@ erDiagram
     PRODUCTO ||--o{ PREDICCION_ML : "analizado en"
     PRODUCTO ||--o{ ALERTA : genera
     PRODUCTO ||--o{ RECOMENDACION : recibe
+    PRODUCTO ||--|| PRESENTACION : "tiene presentacion"
     PREDICCION_ML ||--o{ ALERTA : fundamenta
     PREDICCION_ML ||--o{ RECOMENDACION : fundamenta
     USUARIO }|--|| ROL : tiene
@@ -30,6 +31,12 @@ erDiagram
         string nombre
         string abreviatura
     }
+
+    PRESENTACION {
+        int id PK
+        string nombre
+        string abreviatura
+    }
     
     PRODUCTO {
         int id PK
@@ -38,12 +45,19 @@ erDiagram
         string descripcion
         decimal precio_real
         decimal precio_flotante
+        decimal precio_blister
         int unidades_por_caja
         int unidades_por_blister
         int blisters_por_caja
-        string estado
+        bool presentacion_principal
+        bool presentacion_blister
+        bool presentacion_unidad
         int unidad_medida_id FK
         int categoria_id FK
+        int presentacion_id FK
+        int stock_minimo_real
+        int stock_minimo_flotante
+        string estado
     }
 
     LOTE {
@@ -70,6 +84,7 @@ erDiagram
         string nivel_riesgo
         int periodo_agotamiento
         int stock_minimo
+        int stock_minimo_flotante
         date fecha_alerta
         int producto_id FK
         int prediccion_id FK
@@ -99,9 +114,7 @@ erDiagram
 
     USUARIO {
         int id PK
-        string nombre
-        string apellido
-        string email
+        int auth_user_id FK "OneToOne to Django auth_user"
         string telefono
         string direccion
         int rol_id FK
@@ -112,6 +125,7 @@ erDiagram
         int id PK
         string nombre
         string descripcion
+        M2M Permission permisos
     }
 
     VENTA {
@@ -128,8 +142,10 @@ erDiagram
         int id PK
         int cantidad_real
         int cantidad_flotante
+        int cantidad_blister
         decimal precio_real
         decimal precio_flotante
+        decimal precio_blister
         int venta_id FK
         int producto_id FK
         int lote_id FK
@@ -145,10 +161,17 @@ erDiagram
   - descripcion
   - precio_real
   - precio_flotante
+  - precio_blister
   - unidades_por_caja (factor de conversión principal)
   - unidades_por_blister (factor de conversión blister)
   - blisters_por_caja (factor de conversión caja)
+  - presentacion_principal
+  - presentacion_blister
+  - presentacion_unidad
   - categoria_id
+  - presentacion_id (referencia al catálogo Presentacion)
+  - stock_minimo_real
+  - stock_minimo_flotante
   - estado: "activo", "por vencer", "vencido"
   - unidad_medida_id (referencia al catálogo UnidadMedida)
 - Lote:
@@ -162,6 +185,10 @@ erDiagram
   - id
   - nombre
 - UnidadMedida:
+  - id
+  - nombre
+  - abreviatura
+- Presentacion:
   - id
   - nombre
   - abreviatura
@@ -190,6 +217,7 @@ erDiagram
   - nivel_riesgo
   - periodo_agotamiento (en días)
   - stock_minimo
+  - stock_minimo_flotante
   - fecha_alerta
 - Cliente:
   - id
@@ -199,9 +227,7 @@ erDiagram
   - telefono
 - Usuario:
   - id
-  - nombre
-  - apellido
-  - email
+  - auth_user_id (referencia OneToOne a auth_user)
   - telefono
   - direccion
   - rol_id
@@ -226,8 +252,10 @@ erDiagram
   - lote_id
   - cantidad_real
   - cantidad_flotante
+  - cantidad_blister
   - precio_real
   - precio_flotante
+  - precio_blister
 
 ### Relaciones
 
