@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuthStore } from "@/features/auth/store";
 import { useUsersStore } from "@/features/users/store";
 import type { UsuarioItemType } from "@/features/users/types";
 
@@ -107,6 +108,11 @@ export function UsersSection() {
       : await addItem(payload);
 
     if (result) {
+      const authState = useAuthStore.getState();
+      if (editingUser && authState.userProfile?.id === editingUser.id) {
+        authState.fetchProfile();
+      }
+
       toast.success(
         editingUser ? "Usuario actualizado correctamente." : "Usuario creado correctamente."
       );
@@ -192,6 +198,10 @@ export function UsersSection() {
             onValueChange={async (rolId) => {
               const updated = await updateItem(user.id, { rol: Number(rolId) });
               if (updated) {
+                const authState = useAuthStore.getState();
+                if (authState.userProfile?.id === user.id) {
+                  authState.fetchProfile();
+                }
                 toast.success(
                   `Rol delegado: ${updated.nombre} ahora es ${
                     roles.find((r) => r.id === Number(rolId))?.nombre ?? "sin rol"
@@ -341,7 +351,7 @@ export function UsersSection() {
                   Contraseña{" "}
                   {editingUser && (
                     <span className="text-xs text-muted-foreground font-normal">
-                      (vacío = sin cambios)
+                      (Sin cambios)
                     </span>
                   )}
                 </Label>

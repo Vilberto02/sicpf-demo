@@ -175,6 +175,11 @@ export function ProfileSection() {
     if (ok) {
       toast.success("Perfil actualizado correctamente.");
       setIsEditOpen(false);
+      // Synchronize the users table if loaded
+      const usersStore = useUsersStore.getState();
+      if (usersStore.items.length > 0) {
+        usersStore.fetchItems();
+      }
     } else {
       toast.error("No se pudo actualizar el perfil.");
     }
