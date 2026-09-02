@@ -14,6 +14,7 @@ import {
   ReceiptText,
   ChevronRight,
   UserRoundCog,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
@@ -42,6 +43,7 @@ import { useInventoryStore } from "@/features/inventory/store";
 import { useSalesStore } from "@/features/sales/store";
 import { useAlertsStore } from "@/features/alerts/store";
 import { useUsersStore } from "@/features/users/store";
+import { UpdateProfileSchema, ChangePasswordSchema } from "@/features/auth/schemas";
 import { AnimatedCounter } from "../AnimatedCounter";
 
 type EditFormState = {
@@ -119,6 +121,7 @@ export function ProfileSection() {
 
   const [isDetailView, setIsDetailView] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditFormState>({
     first_name: "",
     last_name: "",
@@ -126,6 +129,7 @@ export function ProfileSection() {
     phone: "",
     sede: "",
   });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchChartData();
@@ -165,12 +169,29 @@ export function ProfileSection() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = await editProfile({
-      first_name: editForm.first_name.trim(),
-      last_name: editForm.last_name.trim(),
-      email: editForm.email.trim(),
-      phone: editForm.phone.trim(),
+    const parsed = UpdateProfileSchema.safeParse({
+      first_name: editForm.first_name,
+      last_name: editForm.last_name,
+      email: editForm.email,
+      phone: editForm.phone,
       sede: editForm.sede ? Number(editForm.sede) : null,
+    });
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        fieldErrors[key] = issue.message;
+      }
+      setEditErrors(fieldErrors);
+      return;
+    }
+    setEditErrors({});
+    const ok = await editProfile({
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name ?? "",
+      email: parsed.data.email,
+      phone: parsed.data.phone ?? "",
+      sede: parsed.data.sede ? Number(parsed.data.sede) : null,
     });
     if (ok) {
       toast.success("Perfil actualizado correctamente.");
@@ -266,14 +287,24 @@ export function ProfileSection() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-      <div className="flex gap-3 items-center justify-between">
+      <div className="flex gap-3 items-center justify-between flex-wrap">
         <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
           <User width={36} height={36}></User>
           <h3 className="mt-1">Mi Perfil</h3>
         </div>
-        <Button className="cursor-pointer gap-2" onClick={openEditDialog}>
-          <UserRoundCog /> Editar perfil
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            className="cursor-pointer gap-2"
+            onClick={() => setIsPasswordOpen(true)}
+          >
+            <KeyRound className="h-4 w-4" />
+            Cambiar contraseña
+          </Button>
+          <Button className="cursor-pointer gap-2" onClick={openEditDialog}>
+            <UserRoundCog /> Editar perfil
+          </Button>
+        </div>
       </div>
       <div className="flex flex-col md:grid md:grid-cols-1 lg:grid-cols-2 gap-6">
         <div
@@ -419,6 +450,9 @@ export function ProfileSection() {
                   value={editForm.first_name}
                   onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
                 />
+                {editErrors.first_name && (
+                  <span className="text-sm text-red-700 ml-2">{editErrors.first_name}</span>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Apellido</Label>
@@ -426,6 +460,9 @@ export function ProfileSection() {
                   value={editForm.last_name}
                   onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
                 />
+                {editErrors.last_name && (
+                  <span className="text-sm text-red-700 ml-2">{editErrors.last_name}</span>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -436,6 +473,9 @@ export function ProfileSection() {
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
               />
+              {editErrors.email && (
+                <span className="text-sm text-red-700 ml-2">{editErrors.email}</span>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -445,6 +485,9 @@ export function ProfileSection() {
                   placeholder="Ej. 999888777"
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                 />
+                {editErrors.phone && (
+                  <span className="text-sm text-red-700 ml-2">{editErrors.phone}</span>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Sede</Label>
@@ -469,87 +512,176 @@ export function ProfileSection() {
               </div>
             </div>
 
-            <PasswordChangeSection onDone={() => setIsEditOpen(false)} />
-
-            <DialogFooter>
-              <Button type="submit" className="cursor-pointer">
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer w-full gap-2"
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setIsPasswordOpen(true);
+                }}
+              >
+                <KeyRound className="h-4 w-4" />
+                Cambiar contraseña
+              </Button>
+              <Button type="submit" className="cursor-pointer w-full">
                 Guardar cambios
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ChangePasswordDialog
+        open={isPasswordOpen}
+        onOpenChange={setIsPasswordOpen}
+      />
     </div>
   );
 }
 
-function PasswordChangeSection({ onDone }: { onDone: () => void }) {
+function ChangePasswordDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const navigate = useNavigate();
   const { changeOwnPassword, logoutUser } = useAuthStore();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("Completa los tres campos para cambiar la contraseña.");
+  const resetForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordErrors({});
+    setIsSubmitting(false);
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      resetForm();
+    }
+    onOpenChange(next);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = ChangePasswordSchema.safeParse({
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    });
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        fieldErrors[key] = issue.message;
+      }
+      setPasswordErrors(fieldErrors);
       return;
     }
-    if (newPassword !== confirmPassword) {
-      toast.error("La nueva contraseña y su confirmación no coinciden.");
-      return;
-    }
+    setPasswordErrors({});
+    setIsSubmitting(true);
     try {
       const result = await changeOwnPassword({
-        current_password: currentPassword,
-        new_password: newPassword,
+        current_password: parsed.data.current_password,
+        new_password: parsed.data.new_password,
       });
       if (result.logoutRequired) {
         toast.success("Contraseña actualizada. Inicia sesión nuevamente.");
         logoutUser();
         navigate("/login");
-      } else {
-        toast.success("Contraseña actualizada correctamente.");
-        onDone();
+        return;
       }
+      toast.success("Contraseña actualizada correctamente.");
+      handleOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo cambiar la contraseña.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cambiar la contraseña."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 flex flex-col gap-3">
-      <p className="text-xs font-semibold text-muted-foreground uppercase">
-        Cambiar contraseña
-      </p>
-      <Input
-        type="password"
-        placeholder="Contraseña actual"
-        value={currentPassword}
-        onChange={(e) => setCurrentPassword(e.target.value)}
-      />
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          type="password"
-          placeholder="Nueva contraseña"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
-        <Input
-          type="password"
-          placeholder="Confirmar contraseña"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="cursor-pointer self-start"
-        onClick={handleChangePassword}
-      >
-        Actualizar contraseña
-      </Button>
-    </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[480px] bg-card rounded-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-stone-600" />
+            Cambiar contraseña
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleChangePassword} className="flex flex-col gap-4 py-2">
+          <div className="space-y-2">
+            <Label>Contraseña actual</Label>
+            <Input
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Coloca tu contraseña actual."
+              autoComplete="current-password"
+            />
+            {passwordErrors.current_password && (
+              <span className="text-sm text-red-700 ml-2">{passwordErrors.current_password}</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Nueva contraseña</Label>
+            <Input
+              type="password"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Coloca tu nueva contraseña."
+              autoComplete="new-password"
+            />
+            {passwordErrors.new_password && (
+              <span className="text-sm text-red-700 ml-2">{passwordErrors.new_password}</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Confirmar nueva contraseña</Label>
+            <Input
+              type="password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Vuelve a colocar tu nueva contraseña."
+              autoComplete="new-password"
+            />
+            {passwordErrors.confirm_password && (
+              <span className="text-sm text-red-700 ml-2">{passwordErrors.confirm_password}</span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            La contraseña debe tener al menos 8 caracteres. Tras el cambio se
+            cerrará la sesión para que vuelvas a iniciar con la nueva clave.
+          </p>
+          <DialogFooter>
+            <Button
+              type="submit"
+              className="cursor-pointer w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Actualizando..." : "Actualizar contraseña"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

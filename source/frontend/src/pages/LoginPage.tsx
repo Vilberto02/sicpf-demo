@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { LoginFields } from "@/types/types";
 import { useState, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Navigate } from "react-router";
 import { useAuthStore } from "@/features/auth/store";
 import { toast } from "sonner";
+import { LoginSchema, type LoginInput } from "@/features/auth/schemas";
 
 export function LoginPage() {
   const [redirect, setRedirect] = useState<boolean>(false);
@@ -14,13 +15,14 @@ export function LoginPage() {
     register,
     formState: { errors },
     handleSubmit,
-  } = useForm<LoginFields>({
+  } = useForm<LoginInput>({
     mode: "onChange",
+    resolver: zodResolver(LoginSchema),
   });
 
   const { loginUser, isAuthenticated, error } = useAuthStore();
 
-  const onSubmit: SubmitHandler<LoginFields> = async (data) => {
+  const onSubmit: SubmitHandler<LoginInput> = async (data) => {
     await loginUser({ username: data.username, password: data.password });
   };
 
