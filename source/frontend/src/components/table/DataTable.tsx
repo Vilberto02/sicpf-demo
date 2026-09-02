@@ -11,7 +11,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ListFilter,
   Eye,
-  Edit,
+  Pencil,
   DollarSign,
   Ban,
   ChevronLeft,
@@ -154,7 +154,7 @@ export function DataTable<TData, TValue>({
           className="p-1 text-blue-600 hover:text-blue-400 transition-colors cursor-pointer"
           title="Editar"
         >
-          <Edit className="h-4 w-4" />
+          <Pencil className="h-4 w-4" />
         </Button>
       )}
       {onDelete && (
