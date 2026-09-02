@@ -11,6 +11,8 @@ import { useSalesStore } from "@/features/sales/store";
 import { useAuthStore } from "@/features/auth/store";
 import type { LoteType } from "@/types/types";
 import type { ClienteType } from "@/features/clients/types";
+import { ClienteSchema } from "@/features/clients/schemas";
+import { CreateSaleSchema } from "@/features/sales/schemas";
 import { SearchableSelect } from "../common/SearchableSelect";
 import {
   Dialog,
@@ -131,6 +133,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
     telefono: "",
     direccion: "",
   });
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
   const fetchCatalog = useCallback(async (search?: string) => {
     setCatalogLoading(true);
@@ -228,7 +231,18 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    const client = await addClient(newClientData);
+    const parsed = ClienteSchema.safeParse(newClientData);
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        fieldErrors[key] = issue.message;
+      }
+      setClientErrors(fieldErrors);
+      return;
+    }
+    setClientErrors({});
+    const client = await addClient(parsed.data);
     if (client) {
       toast.success("Cliente creado y seleccionado.");
       setSelectedClient(client);
@@ -267,6 +281,13 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
       estado: "Completado",
       detalles_write
     };
+
+    const parsed = CreateSaleSchema.safeParse(saleData);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      toast.error(first ? first.message : "Los datos de la venta no son válidos.");
+      return;
+    }
 
     try {
       await addSale(saleData);
@@ -397,23 +418,38 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
                       <div className="space-y-2">
                         <Label>Nombre</Label>
                         <Input required value={newClientData.nombre} placeholder="Ej. Maria" onChange={e => setNewClientData({...newClientData, nombre: e.target.value})} />
+                        {clientErrors.nombre && (
+                          <span className="text-sm text-red-700 ml-2">{clientErrors.nombre}</span>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label>Apellido</Label>
                         <Input required value={newClientData.apellido} placeholder="Ej. Sanchez" onChange={e => setNewClientData({...newClientData, apellido: e.target.value})} />
+                        {clientErrors.apellido && (
+                          <span className="text-sm text-red-700 ml-2">{clientErrors.apellido}</span>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Email</Label>
                       <Input type="email" required value={newClientData.email} placeholder="Ej. maria@example.com" onChange={e => setNewClientData({...newClientData, email: e.target.value})} />
+                      {clientErrors.email && (
+                        <span className="text-sm text-red-700 ml-2">{clientErrors.email}</span>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Teléfono</Label>
                       <Input value={newClientData.telefono} placeholder="Ej. 999888777" onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} />
+                      {clientErrors.telefono && (
+                        <span className="text-sm text-red-700 ml-2">{clientErrors.telefono}</span>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Dirección</Label>
                       <Input value={newClientData.direccion} placeholder="Ej. Av. Las Vegas 123" onChange={e => setNewClientData({...newClientData, direccion: e.target.value})} />
+                      {clientErrors.direccion && (
+                        <span className="text-sm text-red-700 ml-2">{clientErrors.direccion}</span>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button type="submit">Guardar cliente</Button>

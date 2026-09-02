@@ -27,6 +27,7 @@ import type {
   CategoriaType,
   PresentacionType,
 } from "@/features/products/types";
+import { ProductSchema } from "@/features/products/schemas";
 
 type NewProductDialogProps = {
   product?: ProductoType | null;
@@ -83,6 +84,7 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
   const [presentaciones, setPresentaciones] = useState<PresentacionType[]>([]);
   const [formData, setFormData] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -125,30 +127,54 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.categoria || !formData.presentacion) {
-      toast.error("Debe seleccionar categoría y presentación.");
-      return;
-    }
-    if (!formData.presentacion_principal && !formData.presentacion_blister && !formData.presentacion_unidad) {
-      toast.error("Debe habilitar al menos una presentación.");
-      return;
-    }
-    setIsSaving(true);
-    const payload = {
-      codigo: formData.codigo.trim(),
-      nombre: formData.nombre.trim(),
-      descripcion: formData.descripcion.trim() || null,
-      categoria: Number(formData.categoria),
-      presentacion: Number(formData.presentacion),
-      precio_real: Number(formData.precio_real),
-      precio_flotante: Number(formData.precio_flotante),
-      precio_blister: Number(formData.precio_blister || 0),
-      unidades_por_caja: Number(formData.unidades_por_caja),
-      blisters_por_caja: Number(formData.blisters_por_caja),
-      unidades_por_blister: Number(formData.unidades_por_blister),
+
+    const parsed = ProductSchema.safeParse({
+      codigo: formData.codigo,
+      nombre: formData.nombre,
+      descripcion: formData.descripcion,
+      categoria: formData.categoria,
+      presentacion: formData.presentacion,
+      precio_real: formData.precio_real,
+      precio_flotante: formData.precio_flotante,
+      precio_blister: formData.precio_blister,
+      unidades_por_caja: formData.unidades_por_caja,
+      blisters_por_caja: formData.blisters_por_caja,
+      unidades_por_blister: formData.unidades_por_blister,
       presentacion_principal: formData.presentacion_principal,
       presentacion_blister: formData.presentacion_blister,
       presentacion_unidad: formData.presentacion_unidad,
+    });
+
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        fieldErrors[key] = issue.message;
+      }
+      if (!formData.presentacion_principal && !formData.presentacion_blister && !formData.presentacion_unidad) {
+        fieldErrors.form = "Debe habilitar al menos una presentación.";
+      }
+      setFormErrors(fieldErrors);
+      return;
+    }
+    setFormErrors({});
+
+    setIsSaving(true);
+    const payload = {
+      codigo: parsed.data.codigo,
+      nombre: parsed.data.nombre,
+      descripcion: parsed.data.descripcion || null,
+      categoria: Number(parsed.data.categoria),
+      presentacion: Number(parsed.data.presentacion),
+      precio_real: Number(parsed.data.precio_real),
+      precio_flotante: Number(parsed.data.precio_flotante),
+      precio_blister: Number(parsed.data.precio_blister || 0),
+      unidades_por_caja: Number(parsed.data.unidades_por_caja),
+      blisters_por_caja: Number(parsed.data.blisters_por_caja),
+      unidades_por_blister: Number(parsed.data.unidades_por_blister),
+      presentacion_principal: parsed.data.presentacion_principal,
+      presentacion_blister: parsed.data.presentacion_blister,
+      presentacion_unidad: parsed.data.presentacion_unidad,
     };
     const saved = product
       ? await updateProduct(product.id, payload)
@@ -160,6 +186,7 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
       onSaved?.(saved);
       setIsOpen(false);
       setFormData(emptyForm);
+      setFormErrors({});
     } else {
       toast.error(
         product ? "No se pudo actualizar el producto. Verifique los datos." : "No se pudo crear el producto. Verifique los datos."
@@ -193,6 +220,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 placeholder="Ej. MED-001"
                 onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
               />
+              {formErrors.codigo && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.codigo}</span>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Nombre</Label>
@@ -202,6 +232,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 placeholder="Ej. Paracetamol"
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
               />
+              {formErrors.nombre && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.nombre}</span>
+              )}
             </div>
           </div>
           <div className="space-y-2">
@@ -211,6 +244,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
               placeholder="Ej. Analgésico 500mg"
               onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
             />
+            {formErrors.descripcion && (
+              <span className="text-sm text-red-700 ml-2">{formErrors.descripcion}</span>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -231,6 +267,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.categoria && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.categoria}</span>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Presentación</Label>
@@ -250,6 +289,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.presentacion && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.presentacion}</span>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -264,6 +306,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 placeholder="0.00"
                 onChange={(e) => setFormData({ ...formData, precio_real: e.target.value })}
               />
+              {formErrors.precio_real && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.precio_real}</span>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Precio Und. (S/)</Label>
@@ -276,6 +321,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 placeholder="0.00"
                 onChange={(e) => setFormData({ ...formData, precio_flotante: e.target.value })}
               />
+              {formErrors.precio_flotante && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.precio_flotante}</span>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Precio Blíster (S/)</Label>
@@ -288,6 +336,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 placeholder="Auto"
                 onChange={(e) => setFormData({ ...formData, precio_blister: e.target.value })}
               />
+              {formErrors.precio_blister && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.precio_blister}</span>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -353,8 +404,8 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 Unidad
               </label>
             </div>
-            {!formData.presentacion_principal && !formData.presentacion_blister && !formData.presentacion_unidad && (
-              <p className="text-xs text-destructive">Habilita al menos una presentación.</p>
+            {(!formData.presentacion_principal || !formData.presentacion_blister || !formData.presentacion_unidad) && (
+              <p className="text-xs text-destructive">{formErrors.form ?? "Habilita al menos una presentación."}</p>
             )}
           </div>
           <DialogFooter>
