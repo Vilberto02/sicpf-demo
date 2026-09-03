@@ -1,18 +1,19 @@
 import { apiClient } from "@/lib/apiClient";
 import type { LoginFields } from "@/types";
+import type { AuthResponse, UserProfileType } from "./types";
 
-export const login = async (credentials: LoginFields) => {
-  const data = await apiClient<any>("/auth/token/", {
+export const login = async (credentials: LoginFields): Promise<AuthResponse> => {
+  return apiClient<AuthResponse>("/auth/token/", {
     method: "POST",
     body: JSON.stringify(credentials),
   });
-  return data;
 };
 
-export const getProfile = () => apiClient<any>("/auth/profile/");
+export const getProfile = (): Promise<UserProfileType> =>
+  apiClient<UserProfileType>("/auth/profile/");
 
-export const updateProfile = (data: Record<string, unknown>) =>
-  apiClient<any>("/auth/profile/", {
+export const updateProfile = (data: Record<string, unknown>): Promise<UserProfileType> =>
+  apiClient<UserProfileType>("/auth/profile/", {
     method: "PATCH",
     body: JSON.stringify(data),
   });

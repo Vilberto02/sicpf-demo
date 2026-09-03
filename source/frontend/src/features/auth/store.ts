@@ -1,13 +1,17 @@
 import { create } from "zustand";
 import { login, getProfile, updateProfile, changePassword } from "./api";
+import { getToken, setTokens, clearToken } from "./token";
+import { getErrorMessage } from "@/features/shared/errorUtils";
+import type { UserProfileType } from "./types";
+import type { LoginInput } from "./schemas";
 
 interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isCheckingAuth: boolean;
   error: string | null;
-  userProfile: any | null;
-  loginUser: (credentials: any) => Promise<void>;
+  userProfile: UserProfileType | null;
+  loginUser: (credentials: LoginInput) => Promise<void>;
   logoutUser: () => void;
   fetchProfile: () => Promise<void>;
   editProfile: (data: Record<string, unknown>) => Promise<boolean>;
@@ -17,19 +21,19 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem("token"),
-  isAuthenticated: !!localStorage.getItem("token"),
-  isCheckingAuth: !!localStorage.getItem("token"),
+  token: getToken(),
+  isAuthenticated: !!getToken(),
+  isCheckingAuth: !!getToken(),
   error: null,
   userProfile: null,
   loginUser: async (credentials) => {
     set({ error: null });
     try {
       const data = await login(credentials);
-      localStorage.setItem("token", data.access);
+      setTokens(data.access, data.refresh);
       set({ token: data.access, isAuthenticated: true });
-    } catch (error: any) {
-      let errorMessage = error.message;
+    } catch (error) {
+      let errorMessage = getErrorMessage(error);
       if (errorMessage === "No active account found with the given credentials") {
         errorMessage = "Las credenciales proporcionadas son incorrectas.";
       }
@@ -37,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   logoutUser: () => {
-    localStorage.removeItem("token");
+    clearToken();
     set({ token: null, isAuthenticated: false, userProfile: null });
   },
   fetchProfile: async () => {
@@ -45,9 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const data = await getProfile();
       set({ userProfile: data, isAuthenticated: true, isCheckingAuth: false });
-    } catch (error: any) {
-      console.error("Error fetching profile", error);
-      localStorage.removeItem("token");
+    } catch (error) {
+      console.error("Error fetching profile", getErrorMessage(error));
+      clearToken();
       set({ token: null, isAuthenticated: false, userProfile: null, isCheckingAuth: false });
     }
   },
@@ -57,7 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ userProfile: updated });
       return true;
     } catch (error) {
-      console.error(error);
+      console.error(getErrorMessage(error));
       return false;
     }
   },
