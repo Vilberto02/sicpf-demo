@@ -200,7 +200,7 @@ VentaDeleteView = _venta_views[4]
 AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(
     AlertaService, AlertaSerializer,
     search_fields=['alerta', 'producto__nombre'],
-    ordering_fields=['fecha_alerta', 'nivel_riesgo', 'estado', 'created_at'],
+    ordering_fields=['fecha_alerta', 'nivel_riesgo', 'estado', 'created_at', 'estado_prioridad'],
     filterset_fields=['estado', 'tipo', 'origen', 'nivel_riesgo'],
 )
 

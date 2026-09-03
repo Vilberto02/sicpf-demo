@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from django.utils import timezone
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, Case, When, Value, IntegerField
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
@@ -72,7 +72,15 @@ class AlertaService(BaseService):
     def get_queryset(cls):
         return cls.model.objects.select_related(
             'producto', 'producto__categoria', 'producto__presentacion', 'prediccion'
-        )
+        ).annotate(
+            estado_prioridad=Case(
+                When(estado='pendiente', then=Value(1)),
+                When(estado='revisada', then=Value(2)),
+                When(estado='descartada', then=Value(3)),
+                default=Value(4),
+                output_field=IntegerField()
+            )
+        ).order_by('estado_prioridad', '-fecha_alerta', '-created_at')
 
 class RecomendacionService(BaseService):
     model = Recomendacion

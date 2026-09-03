@@ -10,6 +10,8 @@ import {
   markAlertReviewed,
   markAlertDiscarded,
 } from "./api";
+import type { AlertsStatsType } from "@/features/shared/statsTypes";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 
 interface AlertsState {
   items: AlertItemType[];
@@ -18,7 +20,9 @@ interface AlertsState {
   pageSize: number;
   search: string;
   ordering: string;
-  stats: any | null;
+  estado: string | null;
+  nivelRiesgo: string | null;
+  stats: AlertsStatsType | null;
   loading: boolean;
   error: string | null;
   generating: boolean;
@@ -28,6 +32,8 @@ interface AlertsState {
   setSearch: (search: string) => void;
   setOrdering: (ordering: string) => void;
   setPageSize: (size: number) => void;
+  setEstado: (estado: string | null) => void;
+  setNivelRiesgo: (nivelRiesgo: string | null) => void;
   status: string | null;
   setStatus: (status: string | null) => void;
   addItem: (data: AlertItemType) => Promise<void>;
@@ -44,10 +50,20 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
   page: 1,
   pageSize: 20,
   search: "",
-  ordering: "-created_at",
+  ordering: "",
+  estado: null,
+  nivelRiesgo: null,
   status: null,
   setStatus: (status) => {
-    set({ status, page: 1 });
+    set({ status, nivelRiesgo: status, page: 1 });
+    get().fetchItems();
+  },
+  setEstado: (estado) => {
+    set({ estado, page: 1 });
+    get().fetchItems();
+  },
+  setNivelRiesgo: (nivelRiesgo) => {
+    set({ nivelRiesgo, status: nivelRiesgo, page: 1 });
     get().fetchItems();
   },
   stats: null,
@@ -55,21 +71,30 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
   error: null,
   generating: false,
   fetchItems: async () => {
-    const { page, pageSize, search, ordering, status } = get();
+    const { page, pageSize, search, ordering, estado, nivelRiesgo } = get();
     set({ loading: true, error: null });
     try {
-      const data = await getAlerts({ page, page_size: pageSize, search, ordering, nivel_riesgo: status?.toLowerCase() || undefined });
+      const params: Record<string, string | number | undefined> = {
+        page,
+        page_size: pageSize,
+      };
+      if (search) params.search = search;
+      if (ordering) params.ordering = ordering;
+      if (estado && estado !== "all" && estado !== "Todos") params.estado = estado.toLowerCase();
+      if (nivelRiesgo && nivelRiesgo !== "all" && nivelRiesgo !== "Todos") params.nivel_riesgo = nivelRiesgo.toLowerCase();
+
+      const data = await getAlerts(params);
       set({ items: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   fetchStats: async () => {
     try {
       const data = await getAlertsStats();
       set({ stats: data });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
     }
   },
   setPage: (page) => {
@@ -92,24 +117,27 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
     try {
       await createAlert(data);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+      get().fetchStats();
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   updateItem: async (id, data) => {
     try {
       await updateAlert(id, data);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+      get().fetchStats();
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   removeItem: async (id) => {
     try {
       await deleteAlert(id);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+      get().fetchStats();
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   generateAlerts: async () => {
@@ -120,8 +148,8 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
       await useAlertsStore.getState().fetchStats();
       set({ generating: false });
       return { generadas: result.generadas };
-    } catch (error: any) {
-      set({ error: error.message, generating: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), generating: false });
       throw error;
     }
   },
@@ -129,16 +157,18 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
     try {
       await markAlertReviewed(id);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+      get().fetchStats();
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   markDiscarded: async (id) => {
     try {
       await markAlertDiscarded(id);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+      get().fetchStats();
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
 }));

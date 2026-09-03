@@ -1,8 +1,9 @@
 import { apiClient } from "@/lib/apiClient";
 import type { AlertItemType } from "./types";
 import type { PaginatedResponse } from "@/types";
+import type { AlertsStatsType } from "@/features/shared/statsTypes";
 
-export const getAlertsStats = () => apiClient<any>("/alerts/stats/");
+export const getAlertsStats = () => apiClient<AlertsStatsType>("/alerts/stats/");
 
 export const getAlerts = (params?: Record<string, string | number | boolean | undefined | null>) =>
   apiClient<PaginatedResponse<AlertItemType>>("/alertas/", { params });

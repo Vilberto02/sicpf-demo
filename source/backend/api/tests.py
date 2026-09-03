@@ -130,3 +130,75 @@ class ProductoAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(response.data['results'][0]['codigo_lote'], 'LOT-001')
+
+
+class AlertaAPITest(TestCase):
+    def setUp(self):
+        from datetime import date
+        from .models import Alerta
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='testadmin', password='testpassword')
+        response = self.client.post(reverse('token_obtain_pair'), {
+            'username': 'testadmin',
+            'password': 'testpassword'
+        })
+        self.token = response.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+
+        self.categoria = Categoria.objects.create(nombre="Farmacia")
+        self.presentacion = Presentacion.objects.create(nombre="Caja")
+        self.producto = Producto.objects.create(
+            codigo="PROD-ALERTA", nombre="Ibuprofeno 400mg", precio_real=Decimal("10.00"),
+            precio_flotante=Decimal("1.00"), unidades_por_caja=10,
+            presentacion=self.presentacion, categoria=self.categoria
+        )
+
+        # Crear 3 alertas en diferentes estados
+        self.alerta_revisada = Alerta.objects.create(
+            producto=self.producto, alerta="Alerta revisada", tipo="stock_bajo",
+            nivel_riesgo="medio", periodo_agotamiento=10, stock_minimo=5,
+            fecha_alerta=date.today(), estado="revisada"
+        )
+        self.alerta_descartada = Alerta.objects.create(
+            producto=self.producto, alerta="Alerta descartada", tipo="vencimiento",
+            nivel_riesgo="bajo", periodo_agotamiento=20, stock_minimo=5,
+            fecha_alerta=date.today(), estado="descartada"
+        )
+        self.alerta_pendiente = Alerta.objects.create(
+            producto=self.producto, alerta="Alerta pendiente", tipo="stock_critico",
+            nivel_riesgo="alto", periodo_agotamiento=2, stock_minimo=5,
+            fecha_alerta=date.today(), estado="pendiente"
+        )
+
+    def test_list_alertas_priority_ordering(self):
+        """Verifica que las alertas pendientes aparezcan primero y las descartadas al final."""
+        response = self.client.get(reverse('alerta-list'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data['results']
+        self.assertEqual(len(results), 3)
+        self.assertEqual(results[0]['id'], self.alerta_pendiente.id)
+        self.assertEqual(results[1]['id'], self.alerta_revisada.id)
+        self.assertEqual(results[2]['id'], self.alerta_descartada.id)
+
+    def test_filter_alertas_by_estado(self):
+        """Verifica el filtro por estado (pendiente, revisada, descartada)."""
+        response_pen = self.client.get(reverse('alerta-list') + '?estado=pendiente')
+        self.assertEqual(response_pen.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_pen.data['count'], 1)
+        self.assertEqual(response_pen.data['results'][0]['estado'], 'pendiente')
+
+        response_rev = self.client.get(reverse('alerta-list') + '?estado=revisada')
+        self.assertEqual(response_rev.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_rev.data['count'], 1)
+        self.assertEqual(response_rev.data['results'][0]['estado'], 'revisada')
+
+    def test_mark_alerta_reviewed(self):
+        """Verifica actualizar el estado de una alerta a revisada."""
+        response = self.client.patch(
+            reverse('alerta-update', kwargs={'pk': self.alerta_pendiente.id}),
+            {'estado': 'revisada'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['estado'], 'revisada')
+

@@ -7,23 +7,16 @@ import {
 } from "@/components/ui/dialog";
 import type { AlertItemType, LoteAfectadoType } from "@/features/alerts/types";
 import { NivelRiesgoBadge, OrigenBadge, EstadoBadge, TIPO_LABELS } from "./alertBadges";
+import { formatDate } from "@/features/shared/dateUtils";
 
 type AlertDetailDialogProps = {
   alerta: AlertItemType | null;
   onClose: () => void;
 };
 
-function formatDate(value?: string | null) {
+function formatDateSafe(value?: string | null) {
   if (!value) return "-";
-  try {
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
+  return formatDate(value);
 }
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -62,7 +55,7 @@ function LotesTable({ lotes }: { lotes: LoteAfectadoType[] }) {
           {lotes.map((lote) => (
             <tr key={lote.id} className="border-t">
               <td className="px-3 py-2">{lote.codigo_lote}</td>
-              <td className="px-3 py-2">{formatDate(lote.fecha_vencimiento)}</td>
+              <td className="px-3 py-2">{formatDateSafe(lote.fecha_vencimiento)}</td>
               <td className={`px-3 py-2 text-right ${lote.vencido ? "text-red-600 font-medium" : ""}`}>
                 {lote.vencido ? "Vencido" : lote.dias_restantes}
               </td>
@@ -104,7 +97,7 @@ export function AlertDetailDialog({ alerta, onClose }: AlertDetailDialogProps) {
         <hr className="border-border" />
 
         <section className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoRow label="Fecha de alerta">{formatDate(alerta.fecha_alerta)}</InfoRow>
+          <InfoRow label="Fecha de alerta">{formatDateSafe(alerta.fecha_alerta)}</InfoRow>
           <InfoRow label="Categoría">{alerta.categoria_nombre ?? "-"}</InfoRow>
           <InfoRow label="Stock mínimo (cajas)">{alerta.stock_minimo} cajas</InfoRow>
           <InfoRow label="Stock mínimo (unidades)">

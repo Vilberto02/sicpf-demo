@@ -6,6 +6,7 @@ import { useAlertsStore } from "@/features/alerts/store";
 import { AnimatedCounter } from "../AnimatedCounter";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { notifyError } from "@/features/shared/errorUtils";
 
 export function AlertSection() {
   const { stats, fetchStats, generateAlerts, generating } = useAlertsStore();
@@ -18,8 +19,8 @@ export function AlertSection() {
     try {
       const result = await generateAlerts();
       toast.success(`Se generaron ${result.generadas} alertas`);
-    } catch {
-      toast.error("Error al generar alertas");
+    } catch (error) {
+      notifyError(error, "Error al generar alertas");
     }
   };
 
