@@ -13,12 +13,20 @@ import { SalesTable } from "../table/SalesTable";
 import { useSalesStore } from "@/features/sales/store";
 import { AnimatedCounter } from "../AnimatedCounter";
 
+import { useNavigate } from "react-router-dom";
+
 export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
   const { stats, fetchStats } = useSalesStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  const handleNewSale = () => {
+    if (onNewSale) onNewSale();
+    else navigate("/ventas/nueva");
+  };
 
   return (
     <div className="flex flex-col gap-8 min-w-0">
@@ -29,7 +37,7 @@ export function SaleSection({ onNewSale }: { onNewSale?: () => void }) {
         </div>
 
         <Button
-          onClick={onNewSale}
+          onClick={handleNewSale}
           className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm"
         >
           <Plus></Plus> Agregar venta

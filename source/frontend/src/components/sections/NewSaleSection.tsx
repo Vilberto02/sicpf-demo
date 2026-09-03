@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag } from "lucide-react";
+import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -112,10 +113,16 @@ function NewSaleSectionSkeleton() {
   );
 }
 
-export function NewSaleSection({ onBack }: { onBack: () => void }) {
+export function NewSaleSection({ onBack }: { onBack?: () => void }) {
+  const navigate = useNavigate();
   const { clients, fetchClients, addClient, loading: clientsLoading } = useClientStore();
   const { addItem: addSale } = useSalesStore();
   const { userProfile } = useAuthStore();
+
+  const handleGoBack = () => {
+    if (onBack) onBack();
+    else navigate("/ventas");
+  };
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -293,7 +300,7 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
       await addSale(saleData);
       toast.success("Venta completada exitosamente.");
       setCart([]);
-      onBack();
+      handleGoBack();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Contacte a soporte";
       toast.error(`Error al registrar la venta: ${message}`);
@@ -302,11 +309,19 @@ export function NewSaleSection({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex flex-col gap-6 min-w-0 pb-10">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex gap-3 items-center text-3xl text-primary font-semibold tracking-tight">
-            <Handbag width={36} height={36}></Handbag>
-            <h3 className="mt-1">Nueva venta</h3>
-          </div>
+          <Handbag width={36} height={36}></Handbag>
+          <h3 className="mt-1">Nueva venta</h3>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGoBack}
+          className="cursor-pointer flex items-center gap-2 self-start sm:self-auto"
+        >
+          <ArrowLeft className="h-4 w-4" /> Volver al historial
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">

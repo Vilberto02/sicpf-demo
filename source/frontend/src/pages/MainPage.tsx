@@ -1,11 +1,3 @@
-import { AlertSection } from "@/components/sections/AlertSection";
-import { InventorySection } from "@/components/sections/InventorySection";
-import { OverviewSection } from "@/components/sections/OverviewSection";
-import { ProductSection } from "@/components/sections/ProductSection";
-import { ProfileSection } from "@/components/sections/ProfileSection";
-import { SaleSection } from "@/components/sections/SaleSection";
-import { NewSaleSection } from "@/components/sections/NewSaleSection";
-import { UsersSection } from "@/components/sections/UsersSection";
 import { SideBar } from "@/components/sidebar/SideBar";
 import type { SideBarItemType } from "@/types";
 import {
@@ -20,10 +12,9 @@ import {
   ShieldCheck,
   MapPin
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState, Suspense } from "react";
 import { useAuthStore } from "@/features/auth/store";
-import { Navigate } from "react-router";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -57,70 +48,47 @@ const sidebarItems: SideBarItemType[] = [
   { id: "perfil", name: "Perfil", Icon: User },
 ];
 
-function MainPageSkeleton() {
-  return (
-    <div className="flex w-screen h-screen bg-background">
-      {/* Sidebar Skeleton */}
-      <div className="w-64 h-full bg-card border-r border-border p-6 flex flex-col gap-6">
-        <Skeleton className="h-10 w-32" />
-        <div className="flex flex-col gap-2 mt-8">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      </div>
-      {/* Main Content Skeleton */}
-      <div className="flex-1 p-6 md:p-10 flex flex-col gap-8 overflow-hidden">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-8" />
-          <Skeleton className="h-10 w-48 rounded-full" />
-        </div>
-        <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="flex-1 rounded-xl min-h-[300px]" />
-      </div>
-    </div>
-  );
-}
-
 export function MainPage() {
-  const [activeItem, setActiveItem] = useState("general");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { isAuthenticated, isCheckingAuth, fetchProfile, userProfile } = useAuthStore();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const isAdminUser =
     userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
 
-  const sections: Record<string, React.ReactNode> = {
-    general: <OverviewSection />,
-    inventario: <InventorySection />,
-    productos: <ProductSection />,
-    ventas: <SaleSection onNewSale={() => setActiveItem("nueva_venta")} />,
-    alertas: <AlertSection />,
-    perfil: <ProfileSection />,
-    nueva_venta: <NewSaleSection onBack={() => setActiveItem("ventas")} />,
-    usuarios: <UsersSection />,
+  const pathToId: Record<string, string> = {
+    "/": "general",
+    "/general": "general",
+    "/inventario": "inventario",
+    "/productos": "productos",
+    "/ventas": "ventas",
+    "/ventas/nueva": "nueva_venta",
+    "/alertas": "alertas",
+    "/perfil": "perfil",
+    "/usuarios": "usuarios",
+  };
+
+  const activeItem = pathToId[location.pathname] || "general";
+
+  const handleSelectItem = (id: string) => {
+    const idToPath: Record<string, string> = {
+      general: "/general",
+      inventario: "/inventario",
+      productos: "/productos",
+      ventas: "/ventas",
+      nueva_venta: "/ventas/nueva",
+      alertas: "/alertas",
+      perfil: "/perfil",
+      usuarios: "/usuarios",
+    };
+    const target = idToPath[id] || "/general";
+    navigate(target);
   };
 
   const navItems: SideBarItemType[] = isAdminUser
     ? [...sidebarItems, { id: "usuarios", name: "Usuarios", Icon: ShieldCheck }]
     : sidebarItems;
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
-  if (isCheckingAuth) {
-    return <MainPageSkeleton />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
 
   const name = userProfile?.first_name || "Cargando...";
   const lastname = userProfile?.last_name || "";
@@ -135,9 +103,9 @@ export function MainPage() {
       <SideBar
         items={navItems}
         activeItem={activeItem}
-        setActiveItem={setActiveItem}
+        setActiveItem={handleSelectItem}
         isOpen={isSidebarOpen}
-      ></SideBar>
+      />
       <div
         className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? "ml-64" : "ml-0"}`}
       >
@@ -145,13 +113,13 @@ export function MainPage() {
           <Menu
             className="cursor-pointer select-none"
             onClick={toggleSidebar}
-          ></Menu>
+          />
           
           <Dialog>
             <DialogTrigger asChild>
               <div className="flex items-center gap-4 cursor-pointer hover:bg-stone-100 p-2 rounded-lg transition-colors">
                 <div className="flex items-center gap-2">
-                  <UserCircle2 className="text-primary"></UserCircle2>
+                  <UserCircle2 className="text-primary" />
                   <p className="select-none line-clamp-1 md:line-clamp-0 font-medium text-sm">
                     {name}, {lastname}
                   </p>
@@ -161,7 +129,7 @@ export function MainPage() {
             <DialogContent className="sm:max-w-[425px] bg-card ring-1 ring-black/5 shadow-xl rounded-2xl border-0">
               <DialogHeader>
                 <DialogTitle className="text-2xl text-primary font-semibold tracking-tight text-center mt-4">
-                  Credencial de Usuario
+                  Credencial del usuario
                 </DialogTitle>
                 <DialogDescription className="text-center">
                   Información del perfil activo.
@@ -199,7 +167,15 @@ export function MainPage() {
 
         </div>
         <main className="flex-1 p-4 md:p-10 overflow-x-hidden">
-          {sections[activeItem]}
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
