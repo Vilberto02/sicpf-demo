@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { ShieldCheck, Plus, KeyRound, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -23,18 +23,8 @@ import {
 import { useAuthStore } from "@/features/auth/store";
 import { useUsersStore } from "@/features/users/store";
 import type { UsuarioItemType } from "@/features/users/types";
-import { CreateUserSchema, UpdateUserSchema, ChangeUserPasswordSchema } from "@/features/users/schemas";
-
-type UserFormState = {
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  username: string;
-  password: string;
-  rol: string;
-  sede: string;
-};
+import { CreateUserSchema, UpdateUserSchema, ChangeUserPasswordSchema, type UserFormState } from "@/features/users/schemas";
+import { confirmAction } from "@/features/shared/confirmDialog";
 
 const EMPTY_FORM: UserFormState = {
   nombre: "",
@@ -69,7 +59,7 @@ export function UsersSection() {
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (user: UsuarioItemType) => {
+  const openEditDialog = useCallback((user: UsuarioItemType) => {
     setEditingUser(user);
     setForm({
       nombre: user.nombre ?? "",
@@ -82,12 +72,12 @@ export function UsersSection() {
       sede: user.sede ? String(user.sede) : "",
     });
     setIsDialogOpen(true);
-  };
+  }, []);
 
-  const openPasswordDialog = (user: UsuarioItemType) => {
+  const openPasswordDialog = useCallback((user: UsuarioItemType) => {
     setPasswordUser(user);
     setIsPasswordDialogOpen(true);
-  };
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,21 +146,13 @@ export function UsersSection() {
     }
   };
 
-  const handleDelete = async (row: UsuarioItemType) => {
-    const { default: Swal } = await import("sweetalert2");
-
-    const result = await Swal.fire({
+  const handleDelete = useCallback(async (row: UsuarioItemType) => {
+    const confirmed = await confirmAction({
       title: "¿Eliminar usuario?",
       text: `Se eliminará el acceso de "${row.nombre} ${row.apellido}". Esta acción no se puede deshacer.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
     });
 
-    if (!result.isConfirmed) return;
+    if (!confirmed) return;
 
     const ok = await removeItem(row.id);
     if (ok) {
@@ -178,16 +160,16 @@ export function UsersSection() {
     } else {
       toast.error("No se pudo eliminar el usuario.");
     }
-  };
+  }, [removeItem]);
 
-  const handleToggleActive = async (row: UsuarioItemType) => {
+  const handleToggleActive = useCallback(async (row: UsuarioItemType) => {
     await toggleActive(row.id, !row.is_active);
     toast.success(
       row.is_active
         ? `Acceso desactivado para ${row.nombre} ${row.apellido}.`
         : `Acceso reactivado para ${row.nombre} ${row.apellido}.`
     );
-  };
+  }, [toggleActive]);
 
   const getEstadoBadge = (activo: boolean) => (
     <span
@@ -201,7 +183,7 @@ export function UsersSection() {
     </span>
   );
 
-  const userColumns: ColumnDef<UsuarioItemType>[] = [
+  const userColumns = useMemo<ColumnDef<UsuarioItemType>[]>(() => [
     {
       accessorKey: "nombre",
       header: "Nombre",
@@ -315,7 +297,7 @@ export function UsersSection() {
         );
       },
     },
-  ];
+  ], [roles, updateItem, openEditDialog, openPasswordDialog, handleToggleActive, handleDelete]);
 
   return (
     <div className="flex flex-col gap-8 min-w-0 pb-10">
@@ -338,6 +320,7 @@ export function UsersSection() {
         data={items}
         searchPlaceholder="Buscar por nombre o email"
         categories={roles.map((r) => r.nombre)}
+        categoryLabel="Rol"
         statusHeaderProps="Estado"
         loading={loading}
       />

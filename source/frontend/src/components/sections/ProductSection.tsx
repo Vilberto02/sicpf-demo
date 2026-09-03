@@ -11,6 +11,54 @@ import { ProductDetailsModal } from "@/components/modals/ProductDetailsModal";
 import { useProductStore } from "@/features/products/store";
 import { useInventoryStore } from "@/features/inventory/store";
 import type { ProductoType } from "@/features/products/types";
+import { ProductStatusBadge } from "@/features/shared/badges";
+import { confirmAction } from "@/features/shared/confirmDialog";
+
+const productColumns: ColumnDef<ProductoType>[] = [
+  {
+    accessorKey: "codigo",
+    header: "Código",
+  },
+  {
+    accessorKey: "nombre",
+    header: "Nombre",
+  },
+  {
+    id: "category",
+    accessorKey: "categoria_nombre",
+    header: "Categoría",
+  },
+  {
+    accessorKey: "precio_real",
+    header: "Precio Caja",
+    meta: { align: "right" },
+    cell: ({ row }) =>
+      new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(
+        Number(row.getValue("precio_real")) || 0
+      ),
+  },
+  {
+    accessorKey: "precio_flotante",
+    header: "Precio Unidad",
+    meta: { align: "right" },
+    cell: ({ row }) =>
+      new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(
+        Number(row.getValue("precio_flotante")) || 0
+      ),
+  },
+  {
+    id: "presentacion",
+    accessorKey: "presentacion_nombre",
+    header: "Presentación",
+    cell: ({ row }) => row.original.presentacion_nombre || "—",
+  },
+  {
+    id: "status",
+    accessorKey: "estado",
+    header: "Estado",
+    cell: ({ row }) => <ProductStatusBadge estado={row.original.estado} />,
+  },
+];
 
 export function ProductSection() {
   const {
@@ -30,34 +78,13 @@ export function ProductSection() {
     fetchCategories();
   }, [fetchProducts, fetchStats, fetchCategories]);
 
-  const getEstadoBadge = (estado: string) => {
-    const styles: Record<string, string> = {
-      vencido: "bg-red-100 text-red-800 border-red-200",
-      "por vencer": "bg-yellow-100 text-yellow-800 border-yellow-200",
-      activo: "bg-green-100 text-green-800 border-green-200",
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${styles[estado] || ""}`}>
-        {estado.charAt(0).toUpperCase() + estado.slice(1)}
-      </span>
-    );
-  };
-
   const handleDelete = async (row: ProductoType) => {
-    const { default: Swal } = await import("sweetalert2");
-
-    const result = await Swal.fire({
+    const confirmed = await confirmAction({
       title: "¿Eliminar producto?",
       text: `Se eliminará "${row.nombre}" junto con todos sus lotes. Esta acción no se puede deshacer.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
     });
 
-    if (result.isConfirmed) {
+    if (confirmed) {
       const ok = await removeProduct(row.id);
       if (ok) {
         toast.success("Producto eliminado exitosamente");
@@ -77,52 +104,6 @@ export function ProductSection() {
     setEditingProduct(row);
     setIsDialogOpen(true);
   };
-
-  const productColumns: ColumnDef<ProductoType>[] = [
-    {
-      accessorKey: "codigo",
-      header: "Código",
-    },
-    {
-      accessorKey: "nombre",
-      header: "Nombre",
-    },
-    {
-      id: "category",
-      accessorKey: "categoria_nombre",
-      header: "Categoría",
-    },
-    {
-      accessorKey: "precio_real",
-      header: "Precio Caja",
-      meta: { align: "right" },
-      cell: ({ row }) =>
-        new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(
-          Number(row.getValue("precio_real")) || 0
-        ),
-    },
-    {
-      accessorKey: "precio_flotante",
-      header: "Precio Unidad",
-      meta: { align: "right" },
-      cell: ({ row }) =>
-        new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(
-          Number(row.getValue("precio_flotante")) || 0
-        ),
-    },
-    {
-      id: "presentacion",
-      accessorKey: "presentacion_nombre",
-      header: "Presentación",
-      cell: ({ row }) => row.original.presentacion_nombre || "—",
-    },
-    {
-      id: "status",
-      accessorKey: "estado",
-      header: "Estado",
-      cell: ({ row }) => getEstadoBadge(row.original.estado),
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-8 min-w-0 pb-10">
@@ -183,6 +164,7 @@ export function ProductSection() {
           data={products}
           searchPlaceholder="Buscar por código o nombre"
           categories={inventoryCategories?.labels || []}
+          categoryLabel="Categoría"
           onCategoryFilter={setCategory}
           statusHeaderProps="Estado"
           loading={loading}

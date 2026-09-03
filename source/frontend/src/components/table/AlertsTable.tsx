@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 import type { AlertItemType } from "@/features/alerts/types";
@@ -12,11 +12,14 @@ import {
   TipoBadge,
 } from "@/features/alerts/components/alertBadges";
 import { AlertDetailDialog } from "@/features/alerts/components/AlertDetailDialog";
+import { formatDate } from "@/features/shared/dateUtils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function AlertsTable() {
   const {
     items, fetchItems, loading, markReviewed, markDiscarded,
-    count, page, pageSize, setPage, setSearch, setStatus
+    count, page, pageSize, setPage, setSearch,
+    estado, setEstado, nivelRiesgo, setNivelRiesgo
   } = useAlertsStore();
   const [selectedAlert, setSelectedAlert] = useState<AlertItemType | null>(null);
 
@@ -24,7 +27,7 @@ export function AlertsTable() {
     fetchItems();
   }, [fetchItems]);
 
-  const alertsColumns: ColumnDef<AlertItemType>[] = [
+  const alertsColumns = useMemo<ColumnDef<AlertItemType>[]>(() => [
     {
       accessorKey: "producto_nombre",
       header: "Producto",
@@ -45,19 +48,7 @@ export function AlertsTable() {
     {
       accessorKey: "fecha_alerta",
       header: "Fecha",
-      cell: ({ row }) => {
-        const rawDate = row.getValue("fecha_alerta") as string;
-        try {
-          const date = new Date(rawDate);
-          return new Intl.DateTimeFormat("es-ES", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          }).format(date);
-        } catch {
-          return rawDate;
-        }
-      }
+      cell: ({ row }) => formatDate(row.getValue("fecha_alerta") as string),
     },
     {
       accessorKey: "periodo_agotamiento",
@@ -105,20 +96,20 @@ export function AlertsTable() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="cursor-pointer"
+                  className="cursor-pointer text-green-600 hover:text-green-700 hover:bg-green-50"
                   onClick={() => markReviewed(alerta.id)}
                   title="Marcar como revisada"
                 >
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="cursor-pointer"
+                  className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={() => markDiscarded(alerta.id)}
                   title="Descartar"
                 >
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="h-4 w-4" />
                 </Button>
               </>
             )}
@@ -126,7 +117,53 @@ export function AlertsTable() {
         );
       },
     },
-  ];
+  ], [markReviewed, markDiscarded]);
+
+  const customFilterControls = (
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      {/* Filtro por Estado */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+          Estado:
+        </span>
+        <Select
+          value={estado || "Todos"}
+          onValueChange={(val) => setEstado(val === "Todos" ? null : val)}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todos">Todos</SelectItem>
+            <SelectItem value="pendiente">Pendiente</SelectItem>
+            <SelectItem value="revisada">Revisada</SelectItem>
+            <SelectItem value="descartada">Descartada</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Filtro por Nivel de Riesgo */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+          N. Riesgo:
+        </span>
+        <Select
+          value={nivelRiesgo || "Todos"}
+          onValueChange={(val) => setNivelRiesgo(val === "Todos" ? null : val)}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todos">Todos</SelectItem>
+            <SelectItem value="alto">Alto</SelectItem>
+            <SelectItem value="medio">Medio</SelectItem>
+            <SelectItem value="bajo">Bajo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -134,9 +171,8 @@ export function AlertsTable() {
         columns={alertsColumns}
         data={items}
         searchPlaceholder="Buscar por producto"
-        categories={["Alto", "Medio", "Bajo"]}
         statusHeaderProps="N. Riesgo"
-        onCategoryFilter={setStatus}
+        customFilters={customFilterControls}
         loading={loading}
         serverSide
         totalCount={count}

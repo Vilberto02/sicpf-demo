@@ -7,9 +7,8 @@ import {
   getFilteredRowModel,
   flexRender,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
-  ListFilter,
   Eye,
   Pencil,
   DollarSign,
@@ -44,6 +43,7 @@ interface DataTableProps<TData, TValue> {
   onPageChange?: (page: number) => void;
   onSearch?: (search: string) => void;
   onCategoryFilter?: (category: string) => void;
+  categoryLabel?: string;
   customFilters?: React.ReactNode;
 }
 
@@ -53,89 +53,52 @@ const ALIGN_CLASSES = {
   center: "text-center",
 } as const;
 
-export function DataTable<TData, TValue>({
-  columns,
-  data,
-  searchPlaceholder = "Buscar...",
-  categories = [],
-  statusHeaderProps = "Estado",
-  loading = false,
+const StatusBadge = memo(({ status }: { status: string }) => {
+  const statusStyles = {
+    success: "text-green-500 border-green-500",
+    warning: "text-warning border-warning",
+    danger: "text-red-500 border-red-500",
+  };
+
+  const getStateText = (state: string) => {
+    if (["Activo", "Completado", "Bajo"].includes(state)) {
+      return statusStyles.success;
+    } else if (["Por vencer", "Pendiente", "Medio"].includes(state)) {
+      return statusStyles.warning;
+    } else if (["Vencido", "Cancelado", "Alto"].includes(state)) {
+      return statusStyles.danger;
+    } else {
+      return "text-stone-600 border-stone-600";
+    }
+  };
+
+  return (
+    <span
+      className={`px-2 py-1 line-clamp-1 sm:line-clamp-0 rounded-md text-xs text-center font-medium border ${getStateText(status) || "border-gray-500 text-gray-500"}`}
+    >
+      {status}
+    </span>
+  );
+});
+
+function DataTableActions({
+  row,
   onView,
   onEdit,
   onDelete,
   onFinance,
   onBlock,
   onPrint,
-  serverSide = false,
-  totalCount = 0,
-  page = 0,
-  pageSize = 10,
-  onPageChange,
-  onSearch,
-  onCategoryFilter,
-  customFilters,
-}: DataTableProps<TData, TValue>) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Todos");
-  
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    };
-  }, []);
-
-  const [pagination, setPagination] = useState({
-    pageIndex: serverSide ? page : 0,
-    pageSize: serverSide ? pageSize : 10,
-  });
-
-  const handleSearch = useCallback((value: string) => {
-    setGlobalFilter(value);
-    if (serverSide && onSearch) {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      const timer = setTimeout(() => {
-        onSearch(value);
-      }, 300);
-      debounceTimerRef.current = timer;
-    }
-  }, [serverSide, onSearch]);
-
-
-
-
-  const StatusBadge = ({ status }: { status: string }) => {
-    const statusStyles = {
-      success: "text-green-500 border-green-500",
-      warning: "text-warning border-warning",
-      danger: "text-red-500 border-red-500",
-    };
-
-    const getStateText = (state: string) => {
-      if (["Activo", "Completado", "Bajo"].includes(state)) {
-        return statusStyles.success;
-      } else if (["Por vencer", "Pendiente", "Medio"].includes(state)) {
-        return statusStyles.warning;
-      } else if (["Vencido", "Cancelado", "Alto"].includes(state)) {
-        return statusStyles.danger;
-      } else {
-        return "text-stone-600 border-stone-600";
-      }
-    };
-
-    return (
-      <span
-        className={`px-2 py-1 line-clamp-1 sm:line-clamp-0 rounded-md text-xs text-center font-medium border ${getStateText(status) || "border-gray-500 text-gray-500"}`}
-      >
-        {status}
-      </span>
-    );
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const ActionIcons = ({ row }: { row: TData }) => (
+}: {
+  row: unknown;
+  onView?: (row: unknown) => void;
+  onEdit?: (row: unknown) => void;
+  onDelete?: (row: unknown) => void;
+  onFinance?: (row: unknown) => void;
+  onBlock?: (row: unknown) => void;
+  onPrint?: (row: unknown) => void;
+}) {
+  return (
     <div className="flex items-center gap-2">
       {onView && (
         <Button
@@ -198,6 +161,63 @@ export function DataTable<TData, TValue>({
       )}
     </div>
   );
+}
+
+const MemoizedActions = memo(DataTableActions);
+
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  searchPlaceholder = "Buscar...",
+  categories = [],
+  statusHeaderProps = "Estado",
+  loading = false,
+  onView,
+  onEdit,
+  onDelete,
+  onFinance,
+  onBlock,
+  onPrint,
+  serverSide = false,
+  totalCount = 0,
+  page = 0,
+  pageSize = 10,
+  onPageChange,
+  onSearch,
+  onCategoryFilter,
+  categoryLabel = "Categoría",
+  customFilters,
+}: DataTableProps<TData, TValue>) {
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  const [pagination, setPagination] = useState({
+    pageIndex: serverSide ? page : 0,
+    pageSize: serverSide ? pageSize : 10,
+  });
+
+  const handleSearch = useCallback((value: string) => {
+    setGlobalFilter(value);
+    if (serverSide && onSearch) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      const timer = setTimeout(() => {
+        onSearch(value);
+      }, 300);
+      debounceTimerRef.current = timer;
+    }
+  }, [serverSide, onSearch]);
+
+
+
 
   const enhancedColumns = useMemo(() => {
     return [
@@ -205,7 +225,7 @@ export function DataTable<TData, TValue>({
       ...(columns.some(col => col.id === "status" || ('accessorKey' in col && col.accessorKey === "status")) ? [] : [{
         id: "status",
         header: statusHeaderProps,
-        accessorFn: (row: any) => row.status || "Activo",
+        accessorFn: (row: unknown) => (row as { status?: string }).status || "Activo",
         cell: ({ row }: { row: { original: TData } }) => {
           const status = (row.original as { status?: string }).status || "Activo";
           return <StatusBadge status={status} />;
@@ -217,13 +237,21 @@ export function DataTable<TData, TValue>({
               id: "actions",
               header: "Acciones",
               cell: ({ row }: { row: { original: TData } }) => (
-                <ActionIcons row={row.original} />
+                <MemoizedActions
+                  row={row.original}
+                  onView={onView as (row: unknown) => void}
+                  onEdit={onEdit as (row: unknown) => void}
+                  onDelete={onDelete as (row: unknown) => void}
+                  onFinance={onFinance as (row: unknown) => void}
+                  onBlock={onBlock as (row: unknown) => void}
+                  onPrint={onPrint as (row: unknown) => void}
+                />
               ),
             },
           ]
         : []),
     ];
-  }, [ActionIcons, columns, statusHeaderProps, onView, onEdit, onDelete, onFinance, onBlock, onPrint]);
+  }, [columns, statusHeaderProps, onView, onEdit, onDelete, onFinance, onBlock, onPrint]);
 
   const displayData = useMemo(() => {
     if (serverSide) return data;
@@ -232,14 +260,14 @@ export function DataTable<TData, TValue>({
     if (globalFilter) {
       const term = globalFilter.toLowerCase();
       filtered = filtered.filter((row) =>
-        Object.values(row as any).some(
+        Object.values(row as Record<string, unknown>).some(
           (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(term)
         )
       );
     }
     if (selectedCategory && selectedCategory !== "Todos" && selectedCategory !== "Todas las categorias") {
       filtered = filtered.filter((row) => {
-        const r = row as any;
+        const r = row as Record<string, unknown>;
         return r.categoria === selectedCategory || r.categoria_nombre === selectedCategory ||
                r.status === selectedCategory || r.nivel_riesgo === selectedCategory;
       });
@@ -322,22 +350,27 @@ export function DataTable<TData, TValue>({
 
           {/* Selector */}
           {categories.length > 0 && (
-            <Select
-              value={selectedCategory}
-              onValueChange={handleCategoryChange}
-            >
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Selecciona una opción" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                {categoryLabel}:
+              </span>
+              <Select
+                value={selectedCategory}
+                onValueChange={handleCategoryChange}
+              >
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Selecciona una opción" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Todos">Todos</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {customFilters}
@@ -351,7 +384,7 @@ export function DataTable<TData, TValue>({
             {enhancedTable.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b border-border">
                 {headerGroup.headers.map((header) => {
-                  const align = (header.column.columnDef.meta as any)?.align || "left";
+                  const align = (header.column.columnDef.meta as { align?: string } | undefined)?.align || "left";
                   return (
                   <th
                     key={header.id}
@@ -383,7 +416,7 @@ export function DataTable<TData, TValue>({
                   className="border-b border-border hover:bg-muted/50 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => {
-                    const align = (cell.column.columnDef.meta as any)?.align || "left";
+                    const align = (cell.column.columnDef.meta as { align?: string } | undefined)?.align || "left";
                     return (
                     <td key={cell.id} className={`py-3 px-4 text-sm tabular-nums ${ALIGN_CLASSES[align as keyof typeof ALIGN_CLASSES] ?? ALIGN_CLASSES.left}`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
