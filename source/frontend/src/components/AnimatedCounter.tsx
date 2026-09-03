@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 
-export function AnimatedCounter({ 
+function AnimatedCounterInner({ 
   value, 
   isFloat = false, 
   suffix = "" 
@@ -37,3 +37,5 @@ export function AnimatedCounter({
 
   return <>{isFloat ? count.toFixed(2) : Math.floor(count)}{suffix}</>;
 }
+
+export const AnimatedCounter = memo(AnimatedCounterInner);

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { SaleItemType } from "./types";
+import type { SalesStatsType, MySalesStatsType } from "@/features/shared/statsTypes";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import {
   getSales,
   createSale,
@@ -16,8 +18,8 @@ interface SalesState {
   pageSize: number;
   search: string;
   ordering: string;
-  stats: any | null;
-  myStats: any | null;
+  stats: SalesStatsType | null;
+  myStats: MySalesStatsType | null;
   loading: boolean;
   error: string | null;
   fetchItems: () => Promise<void>;
@@ -63,16 +65,16 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     try {
       const data = await getSales({ page, page_size: pageSize, search, ordering, usuario: usuarioId || undefined, estado: status || undefined });
       set({ items: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   fetchStats: async () => {
     try {
       const data = await getSalesStats();
       set({ stats: data });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
     }
   },
   fetchMyStats: async () => {
@@ -80,7 +82,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       const data = await getMySalesStats();
       set({ myStats: data });
     } catch (error) {
-      console.error(error);
+      console.error(getErrorMessage(error));
     }
   },
   setPage: (page) => {
@@ -104,8 +106,8 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       await createSale(data);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       throw error;
     }
   },
@@ -114,8 +116,8 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       await updateSale(id, data);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       throw error;
     }
   },
@@ -124,8 +126,8 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       await deleteSale(id);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       throw error;
     }
   },

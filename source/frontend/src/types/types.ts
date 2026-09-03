@@ -55,6 +55,20 @@ export type LoteType = {
   created_at?: string;
 };
 
+export type VentaDetalleType = {
+  id?: number;
+  producto?: number;
+  producto_nombre?: string;
+  lote?: number;
+  lote_codigo?: string;
+  cantidad_real: number;
+  cantidad_blister: number;
+  cantidad_flotante: number;
+  precio_real: number;
+  precio_blister: number;
+  precio_flotante: number;
+};
+
 export type VentaType = {
   id?: number;
   codigo: string;
@@ -65,7 +79,7 @@ export type VentaType = {
   fecha: string;
   estado: string;
   vendedor_nombre?: string;
-  detalles?: any[];
+  detalles?: VentaDetalleType[];
   detalles_write?: any[];
 };
 

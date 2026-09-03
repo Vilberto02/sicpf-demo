@@ -1,9 +1,10 @@
 import { apiClient } from "@/lib/apiClient";
 import type { InventoryItemType } from "./types";
 import type { PaginatedResponse } from "@/types";
+import type { InventoryStatsType, InventoryCategoriesType } from "@/features/shared/statsTypes";
 
-export const getInventoryStats = () => apiClient<any>("/inventory/stats/");
-export const getInventoryCategories = () => apiClient<any>("/inventory/categories/");
+export const getInventoryStats = () => apiClient<InventoryStatsType>("/inventory/stats/");
+export const getInventoryCategories = () => apiClient<InventoryCategoriesType>("/inventory/categories/");
 
 export const getInventory = (params?: Record<string, string | number | boolean | undefined | null>) =>
   apiClient<PaginatedResponse<InventoryItemType>>("/lotes/", { params });

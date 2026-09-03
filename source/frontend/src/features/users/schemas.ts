@@ -54,6 +54,19 @@ export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true
 
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 
+export const UserFormSchema = z.object({
+  nombre: z.string().trim().min(1, "El nombre es obligatorio."),
+  apellido: z.string().trim(),
+  email: z.string().trim().min(1, "El correo es obligatorio.").email("Debe ingresar un correo electrónico válido."),
+  telefono: z.string().trim(),
+  username: z.string().trim().min(3, "El usuario debe tener al menos 3 caracteres."),
+  password: z.string(),
+  rol: z.string(),
+  sede: z.string(),
+});
+
+export type UserFormState = z.infer<typeof UserFormSchema>;
+
 export const ChangeUserPasswordSchema = z
   .object({
     new_password: z

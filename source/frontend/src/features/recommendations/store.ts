@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { RecommendationItemType } from "./types";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import {
   getRecommendations,
   createRecommendation,
@@ -37,8 +38,8 @@ export const useRecommendationsStore = create<RecommendationsState>((set, get) =
     try {
       const data = await getRecommendations({ page, page_size: pageSize, search });
       set({ items: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   setPage: (page) => {
@@ -53,24 +54,24 @@ export const useRecommendationsStore = create<RecommendationsState>((set, get) =
     try {
       await createRecommendation(data);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   updateItem: async (id, data) => {
     try {
       await updateRecommendation(id, data);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
   removeItem: async (id) => {
     try {
       await deleteRecommendation(id);
       get().fetchItems();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
 }));

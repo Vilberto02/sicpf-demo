@@ -1,5 +1,5 @@
 import { type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 type CardVariant = "default" | "success" | "warning" | "danger" | "info";
 
@@ -19,7 +19,7 @@ const variantStyles: Record<CardVariant, string> = {
   info: "text-info",
 };
 
-export function CardDashboard({title, value, Icon, variant} : CardDashboardProps) {
+function CardDashboardInner({title, value, Icon, variant} : CardDashboardProps) {
   return (
     <div className="flex flex-col grow px-5 py-6 rounded-xl bg-card shadow-sm ring-1 ring-black/5 min-w-[196px] gap-2">
       <h4 className="font-medium text-sm text-muted-foreground">{title}</h4>
@@ -32,3 +32,5 @@ export function CardDashboard({title, value, Icon, variant} : CardDashboardProps
     </div>
   );
 }
+
+export const CardDashboard = memo(CardDashboardInner);

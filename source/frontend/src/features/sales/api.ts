@@ -1,10 +1,11 @@
 import { apiClient } from "@/lib/apiClient";
 import type { SaleItemType } from "./types";
 import type { PaginatedResponse } from "@/types";
+import type { SalesStatsType, MySalesStatsType } from "@/features/shared/statsTypes";
 
-export const getSalesStats = () => apiClient<any>("/sales/stats/");
+export const getSalesStats = () => apiClient<SalesStatsType>("/sales/stats/");
 
-export const getMySalesStats = () => apiClient<any>("/sales/stats/mine/");
+export const getMySalesStats = () => apiClient<MySalesStatsType>("/sales/stats/mine/");
 
 export const getSales = (params?: Record<string, string | number | boolean | undefined | null>) =>
   apiClient<PaginatedResponse<SaleItemType>>("/ventas/", { params });

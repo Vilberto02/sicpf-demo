@@ -1,5 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { SaleItemType } from "@/features/sales/types";
+import type { VentaDetalleType } from "@/types";
+import { formatDateTime } from "@/features/shared/dateUtils";
 
 interface SaleDetailsModalProps {
   sale: SaleItemType | null;
@@ -23,9 +25,7 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha</p>
                 <p className="font-medium text-sm mt-1">
-                  {new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(
-                    new Date(sale.fecha)
-                  )}
+                  {formatDateTime(sale.fecha)}
                 </p>
               </div>
               <div>
@@ -63,7 +63,7 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {sale.detalles?.map((detalle: any) => {
+                    {sale.detalles?.map((detalle: VentaDetalleType) => {
                       // Determinar el tipo, cantidad y subtotal según lo que compró (Caja, Blister, Unidad)
                       const rows = [];
                       if (detalle.cantidad_real > 0) {

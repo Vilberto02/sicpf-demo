@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ClienteType } from "./types";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import { getClients, createClient } from "./api";
 
 interface ClientState {
@@ -30,8 +31,8 @@ export const useClientStore = create<ClientState>((set, get) => ({
     try {
       const data = await getClients({ page, page_size: pageSize, search });
       set({ clients: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   setPage: (page) => {
@@ -47,8 +48,8 @@ export const useClientStore = create<ClientState>((set, get) => ({
       const newClient = await createClient(data);
       get().fetchClients();
       return newClient;
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       return null;
     }
   },

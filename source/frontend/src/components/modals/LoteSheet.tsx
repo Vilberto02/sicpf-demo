@@ -19,6 +19,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { NewProductDialog } from "./NewProductDialog";
 import type { LoteType } from "@/types/types";
 import type { ProductoType } from "@/features/products/types";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 
 type LoteFormValues = {
   codigo_lote: string;
@@ -110,8 +111,8 @@ export function LoteSheet({ open, onOpenChange, lote, onSaved, children }: LoteS
       resetLoteForm();
       fetchItems();
       onSaved?.();
-    } catch (error: any) {
-      toast.error(`Error al guardar el lote: ${error.message || "Contacte a soporte"}`);
+    } catch (error) {
+      toast.error(`Error al guardar el lote: ${getErrorMessage(error) || "Contacte a soporte"}`);
     } finally {
       setIsSaving(false);
     }

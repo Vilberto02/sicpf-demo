@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ChartNoAxesColumn } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Skeleton } from "../ui/skeleton";
@@ -68,6 +68,18 @@ export function OverviewSection() {
     fetchChartData();
   }, [fetchRec, fetchInv, fetchAlert, fetchChartData]);
 
+  const filteredAndSortedInvItems = useMemo(
+    () =>
+      invItems
+        .filter((product) => product.producto_estado === "vencido" || product.producto_estado === "por vencer")
+        .sort((a, b) => {
+          if (a.producto_estado === "vencido" && b.producto_estado !== "vencido") return -1;
+          if (a.producto_estado !== "vencido" && b.producto_estado === "vencido") return 1;
+          return 0;
+        }),
+    [invItems]
+  );
+
   if (chartLoading || recLoading || invLoading || alertsLoading) {
     return <OverviewSectionSkeleton />;
   }
@@ -94,20 +106,10 @@ export function OverviewSection() {
             </h4>
             <ScrollArea className="h-72">
               <div className="flex flex-col gap-2 pr-3">
-                {(() => {
-                  const filteredAndSortedInvItems = invItems
-                    .filter((product) => product.producto_estado === "vencido" || product.producto_estado === "por vencer")
-                    .sort((a, b) => {
-                      if (a.producto_estado === "vencido" && b.producto_estado !== "vencido") return -1;
-                      if (a.producto_estado !== "vencido" && b.producto_estado === "vencido") return 1;
-                      return 0;
-                    });
-
-                  if (filteredAndSortedInvItems.length === 0) {
-                    return <p className="text-sm text-muted-foreground mt-4">Aún no hay productos con estados críticos registrados.</p>;
-                  }
-
-                  return filteredAndSortedInvItems.map((product) => (
+                {filteredAndSortedInvItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-4">Aún no hay productos con estados críticos registrados.</p>
+                ) : (
+                  filteredAndSortedInvItems.map((product) => (
                     <InventoryItem
                       key={product.codigo_lote}
                       variant="state"
@@ -115,8 +117,8 @@ export function OverviewSection() {
                       title={product.producto_nombre}
                       state={product.producto_estado as StateType}
                     ></InventoryItem>
-                  ));
-                })()}
+                  ))
+                )}
               </div>
             </ScrollArea>
           </div>

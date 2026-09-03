@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ProductoType } from "./types";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import {
   getProducts,
   createProduct,
@@ -62,16 +63,16 @@ export const useProductStore = create<ProductState>((set, get) => ({
     try {
       const data = await getProducts({ page, page_size: pageSize, search, ordering, categoria__nombre: category || undefined });
       set({ products: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   fetchStats: async () => {
     try {
       const data = await getProductStats();
       set({ stats: data });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
     }
   },
   setPage: (page) => {
@@ -96,8 +97,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       get().fetchProducts();
       get().fetchStats();
       return newProduct;
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       return null;
     }
   },
@@ -107,8 +108,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       get().fetchProducts();
       get().fetchStats();
       return updated;
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       return null;
     }
   },
@@ -118,8 +119,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       get().fetchProducts();
       get().fetchStats();
       return true;
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       return false;
     }
   },

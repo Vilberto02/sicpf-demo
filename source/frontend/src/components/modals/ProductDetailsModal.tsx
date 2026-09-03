@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { getLoteCatalogo } from "@/features/inventory/api";
 import type { ProductoType } from "@/features/products/types";
 import type { LoteType } from "@/types/types";
+import { formatDate } from "@/features/shared/dateUtils";
 
 interface ProductDetailsModalProps {
   product: ProductoType | null;
@@ -126,7 +127,7 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                         {lotesProducto.map((lote) => (
                           <tr key={lote.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-4 py-3 font-medium">{lote.codigo_lote}</td>
-                            <td className="px-4 py-3">{new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(lote.fecha_vencimiento))}</td>
+                            <td className="px-4 py-3">{formatDate(lote.fecha_vencimiento)}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_real}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_flotante}</td>
                             <td className="px-4 py-3">{getLoteEstadoBadge(lote.estado)}</td>

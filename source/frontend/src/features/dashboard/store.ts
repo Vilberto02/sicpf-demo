@@ -1,8 +1,10 @@
 import { create } from "zustand";
+import type { DashboardChartType } from "@/features/shared/statsTypes";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import { getDashboardChartData } from "./api";
 
 interface DashboardState {
-  chartData: any | null;
+  chartData: DashboardChartType | null;
   loading: boolean;
   fetchChartData: () => Promise<void>;
 }
@@ -15,8 +17,8 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     try {
       const data = await getDashboardChartData();
       set({ chartData: data, loading: false });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
       set({ loading: false });
     }
   }

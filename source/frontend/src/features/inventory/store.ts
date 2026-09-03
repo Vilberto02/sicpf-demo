@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { InventoryItemType } from "./types";
+import type { InventoryStatsType, InventoryCategoriesType } from "@/features/shared/statsTypes";
+import { getErrorMessage } from "@/features/shared/errorUtils";
 import {
   getInventory,
   createInventoryItem,
@@ -16,8 +18,8 @@ interface InventoryState {
   pageSize: number;
   search: string;
   ordering: string;
-  stats: any | null;
-  categories: any | null;
+  stats: InventoryStatsType | null;
+  categories: InventoryCategoriesType | null;
   loading: boolean;
   error: string | null;
   fetchItems: () => Promise<void>;
@@ -56,24 +58,24 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     try {
       const data = await getInventory({ page, page_size: pageSize, search, ordering, producto__categoria__nombre: status || undefined });
       set({ items: data.results, count: data.count, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error) {
+      set({ error: getErrorMessage(error), loading: false });
     }
   },
   fetchStats: async () => {
     try {
       const data = await getInventoryStats();
       set({ stats: data });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
     }
   },
   fetchCategories: async () => {
     try {
       const data = await getInventoryCategories();
       set({ categories: data });
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      console.error(getErrorMessage(error));
     }
   },
   setPage: (page) => {
@@ -97,8 +99,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await createInventoryItem(data);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       throw error;
     }
   },
@@ -107,8 +109,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await updateInventoryItem(id, data);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
       throw error;
     }
   },
@@ -117,8 +119,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await deleteInventoryItem(id);
       get().fetchItems();
       get().fetchStats();
-    } catch (error: any) {
-      set({ error: error.message });
+    } catch (error) {
+      set({ error: getErrorMessage(error) });
     }
   },
 }));

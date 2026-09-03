@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { LoteType } from "@/types/types";
+import { formatDate } from "@/features/shared/dateUtils";
 
 interface LoteDetailsModalProps {
   lote: LoteType | null;
@@ -17,18 +18,6 @@ const getEstadoBadge = (estado: string) => {
       {estado.charAt(0).toUpperCase() + estado.slice(1)}
     </span>
   );
-};
-
-const formatDate = (raw: string) => {
-  try {
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(raw));
-  } catch {
-    return raw;
-  }
 };
 
 export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
