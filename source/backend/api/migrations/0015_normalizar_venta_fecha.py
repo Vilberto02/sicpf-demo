@@ -5,6 +5,9 @@ def normalizar_fechas(apps, schema_editor):
     """Convierte fechas almacenadas sin componente horario ('YYYY-MM-DD')
     en datetimes validos ('YYYY-MM-DD 00:00:00') para que las funciones
     de fecha de SQLite (lookups __date, TruncMonth) no fallen."""
+    if schema_editor.connection.vendor != 'sqlite':
+        return
+
     Venta = apps.get_model('api', 'Venta')
     db_alias = schema_editor.connection.alias
     columns = [
