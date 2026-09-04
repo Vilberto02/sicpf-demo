@@ -15,6 +15,7 @@ import os
 from datetime import timedelta
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv()
 
@@ -31,7 +32,14 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-yf-egtj%ohfh#!0w00fk+%kr82
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*'] # TODO: Configurar en producción
+ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', '')
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS_ENV.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost', '127.0.0.1']
+
+if os.getenv('RENDER'):
+    ALLOWED_HOSTS.append('.onrender.com')
 
 
 # Application definition
@@ -54,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -86,12 +95,23 @@ WSGI_APPLICATION = 'sicpf_core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -128,18 +148,33 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+os.makedirs(STATIC_ROOT, exist_ok=True)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CORS_ORIGINS_ENV = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if CORS_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in CORS_ORIGINS_ENV.split(',') if o.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_ORIGINS_ENV = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if CSRF_ORIGINS_ENV:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_ORIGINS_ENV.split(',') if o.strip()]
+elif not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        f"https://{h}" for h in ALLOWED_HOSTS if not h.startswith('.') and h != '*'
+    ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
