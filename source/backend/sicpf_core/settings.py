@@ -160,7 +160,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ORIGINS_ENV = os.getenv('CORS_ALLOWED_ORIGINS', '')
 if CORS_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in CORS_ORIGINS_ENV.split(',') if o.strip()]
+    CORS_ALLOWED_ORIGINS = [
+        o.strip().rstrip('/') for o in CORS_ORIGINS_ENV.split(',') if o.strip()
+    ]
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
@@ -170,10 +172,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_ORIGINS_ENV = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 if CSRF_ORIGINS_ENV:
-    CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_ORIGINS_ENV.split(',') if o.strip()]
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip().rstrip('/') for o in CSRF_ORIGINS_ENV.split(',') if o.strip()
+    ]
 elif not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
-        f"https://{h}" for h in ALLOWED_HOSTS if not h.startswith('.') and h != '*'
+        f"https://{h.lstrip('.')}" for h in ALLOWED_HOSTS if h != '*'
     ]
 
 REST_FRAMEWORK = {
