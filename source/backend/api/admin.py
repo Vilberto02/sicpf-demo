@@ -2,7 +2,8 @@
 from django.contrib import admin
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta
+    Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
+    RegistroAuditoria
 )
 
 @admin.register(Categoria)
@@ -81,3 +82,11 @@ class VentaAdmin(admin.ModelAdmin):
     list_display = ('codigo', 'cliente', 'usuario', 'total', 'fecha', 'estado')
     list_filter = ('estado', 'fecha')
     inlines = [DetalleVentaInline]
+
+@admin.register(RegistroAuditoria)
+class RegistroAuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'accion', 'usuario', 'tabla_afectada', 'registro_id', 'ip_origen')
+    list_filter = ('accion', 'fecha', 'tabla_afectada')
+    search_fields = ('usuario__username', 'tabla_afectada', 'registro_id', 'detalles')
+    readonly_fields = ('fecha', 'usuario', 'accion', 'tabla_afectada', 'registro_id', 'detalles', 'ip_origen', 'user_agent')
+

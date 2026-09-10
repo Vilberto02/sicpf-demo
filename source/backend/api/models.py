@@ -54,7 +54,9 @@ class Producto(models.Model):
     stock_minimo_real = models.IntegerField(default=10, help_text="Stock minimo en cajas cerradas")
     stock_minimo_flotante = models.IntegerField(default=20, help_text="Stock minimo en unidades sueltas")
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
+    is_active = models.BooleanField(default=True, help_text="Indica si el producto está activo (Soft Delete)")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Productos'
@@ -95,7 +97,9 @@ class Lote(models.Model):
     fecha_vencimiento = models.DateField()
     stock_real = models.IntegerField(default=0)
     stock_flotante = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True, help_text="Indica si el lote está activo (Soft Delete)")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def estado(self):
@@ -270,9 +274,10 @@ class Venta(models.Model):
         ('Cancelado', 'Cancelado'),
     )
     codigo = models.CharField(max_length=50, unique=True)
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ventas_realizadas')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='ventas_realizadas')
     fecha = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     total = models.DecimalField(max_digits=12, decimal_places=2)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Completado')
 
@@ -291,8 +296,8 @@ class Venta(models.Model):
 
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    lote = models.ForeignKey(Lote, on_delete=models.PROTECT)
     cantidad_real = models.IntegerField(default=0)
     cantidad_flotante = models.IntegerField(default=0)
     cantidad_blister = models.IntegerField(default=0)
@@ -306,3 +311,41 @@ class DetalleVenta(models.Model):
 
     def __str__(self):
         return f"Detalle {self.id} de Venta {self.venta.codigo}"
+
+
+class RegistroAuditoria(models.Model):
+    ACCION_CHOICES = (
+        ('LOGIN_EXITOSO', 'Inicio de sesión exitoso'),
+        ('LOGIN_FALLIDO', 'Intento de sesión fallido'),
+        ('LOGOUT', 'Cierre de sesión'),
+        ('CREACION', 'Creación de registro'),
+        ('MODIFICACION', 'Modificación de registro'),
+        ('ELIMINACION', 'Eliminación/Desactivación'),
+        ('ANULACION_VENTA', 'Anulación de venta'),
+        ('CAMBIO_PASSWORD', 'Cambio de contraseña'),
+        ('ACCESO_DENEGADO', 'Acceso denegado (403)'),
+        ('ALERTA_GESTIONADA', 'Gestión de Alerta'),
+    )
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='registros_auditoria')
+    accion = models.CharField(max_length=50, choices=ACCION_CHOICES)
+    tabla_afectada = models.CharField(max_length=100, blank=True, null=True)
+    registro_id = models.CharField(max_length=100, blank=True, null=True)
+    detalles = models.JSONField(default=dict, blank=True)
+    ip_origen = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'Registros de Auditoría'
+        verbose_name = 'Registro de Auditoría'
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['-fecha'], name='idx_audit_fecha'),
+            models.Index(fields=['accion'], name='idx_audit_accion'),
+            models.Index(fields=['usuario'], name='idx_audit_usuario'),
+        ]
+
+    def __str__(self):
+        usr = self.usuario.username if self.usuario else "Anónimo/Sistema"
+        return f"[{self.fecha.strftime('%Y-%m-%d %H:%M:%S')}] {self.accion} por {usr} en {self.tabla_afectada or 'N/A'}"
+

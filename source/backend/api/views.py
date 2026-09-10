@@ -12,32 +12,37 @@ from rest_framework.views import APIView
 from django.db.models import Q, Sum, Count, F, Case, When, Value, IntegerField, CharField, DateField, Subquery, OuterRef
 from django.utils import timezone
 
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
-    DIAS_HORIZONTE_VENCIMIENTO
+    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO
 )
 from .serializers import (
     CategoriaSerializer, PresentacionSerializer, ProductoSerializer, LoteSerializer,
     PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
     ClienteSerializer, RolSerializer, UsuarioSerializer, SedeSerializer,
-    VentaSerializer, DetalleVentaSerializer
+    VentaSerializer, DetalleVentaSerializer, RegistroAuditoriaSerializer
 )
-from .permissions import IsOwnerOrAdmin
+from .permissions import IsOwnerOrAdmin, IsAdminUserRole, IsAdminOrReadOnly, CanCancelOrDeleteSale, is_admin_user
 from .services import (
     CategoriaService, PresentacionService, ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService, SedeService,
-    VentaService, DetalleVentaService, AlertGenerationService
+    VentaService, DetalleVentaService, AlertGenerationService, AuditService
 )
 from .pagination import CatalogPagination
 
 
 def create_generic_views(model_service, model_serializer, permission_class=IsAuthenticated,
-                         search_fields=None, ordering_fields=None, filterset_fields=None):
+                         search_fields=None, ordering_fields=None, filterset_fields=None,
+                         write_permission_class=None):
     _search_fields = search_fields or []
     _ordering_fields = ordering_fields or '__all__'
     _filterset_fields = filterset_fields
+    _write_perm = write_permission_class or permission_class
 
     class ListView(generics.ListAPIView):
         permission_classes = [permission_class]
@@ -50,7 +55,7 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return model_service.get_queryset()
 
     class CreateView(generics.CreateAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         serializer_class = model_serializer
         def create(self, request, *args, **kwargs):
             serializer = self.get_serializer(data=request.data)
@@ -65,7 +70,7 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return model_service.get_by_id(self.kwargs['pk'])
 
     class UpdateView(generics.UpdateAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         serializer_class = model_serializer
         def get_object(self):
             return model_service.get_by_id(self.kwargs['pk'])
@@ -77,18 +82,19 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return Response(self.get_serializer(instance).data)
 
     class DeleteView(generics.DestroyAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         def delete(self, request, *args, **kwargs):
             model_service.delete(self.kwargs['pk'])
             return Response(status=status.HTTP_204_NO_CONTENT)
 
     return ListView, CreateView, DetailView, UpdateView, DeleteView
 
-# Categoria Views
+# Categoria Views (escritura solo Administrador)
 CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(
     CategoriaService, CategoriaSerializer,
     search_fields=['nombre'],
     ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
 )
 
 # Presentacion Views (solo lectura para formularios)
@@ -103,20 +109,22 @@ SedeListView = create_generic_views(
     ordering_fields=['nombre'],
 )[0]
 
-# Producto Views
+# Producto Views (escritura solo Administrador)
 ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(
     ProductoService, ProductoSerializer,
     search_fields=['codigo', 'nombre', 'descripcion'],
     ordering_fields=['codigo', 'nombre', 'precio_real', 'created_at', 'categoria'],
     filterset_fields=['categoria', 'categoria__nombre'],
+    write_permission_class=IsAdminUserRole,
 )
 
-# Lote Views
+# Lote Views (escritura solo Administrador)
 LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(
     LoteService, LoteSerializer,
     search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo'],
     ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at'],
     filterset_fields=['producto', 'producto__categoria__nombre'],
+    write_permission_class=IsAdminUserRole,
 )
 
 # Cliente Views
@@ -182,19 +190,32 @@ class CustomVentaListView(_venta_views[0]):
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        is_admin = user.is_superuser
-        if hasattr(user, 'usuario') and user.usuario.rol and user.usuario.rol.nombre in ['Administrador', 'Superusuario']:
-            is_admin = True
-        
-        if not is_admin:
+        if not is_admin_user(user):
             qs = qs.filter(usuario__user=user)
         return qs
 
+class CustomVentaDetailView(_venta_views[2]):
+    def get_object(self):
+        obj = super().get_object()
+        if not is_admin_user(self.request.user) and obj.usuario.user != self.request.user:
+            raise PermissionDenied("No tienes permiso para consultar esta venta.")
+        return obj
+
+class CustomVentaUpdateView(_venta_views[3]):
+    def get_object(self):
+        obj = super().get_object()
+        if not is_admin_user(self.request.user) and obj.usuario.user != self.request.user:
+            raise PermissionDenied("No tienes permiso para modificar esta venta.")
+        return obj
+
+class CustomVentaDeleteView(_venta_views[4]):
+    permission_classes = [CanCancelOrDeleteSale]
+
 VentaListView = CustomVentaListView
 VentaCreateView = _venta_views[1]
-VentaDetailView = _venta_views[2]
-VentaUpdateView = _venta_views[3]
-VentaDeleteView = _venta_views[4]
+VentaDetailView = CustomVentaDetailView
+VentaUpdateView = CustomVentaUpdateView
+VentaDeleteView = CustomVentaDeleteView
 
 # Alerta Views
 AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(
@@ -219,12 +240,14 @@ class ProductStatsView(APIView):
         hoy = tz.localdate()
 
         lotes_by_producto = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0
         ).values('producto').annotate(
             total_real=Sum('stock_real')
         )
 
         lotes_por_vencer = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0,
             fecha_vencimiento__gt=hoy,
             fecha_vencimiento__lte=hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
@@ -233,6 +256,7 @@ class ProductStatsView(APIView):
         )
 
         lotes_vencidos = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0,
             fecha_vencimiento__lte=hoy
         ).values('producto').annotate(
@@ -243,7 +267,7 @@ class ProductStatsView(APIView):
         ids_por_vencer = set(d['producto'] for d in lotes_por_vencer)
         ids_vencidos = set(d['producto'] for d in lotes_vencidos)
 
-        total = Producto.objects.count()
+        total = Producto.objects.filter(is_active=True).count()
         activos = len(ids_con_stock - ids_vencidos)
         por_vencer = len(ids_por_vencer - ids_vencidos)
         vencidos = len(ids_vencidos)
@@ -265,6 +289,9 @@ class InventoryStatsView(APIView):
         limite_por_vencer = hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
 
         agg = Lote.objects.filter(
+            is_active=True,
+            producto__is_active=True
+        ).filter(
             Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
         ).aggregate(
             total_lotes=Count('id'),
@@ -557,5 +584,50 @@ class LoteCatalogoView(generics.ListAPIView):
         return Lote.objects.select_related(
             'producto', 'producto__categoria', 'producto__presentacion'
         ).filter(
+            is_active=True,
+            producto__is_active=True
+        ).filter(
             Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
         )
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout/ - Invalida el refresh token en la lista negra y registra el evento."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {"detail": "Se requiere el refresh token para cerrar sesión."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            AuditService.registrar(
+                accion='LOGOUT',
+                tabla_afectada='AUTH',
+                registro_id=request.user.id,
+                detalles={'mensaje': 'Sesión cerrada y refresh token revocado'},
+                request=request
+            )
+            return Response({"detail": "Sesión cerrada correctamente."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": f"Token inválido o ya revocado: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class RegistroAuditoriaListView(generics.ListAPIView):
+    """GET /api/auditoria/ - Consulta de eventos de auditoría (exclusivo Administrador)."""
+    permission_classes = [IsAdminUserRole]
+    serializer_class = RegistroAuditoriaSerializer
+    search_fields = ['usuario__username', 'accion', 'tabla_afectada', 'registro_id', 'ip_origen']
+    ordering_fields = ['fecha', 'accion', 'tabla_afectada']
+    filterset_fields = ['accion', 'tabla_afectada']
+
+    def get_queryset(self):
+        return RegistroAuditoria.objects.all().select_related('usuario')
+

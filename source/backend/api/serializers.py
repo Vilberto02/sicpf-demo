@@ -1,14 +1,17 @@
 from datetime import date
-
+from decimal import Decimal
+import uuid
+from django.db import transaction
 from rest_framework import serializers
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
 from .models import (
     Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
-    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede
+    Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
+    RegistroAuditoria
 )
-from .permissions import sync_user_groups
-from .services import AlertGenerationService
+from .permissions import sync_user_groups, is_admin_user
+from .services import AlertGenerationService, AuditService
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -369,6 +372,10 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class DetalleVentaCreateSerializer(serializers.ModelSerializer):
+    precio_real = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    precio_flotante = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    precio_blister = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+
     class Meta:
         model = DetalleVenta
         fields = ['producto', 'lote', 'cantidad_real', 'cantidad_flotante', 'cantidad_blister', 'precio_real', 'precio_flotante', 'precio_blister']
@@ -378,79 +385,193 @@ class VentaSerializer(serializers.ModelSerializer):
     detalles_write = DetalleVentaCreateSerializer(many=True, write_only=True, required=False)
     cliente_nombre = serializers.ReadOnlyField(source='cliente.nombre')
     vendedor_nombre = serializers.ReadOnlyField(source='usuario.nombre')
+    codigo = serializers.CharField(required=False)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
+    usuario = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = Venta
         fields = '__all__'
 
+    @transaction.atomic
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles_write', [])
+        if not detalles_data:
+            raise serializers.ValidationError({"detalles": "Debe incluir al menos un producto en la venta."})
         
-        # Validar stock y convertir si es necesario (en memoria)
-        # Hacemos una copia profunda de los stocks para no alterar la BD si la validación falla
-        lotes_temp = {}
-        for detalle_data in detalles_data:
-            lote = detalle_data.get('lote')
-            if lote:
-                if lote.estado == 'vencido':
-                    raise serializers.ValidationError(
-                        f"No se puede vender el lote vencido: {lote.codigo_lote}"
-                    )
-                
-                if lote.id not in lotes_temp:
-                    lotes_temp[lote.id] = {'stock_real': lote.stock_real, 'stock_flotante': lote.stock_flotante, 'obj': lote}
-                
-                req_real = detalle_data.get('cantidad_real', 0)
-                req_flot = detalle_data.get('cantidad_flotante', 0)
-                blisters = detalle_data.get('cantidad_blister', 0)
-                if blisters > 0:
-                    req_flot += blisters * lote.producto.unidades_por_blister
-                
-                temp = lotes_temp[lote.id]
-                
-                # Conversión automática
-                unidades_en_principal = max(lote.producto.unidades_por_caja, lote.producto.blisters_por_caja * lote.producto.unidades_por_blister)
-                
-                while temp['stock_flotante'] < req_flot and temp['stock_real'] > req_real:
-                    temp['stock_real'] -= 1
-                    temp['stock_flotante'] += unidades_en_principal
-                
-                if temp['stock_real'] < req_real or temp['stock_flotante'] < req_flot:
-                    raise serializers.ValidationError(f"Stock insuficiente para el lote: {lote.codigo_lote}")
-                    
-                temp['stock_real'] -= req_real
-                temp['stock_flotante'] -= req_flot
+        # Blindaje: Vincular usuario autenticado automáticamente (evita suplantación)
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            perfil = getattr(request.user, 'usuario_perfil', None) or getattr(request.user, 'usuario', None)
+            if not perfil:
+                perfil, _ = Usuario.objects.get_or_create(user=request.user)
+            validated_data['usuario'] = perfil
 
-        venta = Venta.objects.create(**validated_data)
+        # Generación de código seguro en el servidor si no viene o para evitar colisiones
+        codigo_enviado = validated_data.get('codigo')
+        if not codigo_enviado or Venta.objects.filter(codigo=codigo_enviado).exists():
+            hoy_str = date.today().strftime('%Y%m%d')
+            secuencia = uuid.uuid4().hex[:6].upper()
+            validated_data['codigo'] = f"VNT-{hoy_str}-{secuencia}"
+
+        # Bloqueo pesimista con select_for_update para evitar condiciones de carrera (Race Conditions)
+        lote_ids = [d.get('lote').id for d in detalles_data if d.get('lote')]
+        lotes_db = {
+            l.id: l for l in Lote.objects.select_for_update().select_related('producto').filter(id__in=lote_ids)
+        }
+
+        total_calculado = Decimal('0.00')
+        detalles_preparados = []
+        lotes_temp = {}
+
         for detalle_data in detalles_data:
-            DetalleVenta.objects.create(venta=venta, **detalle_data)
+            lote_input = detalle_data.get('lote')
+            if not lote_input or lote_input.id not in lotes_db:
+                raise serializers.ValidationError("Lote no válido o inexistente.")
             
-        # Guardar los stocks actualizados (incluyendo las conversiones)
+            lote = lotes_db[lote_input.id]
+            if lote.estado == 'vencido':
+                raise serializers.ValidationError(
+                    f"No se puede vender el lote vencido: {lote.codigo_lote}"
+                )
+
+            if lote.id not in lotes_temp:
+                lotes_temp[lote.id] = {
+                    'stock_real': lote.stock_real,
+                    'stock_flotante': lote.stock_flotante,
+                    'obj': lote
+                }
+
+            req_real = int(detalle_data.get('cantidad_real', 0) or 0)
+            req_flot = int(detalle_data.get('cantidad_flotante', 0) or 0)
+            blisters = int(detalle_data.get('cantidad_blister', 0) or 0)
+            
+            if blisters > 0:
+                req_flot += blisters * lote.producto.unidades_por_blister
+
+            temp = lotes_temp[lote.id]
+
+            # Conversión automática cajas -> flotante
+            unidades_en_principal = max(
+                lote.producto.unidades_por_caja,
+                lote.producto.blisters_por_caja * lote.producto.unidades_por_blister
+            )
+
+            while temp['stock_flotante'] < req_flot and temp['stock_real'] > req_real:
+                temp['stock_real'] -= 1
+                temp['stock_flotante'] += unidades_en_principal
+
+            if temp['stock_real'] < req_real or temp['stock_flotante'] < req_flot:
+                raise serializers.ValidationError(f"Stock insuficiente para el lote: {lote.codigo_lote}")
+
+            temp['stock_real'] -= req_real
+            temp['stock_flotante'] -= req_flot
+
+            # PRECIOS OFICIALES DEL SERVIDOR (Blindaje contra adulteración de precios en el cliente)
+            precio_real_oficial = Decimal(str(lote.producto.precio_real))
+            precio_flot_oficial = Decimal(str(lote.producto.precio_flotante))
+            precio_blister_oficial = Decimal(str(lote.producto.precio_blister))
+
+            subtotal_linea = (
+                Decimal(str(req_real)) * precio_real_oficial +
+                Decimal(str(int(detalle_data.get('cantidad_flotante', 0) or 0))) * precio_flot_oficial +
+                Decimal(str(blisters)) * precio_blister_oficial
+            )
+            total_calculado += subtotal_linea
+
+            detalles_preparados.append({
+                'producto': lote.producto,
+                'lote': lote,
+                'cantidad_real': req_real,
+                'cantidad_flotante': int(detalle_data.get('cantidad_flotante', 0) or 0),
+                'cantidad_blister': blisters,
+                'precio_real': precio_real_oficial,
+                'precio_flotante': precio_flot_oficial,
+                'precio_blister': precio_blister_oficial,
+            })
+
+        # Asignar total recalculado por el servidor
+        validated_data['total'] = round(total_calculado, 2)
+        venta = Venta.objects.create(**validated_data)
+
+        for dp in detalles_preparados:
+            DetalleVenta.objects.create(venta=venta, **dp)
+
+        # Actualizar stock en base de datos
         for temp in lotes_temp.values():
-            lote = temp['obj']
-            lote.stock_real = temp['stock_real']
-            lote.stock_flotante = temp['stock_flotante']
-            lote.save()
-                
+            l = temp['obj']
+            l.stock_real = temp['stock_real']
+            l.stock_flotante = temp['stock_flotante']
+            l.save(update_fields=['stock_real', 'stock_flotante', 'updated_at'])
+
+        # Registro de Auditoría
+        AuditService.registrar(
+            accion='CREACION',
+            tabla_afectada='Venta',
+            registro_id=venta.id,
+            detalles={
+                'codigo': venta.codigo,
+                'total': str(venta.total),
+                'cliente_id': venta.cliente_id,
+                'items_count': len(detalles_preparados)
+            },
+            request=request
+        )
+
         return venta
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         estado_nuevo = validated_data.get('estado', instance.estado)
-        
-        # Si transiciona a "Cancelado" por primera vez
+        request = self.context.get('request')
+
+        # Si intenta anular la venta: verificar autorización de Administrador
         if instance.estado != 'Cancelado' and estado_nuevo == 'Cancelado':
+            user = request.user if request else None
+            if not is_admin_user(user):
+                raise serializers.ValidationError(
+                    {"estado": "Toda anulación de venta requiere la autorización explícita de un Administrador."}
+                )
+
+            # Bloquear lotes y reponer stock de forma atómica
+            lote_ids = [d.lote_id for d in instance.detalles.all()]
+            lotes_db = {
+                l.id: l for l in Lote.objects.select_for_update().select_related('producto').filter(id__in=lote_ids)
+            }
+
             for detalle in instance.detalles.all():
-                lote = detalle.lote
+                lote = lotes_db.get(detalle.lote_id)
                 if lote:
                     lote.stock_real += detalle.cantidad_real
                     lote.stock_flotante += detalle.cantidad_flotante
                     if detalle.cantidad_blister > 0:
                         lote.stock_flotante += detalle.cantidad_blister * lote.producto.unidades_por_blister
-                    lote.save()
-                
+                    lote.save(update_fields=['stock_real', 'stock_flotante', 'updated_at'])
+
+            AuditService.registrar(
+                accion='ANULACION_VENTA',
+                tabla_afectada='Venta',
+                registro_id=instance.id,
+                detalles={
+                    'codigo': instance.codigo,
+                    'total': str(instance.total),
+                    'motivo': validated_data.get('motivo', 'Anulación autorizada por Administrador')
+                },
+                request=request
+            )
+
         # Actualizar campos normalmente
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class RegistroAuditoriaSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+
+    class Meta:
+        model = RegistroAuditoria
+        fields = '__all__'
+
 

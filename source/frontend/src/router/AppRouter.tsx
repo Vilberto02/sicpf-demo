@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 // Layout
 import { RequireAuth } from "./RequireAuth";
+import { RoleGuard } from "./RoleGuard";
 import { MainPage } from "@/pages/MainPage";
 
 const LoginPage = lazy(() =>
@@ -70,7 +71,10 @@ const routes = createBrowserRouter([
           { path: "ventas/nueva", element: <NewSaleSection /> },
           { path: "alertas", element: <AlertSection /> },
           { path: "perfil", element: <ProfileSection /> },
-          { path: "usuarios", element: <UsersSection /> },
+          {
+            element: <RoleGuard allowedRoles={["Administrador", "Superusuario"]} />,
+            children: [{ path: "usuarios", element: <UsersSection /> }],
+          },
         ],
       },
     ],

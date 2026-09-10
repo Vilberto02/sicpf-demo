@@ -3,12 +3,15 @@ import { Boxes, Coins, Package, Plus, Clock8, TriangleAlert } from "lucide-react
 import { CardDashboard } from "../CardDashboard";
 import InventoryTable from "../table/InventoryTable";
 import { useInventoryStore } from "@/features/inventory/store";
+import { useAuthStore } from "@/features/auth/store";
 import { Button } from "@/components/ui/button";
 import { AnimatedCounter } from "../AnimatedCounter";
 import { LoteSheet } from "../modals/LoteSheet";
 
 export function InventorySection() {
   const { stats, fetchStats } = useInventoryStore();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
 
   useEffect(() => {
     fetchStats();
@@ -22,15 +25,17 @@ export function InventorySection() {
           <h3 className="mt-1">Lotes</h3>
         </div>
 
-        <div className="flex gap-4">
-          <LoteSheet
-            onSaved={fetchStats}
-          >
-            <Button className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm">
-              <Plus></Plus> Agregar Lote
-            </Button>
-          </LoteSheet>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-4">
+            <LoteSheet
+              onSaved={fetchStats}
+            >
+              <Button className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm">
+                <Plus></Plus> Agregar Lote
+              </Button>
+            </LoteSheet>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">

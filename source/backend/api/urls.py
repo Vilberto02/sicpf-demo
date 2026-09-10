@@ -88,4 +88,6 @@ urlpatterns = [
     path('dashboard/chart/', views.DashboardChartView.as_view(), name='dashboard-chart'),
     path('auth/profile/', views.UserProfileView.as_view(), name='auth-profile'),
     path('auth/change-password/', views.ChangePasswordView.as_view(), name='auth-change-password'),
+    path('auth/logout/', views.LogoutView.as_view(), name='auth-logout'),
+    path('auditoria/', views.RegistroAuditoriaListView.as_view(), name='registro-auditoria-list'),
 ]

@@ -4,6 +4,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/table/DataTable";
 import type { InventoryItemType } from "@/features/inventory/types";
 import { useInventoryStore } from "@/features/inventory/store";
+import { useAuthStore } from "@/features/auth/store";
 import { LoteDetailsModal } from "../modals/LoteDetailsModal";
 import { LoteSheet } from "../modals/LoteSheet";
 import { ProductStatusBadge } from "@/features/shared/badges";
@@ -79,6 +80,9 @@ export default function InventoryTable() {
     items, categories, fetchItems, fetchCategories, loading, fetchStats,
     count, page, pageSize, setPage, setStatus
   } = useInventoryStore();
+  const userProfile = useAuthStore((state) => state.userProfile);
+  const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
+
   const [viewingLote, setViewingLote] = useState<InventoryItemType | null>(null);
   const [editingLote, setEditingLote] = useState<InventoryItemType | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -109,7 +113,7 @@ export default function InventoryTable() {
         onCategoryFilter={setStatus}
         loading={loading}
         onView={handleView}
-        onEdit={handleEdit}
+        onEdit={isAdmin ? handleEdit : undefined}
         serverSide
         totalCount={count}
         page={page - 1}

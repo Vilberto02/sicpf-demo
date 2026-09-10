@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { login, getProfile, updateProfile, changePassword } from "./api";
-import { getToken, setTokens, clearToken } from "./token";
+import { login, getProfile, updateProfile, changePassword, logout } from "./api";
+import { getToken, getRefreshToken, setTokens, clearToken } from "./token";
 import { getErrorMessage } from "@/features/shared/errorUtils";
 import type { UserProfileType } from "./types";
 import type { LoginInput } from "./schemas";
@@ -12,7 +12,7 @@ interface AuthState {
   error: string | null;
   userProfile: UserProfileType | null;
   loginUser: (credentials: LoginInput) => Promise<void>;
-  logoutUser: () => void;
+  logoutUser: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   editProfile: (data: Record<string, unknown>) => Promise<boolean>;
   changeOwnPassword: (
@@ -40,7 +40,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ error: errorMessage, isAuthenticated: false });
     }
   },
-  logoutUser: () => {
+  logoutUser: async () => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await logout(refreshToken);
+      } catch (err) {
+        console.error("Error revoking token on backend", err);
+      }
+    }
     clearToken();
     set({ token: null, isAuthenticated: false, userProfile: null });
   },

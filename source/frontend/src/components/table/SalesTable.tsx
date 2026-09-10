@@ -114,7 +114,7 @@ export function SalesTable() {
         loading={loading}
         onView={handleView}
         onPrint={printTicket}
-        onBlock={handleBlock}
+        onBlock={isAdmin ? handleBlock : undefined}
         serverSide
         totalCount={count}
         page={page - 1}
