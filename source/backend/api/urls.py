@@ -13,6 +13,13 @@ urlpatterns = [
     # Presentaciones
     path('presentaciones/', views.PresentacionListView.as_view(), name='presentacion-list'),
 
+    # Marcas
+    path('marcas/', views.MarcaListView.as_view(), name='marca-list'),
+    path('marcas/create/', views.MarcaCreateView.as_view(), name='marca-create'),
+    path('marcas/<int:pk>/', views.MarcaDetailView.as_view(), name='marca-detail'),
+    path('marcas/<int:pk>/update/', views.MarcaUpdateView.as_view(), name='marca-update'),
+    path('marcas/<int:pk>/delete/', views.MarcaDeleteView.as_view(), name='marca-delete'),
+
     # Sedes (solo lectura para formularios)
     path('sedes/', views.SedeListView.as_view(), name='sede-list'),
 

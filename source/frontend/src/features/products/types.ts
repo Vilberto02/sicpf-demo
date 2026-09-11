@@ -17,8 +17,12 @@ export type ProductoType = {
   presentacion_nombre?: string;
   categoria: number;
   categoria_nombre?: string;
+  tipo_producto?: string;
+  marcas_disponibles?: string[];
   created_at?: string;
 };
+
+export type { MarcaType } from "@/types/types";
 
 export type CategoriaType = {
   id: number;

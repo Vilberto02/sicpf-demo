@@ -6,7 +6,7 @@ from rest_framework import serializers
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
     RegistroAuditoria
 )
@@ -23,12 +23,19 @@ class PresentacionSerializer(serializers.ModelSerializer):
         model = Presentacion
         fields = '__all__'
 
+class MarcaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Marca
+        fields = '__all__'
+
 class ProductoSerializer(serializers.ModelSerializer):
     # Optional: include category name for easier frontend display
     categoria_nombre = serializers.ReadOnlyField(source='categoria.nombre')
     presentacion_nombre = serializers.ReadOnlyField(source='presentacion.nombre')
     # Estado derivado de los lotes con stock (solo lectura)
     estado = serializers.SerializerMethodField()
+    tipo_producto = serializers.ReadOnlyField()
+    marcas_disponibles = serializers.ReadOnlyField()
 
     class Meta:
         model = Producto
@@ -42,6 +49,8 @@ class LoteSerializer(serializers.ModelSerializer):
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
     producto_estado = serializers.SerializerMethodField()
     estado = serializers.SerializerMethodField()
+    marca_nombre = serializers.SerializerMethodField()
+    tipo_producto_display = serializers.CharField(source='get_tipo_producto_display', read_only=True)
     categoria_nombre = serializers.ReadOnlyField(source='producto.categoria.nombre')
     precio_real = serializers.ReadOnlyField(source='producto.precio_real')
     precio_flotante = serializers.ReadOnlyField(source='producto.precio_flotante')
@@ -59,6 +68,9 @@ class LoteSerializer(serializers.ModelSerializer):
         model = Lote
         fields = '__all__'
 
+    def get_marca_nombre(self, obj):
+        return obj.marca.nombre if obj.marca_id else None
+
     def get_estado(self, obj):
         return obj.estado
 
@@ -73,6 +85,8 @@ class LoteDetalleSerializer(serializers.Serializer):
     vencido = serializers.BooleanField()
     stock_real = serializers.IntegerField()
     stock_flotante = serializers.IntegerField()
+    tipo_producto = serializers.CharField(required=False)
+    marca_nombre = serializers.CharField(allow_null=True, required=False)
 
 class PrediccionMLSerializer(serializers.ModelSerializer):
     class Meta:

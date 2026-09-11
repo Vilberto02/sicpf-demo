@@ -1,8 +1,7 @@
-# pyrefly: ignore [missing-import]
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
+    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta, 
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
     RegistroAuditoria
 )
@@ -23,6 +22,28 @@ class PresentacionAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'abreviatura')
     search_fields = ('nombre', 'abreviatura')
 
+@admin.register(Marca)
+class MarcaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion')
+    search_fields = ('nombre',)
+
+class TipoLoteFilter(admin.SimpleListFilter):
+    title = 'Tipo de Lotes'
+    parameter_name = 'tipo_lote'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('marca', 'Con lotes de marca'),
+            ('generico', 'Con lotes genéricos'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'marca':
+            return queryset.filter(lotes__tipo_producto='marca', lotes__is_active=True).distinct()
+        if self.value() == 'generico':
+            return queryset.filter(lotes__tipo_producto='generico', lotes__is_active=True).distinct()
+        return queryset
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = (
@@ -34,7 +55,7 @@ class ProductoAdmin(admin.ModelAdmin):
         'estado_vencimiento',
     )
     search_fields = ('codigo', 'nombre')
-    list_filter = ('is_active', 'categoria')
+    list_filter = ('is_active', 'categoria', TipoLoteFilter)
     actions = ['desactivar_productos', 'activar_productos']
 
     @admin.display(description='Estado (Activo / Desactivado)', boolean=True, ordering='is_active')
@@ -94,15 +115,27 @@ class LoteAdmin(admin.ModelAdmin):
     list_display = (
         'codigo_lote',
         'producto',
+        'tipo_producto_badge',
+        'marca',
         'stock_real',
         'stock_flotante',
         'fecha_vencimiento',
         'estado_registro',
         'estado_vencimiento',
     )
-    search_fields = ('codigo_lote', 'producto__nombre')
-    list_filter = ('is_active', 'fecha_vencimiento')
+    search_fields = ('codigo_lote', 'producto__nombre', 'marca__nombre')
+    list_filter = ('is_active', 'tipo_producto', 'marca', 'fecha_vencimiento')
     actions = ['desactivar_lotes', 'activar_lotes']
+
+    @admin.display(description='Tipo', ordering='tipo_producto')
+    def tipo_producto_badge(self, obj):
+        if obj.tipo_producto == 'marca':
+            return format_html(
+                '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">MARCA</span>'
+            )
+        return format_html(
+            '<span style="background-color: #059669; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">GENÉRICO</span>'
+        )
 
     @admin.display(description='Estado (Activo / Desactivado)', boolean=True, ordering='is_active')
     def estado_registro(self, obj):

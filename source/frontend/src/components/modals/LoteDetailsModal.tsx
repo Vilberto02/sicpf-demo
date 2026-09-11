@@ -58,7 +58,7 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Categoría</p>
                 <p className="font-medium text-sm mt-1">{lote.categoria_nombre}</p>
@@ -66,6 +66,16 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Presentación</p>
                 <p className="font-medium text-sm mt-1 capitalize">{lote.presentacion_nombre}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Tipo</p>
+                <p className="font-medium text-sm mt-1">
+                  {lote.tipo_producto === "marca" ? "De Marca" : "Genérico"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Marca</p>
+                <p className="font-medium text-sm mt-1">{lote.marca_nombre || "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Registrado</p>

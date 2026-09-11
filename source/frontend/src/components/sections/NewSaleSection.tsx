@@ -354,7 +354,11 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
                   <div key={lote.id} className="flex flex-col xl:flex-row justify-between xl:items-center p-4 hover:bg-muted/50 transition-colors gap-4">
                     <div>
                       <p className="font-semibold text-primary">{lote.producto_nombre}</p>
-                      <p className="text-xs text-muted-foreground mb-1">Lote: {lote.codigo_lote} | Vence: {lote.fecha_vencimiento} </p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Lote: {lote.codigo_lote}
+                        {lote.marca_nombre ? ` (${lote.marca_nombre})` : lote.tipo_producto === "generico" ? " (Genérico)" : ""}
+                        {" | "}Vence: {lote.fecha_vencimiento}
+                      </p>
                       <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium">
                         {lote.presentacion_principal !== false && (
                           <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">

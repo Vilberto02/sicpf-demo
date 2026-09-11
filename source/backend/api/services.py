@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Sum, Count, F, Q, Case, When, Value, IntegerField
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
     RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO
 )
@@ -91,12 +91,17 @@ class CategoriaService(BaseService):
 class PresentacionService(BaseService):
     model = Presentacion
 
+class MarcaService(BaseService):
+    model = Marca
+
 class ProductoService(BaseService):
     model = Producto
 
     @classmethod
     def get_queryset(cls):
-        return cls.model.objects.filter(is_active=True).select_related('categoria', 'presentacion').prefetch_related('lotes')
+        return cls.model.objects.filter(is_active=True).select_related(
+            'categoria', 'presentacion'
+        ).prefetch_related('lotes', 'lotes__marca')
 
     @classmethod
     def delete(cls, pk):
@@ -117,7 +122,7 @@ class LoteService(BaseService):
     @classmethod
     def get_queryset(cls):
         return cls.model.objects.filter(is_active=True).select_related(
-            'producto', 'producto__categoria', 'producto__presentacion'
+            'producto', 'producto__categoria', 'producto__presentacion', 'marca'
         )
 
     @classmethod

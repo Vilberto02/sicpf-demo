@@ -29,6 +29,12 @@ export type BarChartProps = {
   label: string[];
 };
 
+export type MarcaType = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
 export type LoteType = {
   id: number;
   producto: number;
@@ -52,6 +58,10 @@ export type LoteType = {
   presentacion_nombre: string;
   presentacion_abrev: string;
   estado: string;
+  tipo_producto?: "marca" | "generico";
+  tipo_producto_display?: string;
+  marca?: number | null;
+  marca_nombre?: string | null;
   created_at?: string;
 };
 

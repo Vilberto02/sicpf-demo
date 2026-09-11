@@ -6,7 +6,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from decimal import Decimal
 from .models import (
-    Categoria, Presentacion, Producto, Lote, Cliente, Rol, Usuario,
+    Categoria, Presentacion, Marca, Producto, Lote, Cliente, Rol, Usuario,
     Venta, DetalleVenta, RegistroAuditoria, Alerta
 )
 from .services import CategoriaService, ProductoService
@@ -489,6 +489,113 @@ class AdminPanelEstadoTest(TestCase):
         self.lote_admin.activar_lotes(request, qs)
         self.lote.refresh_from_db()
         self.assertTrue(self.lote.is_active)
+
+
+class MarcaAndLoteTipoTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='farmaceutico', password='password123')
+        self.rol = Rol.objects.create(nombre="Farmacéutico", descripcion="Farmacia")
+        self.perfil = Usuario.objects.create(user=self.user, rol=self.rol)
+
+        resp = self.client.post(reverse('token_obtain_pair'), {
+            'username': 'farmaceutico',
+            'password': 'password123'
+        })
+        self.token = resp.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+
+        self.categoria = Categoria.objects.create(nombre="Analgésicos")
+        self.presentacion = Presentacion.objects.create(nombre="Caja", abreviatura="CJ")
+        self.marca_bayer = Marca.objects.create(nombre="Bayer", descripcion="Laboratorio Bayer")
+        self.marca_genfar = Marca.objects.create(nombre="Genfar", descripcion="Genéricos Genfar")
+
+        self.producto = Producto.objects.create(
+            codigo="MED-200",
+            nombre="Paracetamol 500mg",
+            categoria=self.categoria,
+            presentacion=self.presentacion,
+            precio_real=Decimal("15.00"),
+            precio_flotante=Decimal("1.00"),
+            is_active=True
+        )
+
+    def test_lote_marca_and_generico_creation_and_serialization(self):
+        """Verifica que un lote pueda ser de marca o genérico con FK a Marca."""
+        lote_marca = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-BAYER-01",
+            fecha_vencimiento=date.today() + timedelta(days=365),
+            stock_real=20,
+            stock_flotante=0,
+            tipo_producto="marca",
+            marca=self.marca_bayer,
+            is_active=True
+        )
+
+        lote_gen = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-GEN-01",
+            fecha_vencimiento=date.today() + timedelta(days=365),
+            stock_real=30,
+            stock_flotante=0,
+            tipo_producto="generico",
+            marca=None,
+            is_active=True
+        )
+
+        # Consultar detalle del lote por API
+        resp = self.client.get(reverse('lote-detail', kwargs={'pk': lote_marca.id}))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['tipo_producto'], 'marca')
+        self.assertEqual(resp.data['marca'], self.marca_bayer.id)
+        self.assertEqual(resp.data['marca_nombre'], 'Bayer')
+
+        resp_gen = self.client.get(reverse('lote-detail', kwargs={'pk': lote_gen.id}))
+        self.assertEqual(resp_gen.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_gen.data['tipo_producto'], 'generico')
+        self.assertIsNone(resp_gen.data['marca'])
+        self.assertIsNone(resp_gen.data['marca_nombre'])
+
+    def test_producto_tipo_producto_and_marcas_disponibles(self):
+        """Verifica la propiedad calculada de tipo_producto y marcas_disponibles en Producto."""
+        # Sin lotes
+        self.assertEqual(self.producto.tipo_producto, "sin lotes")
+        self.assertEqual(self.producto.marcas_disponibles, [])
+
+        # Solo lotes de marca
+        lote1 = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-M-1",
+            fecha_vencimiento=date.today() + timedelta(days=300),
+            stock_real=10,
+            tipo_producto="marca",
+            marca=self.marca_bayer
+        )
+        self.assertEqual(self.producto.tipo_producto, "marca")
+        self.assertIn("Bayer", self.producto.marcas_disponibles)
+
+        # Agregar lote genérico -> se vuelve mixto
+        lote2 = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-G-1",
+            fecha_vencimiento=date.today() + timedelta(days=300),
+            stock_real=10,
+            tipo_producto="generico",
+            marca=None
+        )
+        self.assertEqual(self.producto.tipo_producto, "mixto")
+
+    def test_marcas_list_api(self):
+        """Verifica que el endpoint /api/marcas/ liste las marcas registradas."""
+        resp = self.client.get(reverse('marca-list'))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data.get('results', resp.data)
+        self.assertEqual(len(results), 2)
+        nombres = [m['nombre'] for m in results]
+        self.assertIn('Bayer', nombres)
+        self.assertIn('Genfar', nombres)
+
 
 
 

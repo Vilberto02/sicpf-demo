@@ -109,6 +109,8 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                   <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b">
                     <tr>
                       <th className="px-4 py-3 font-medium">Código</th>
+                      <th className="px-4 py-3 font-medium">Tipo</th>
+                      <th className="px-4 py-3 font-medium">Marca</th>
                       <th className="px-4 py-3 font-medium">Vencimiento</th>
                       <th className="px-4 py-3 font-medium text-right">Cajas</th>
                       <th className="px-4 py-3 font-medium text-right">Unid.</th>
@@ -118,7 +120,7 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                   <tbody className="divide-y">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                           Cargando lotes...
                         </td>
                       </tr>
@@ -127,6 +129,18 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                         {lotesProducto.map((lote) => (
                           <tr key={lote.id} className="hover:bg-muted/30 transition-colors">
                             <td className="px-4 py-3 font-medium">{lote.codigo_lote}</td>
+                            <td className="px-4 py-3">
+                              {lote.tipo_producto === "marca" ? (
+                                <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  Marca
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  Genérico
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{lote.marca_nombre || "—"}</td>
                             <td className="px-4 py-3">{formatDate(lote.fecha_vencimiento)}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_real}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_flotante}</td>
@@ -135,7 +149,7 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                         ))}
                         {lotesProducto.length === 0 && (
                           <tr>
-                            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                            <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                               Este producto no tiene lotes registrados.
                             </td>
                           </tr>

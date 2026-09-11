@@ -25,6 +25,23 @@ const inventoryColumns: ColumnDef<InventoryItemType>[] = [
     header: "Categoría",
   },
   {
+    id: "tipo",
+    accessorKey: "tipo_producto",
+    header: "Tipo",
+    cell: ({ row }) => {
+      const tipo = row.original.tipo_producto;
+      return tipo === "marca" ? (
+        <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+          Marca
+        </span>
+      ) : (
+        <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          Genérico
+        </span>
+      );
+    },
+  },
+  {
     accessorKey: "stock_real",
     header: "Stock Cajas",
     meta: { align: "right" },

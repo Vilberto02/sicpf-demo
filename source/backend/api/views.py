@@ -16,19 +16,19 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
     RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO
 )
 from .serializers import (
-    CategoriaSerializer, PresentacionSerializer, ProductoSerializer, LoteSerializer,
+    CategoriaSerializer, PresentacionSerializer, MarcaSerializer, ProductoSerializer, LoteSerializer,
     PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
     ClienteSerializer, RolSerializer, UsuarioSerializer, SedeSerializer,
     VentaSerializer, DetalleVentaSerializer, RegistroAuditoriaSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsAdminUserRole, IsAdminOrReadOnly, CanCancelOrDeleteSale, is_admin_user
 from .services import (
-    CategoriaService, PresentacionService, ProductoService, LoteService,
+    CategoriaService, PresentacionService, MarcaService, ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService, SedeService,
     VentaService, DetalleVentaService, AlertGenerationService, AuditService
@@ -103,6 +103,14 @@ PresentacionListView = create_generic_views(
     ordering_fields=['nombre'],
 )[0]
 
+# Marca Views (escritura solo Administrador, lectura para todos autenticados)
+MarcaListView, MarcaCreateView, MarcaDetailView, MarcaUpdateView, MarcaDeleteView = create_generic_views(
+    MarcaService, MarcaSerializer,
+    search_fields=['nombre'],
+    ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
+)
+
 # Sede Views (solo lectura para formularios)
 SedeListView = create_generic_views(
     SedeService, SedeSerializer,
@@ -121,9 +129,9 @@ ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, Pr
 # Lote Views (escritura solo Administrador)
 LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(
     LoteService, LoteSerializer,
-    search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo'],
-    ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at'],
-    filterset_fields=['producto', 'producto__categoria__nombre'],
+    search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo', 'marca__nombre'],
+    ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at', 'tipo_producto'],
+    filterset_fields=['producto', 'producto__categoria__nombre', 'tipo_producto', 'marca'],
     write_permission_class=IsAdminUserRole,
 )
 
@@ -576,13 +584,13 @@ class LoteCatalogoView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LoteSerializer
     pagination_class = CatalogPagination
-    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo']
+    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo', 'marca__nombre']
     ordering_fields = ['producto__nombre', 'fecha_vencimiento', 'created_at']
-    filterset_fields = ['producto']
+    filterset_fields = ['producto', 'tipo_producto', 'marca']
 
     def get_queryset(self):
         return Lote.objects.select_related(
-            'producto', 'producto__categoria', 'producto__presentacion'
+            'producto', 'producto__categoria', 'producto__presentacion', 'marca'
         ).filter(
             is_active=True,
             producto__is_active=True

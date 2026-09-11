@@ -34,6 +34,18 @@ class Presentacion(models.Model):
     def __str__(self):
         return self.nombre
 
+class Marca(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Marcas'
+        verbose_name = 'Marca'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
 class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=200)
@@ -88,15 +100,54 @@ class Producto(models.Model):
             return "por vencer"
         return "activo"
 
+    @property
+    def tipo_producto(self):
+        tipos = set(
+            lote.tipo_producto for lote in self.lotes.filter(is_active=True)
+            if lote.stock_real > 0 or lote.stock_flotante > 0
+        )
+        if not tipos:
+            tipos = set(lote.tipo_producto for lote in self.lotes.filter(is_active=True))
+        if not tipos:
+            return "sin lotes"
+        if len(tipos) > 1:
+            return "mixto"
+        return tipos.pop()
+
+    @property
+    def marcas_disponibles(self):
+        return list(set(
+            lote.marca.nombre for lote in self.lotes.filter(is_active=True) if lote.marca_id
+        ))
+
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
 class Lote(models.Model):
+    TIPO_PRODUCTO_CHOICES = (
+        ('marca', 'De Marca'),
+        ('generico', 'Genérico'),
+    )
+
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes')
     codigo_lote = models.CharField(max_length=100)
     fecha_vencimiento = models.DateField()
     stock_real = models.IntegerField(default=0)
     stock_flotante = models.IntegerField(default=0)
+    tipo_producto = models.CharField(
+        max_length=20,
+        choices=TIPO_PRODUCTO_CHOICES,
+        default='generico',
+        help_text="Clasificación del lote: de marca o genérico"
+    )
+    marca = models.ForeignKey(
+        Marca,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes',
+        help_text="Marca comercial o laboratorio asociado al lote"
+    )
     is_active = models.BooleanField(default=True, help_text="Indica si el lote está activo (Soft Delete)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -118,6 +169,7 @@ class Lote(models.Model):
             models.Index(fields=['-created_at'], name='idx_lote_created_at'),
             models.Index(fields=['fecha_vencimiento'], name='idx_lote_fecha_venc'),
             models.Index(fields=['producto'], name='idx_lote_producto'),
+            models.Index(fields=['tipo_producto'], name='idx_lote_tipo_prod'),
         ]
 
     def __str__(self):
