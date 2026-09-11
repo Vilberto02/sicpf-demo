@@ -36,6 +36,7 @@ class ProductoSerializer(serializers.ModelSerializer):
     estado = serializers.SerializerMethodField()
     tipo_producto = serializers.ReadOnlyField()
     marcas_disponibles = serializers.ReadOnlyField()
+    condicion_venta_display = serializers.CharField(source='get_condicion_venta_display', read_only=True)
 
     class Meta:
         model = Producto
@@ -47,6 +48,12 @@ class ProductoSerializer(serializers.ModelSerializer):
 class LoteSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
+    producto_dci = serializers.ReadOnlyField(source='producto.dci')
+    producto_concentracion = serializers.ReadOnlyField(source='producto.concentracion')
+    producto_forma_farmaceutica = serializers.ReadOnlyField(source='producto.forma_farmaceutica')
+    producto_registro_sanitario = serializers.ReadOnlyField(source='producto.registro_sanitario')
+    producto_condicion_venta = serializers.ReadOnlyField(source='producto.condicion_venta')
+    producto_condicion_venta_display = serializers.CharField(source='producto.get_condicion_venta_display', read_only=True)
     producto_estado = serializers.SerializerMethodField()
     estado = serializers.SerializerMethodField()
     marca_nombre = serializers.SerializerMethodField()
@@ -379,6 +386,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.ReadOnlyField(source='producto.nombre')
     lote_codigo = serializers.ReadOnlyField(source='lote.codigo_lote')
+    lote_fecha_vencimiento = serializers.ReadOnlyField(source='lote.fecha_vencimiento')
     presentacion_abrev = serializers.ReadOnlyField(source='producto.presentacion.abreviatura')
     
     class Meta:
@@ -398,7 +406,12 @@ class VentaSerializer(serializers.ModelSerializer):
     detalles = DetalleVentaSerializer(many=True, read_only=True)
     detalles_write = DetalleVentaCreateSerializer(many=True, write_only=True, required=False)
     cliente_nombre = serializers.ReadOnlyField(source='cliente.nombre')
+    cliente_dni = serializers.ReadOnlyField(source='cliente.dni')
     vendedor_nombre = serializers.ReadOnlyField(source='usuario.nombre')
+    tipo_comprobante_display = serializers.CharField(source='get_tipo_comprobante_display', read_only=True)
+    op_gravada = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    igv = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     codigo = serializers.CharField(required=False)
     total = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     usuario = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -506,6 +519,17 @@ class VentaSerializer(serializers.ModelSerializer):
 
         # Asignar total recalculado por el servidor
         validated_data['total'] = round(total_calculado, 2)
+
+        # Validación SUNAT: Para ventas mayores a S/ 700.00 es obligatorio consignar DNI (8 dígitos)
+        if total_calculado > Decimal('700.00'):
+            cliente = validated_data.get('cliente')
+            dni = getattr(cliente, 'dni', None) if cliente else None
+            dni_str = str(dni).strip() if dni else ""
+            if not dni_str or len(dni_str) != 8 or not dni_str.isdigit():
+                raise serializers.ValidationError({
+                    "cliente": "Por normativa SUNAT, para ventas mayores a S/ 700.00 es obligatorio que el cliente cuente con un DNI válido de 8 dígitos."
+                })
+
         venta = Venta.objects.create(**validated_data)
 
         for dp in detalles_preparados:

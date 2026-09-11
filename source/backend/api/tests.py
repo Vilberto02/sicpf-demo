@@ -358,6 +358,82 @@ class SecurityAndAuditTest(TestCase):
         self.assertIsNotNone(auditoria_anul)
         self.assertEqual(auditoria_anul.usuario, self.user_admin)
 
+    def test_propiedades_tributarias_sunat(self):
+        """Verifica que el modelo y API calculen op_gravada, igv y subtotal según SUNAT sin perder centavos."""
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token_vendedor)
+        payload = {
+            "cliente": self.cliente.id,
+            "detalles_write": [
+                {
+                    "producto": self.producto.id,
+                    "lote": self.lote.id,
+                    "cantidad_real": 2,  # 2 cajas * 20 = S/ 40.00
+                    "cantidad_flotante": 0,
+                    "cantidad_blister": 0,
+                }
+            ]
+        }
+        resp = self.client.post(reverse('venta-create'), payload, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        
+        # 40.00 / 1.18 = 33.8983... -> op_gravada = 33.90
+        # igv = 40.00 - 33.90 = 6.10
+        # subtotal = 33.90
+        self.assertEqual(Decimal(str(resp.data['total'])), Decimal("40.00"))
+        self.assertEqual(Decimal(str(resp.data['op_gravada'])), Decimal("33.90"))
+        self.assertEqual(Decimal(str(resp.data['igv'])), Decimal("6.10"))
+        self.assertEqual(Decimal(str(resp.data['subtotal'])), Decimal("33.90"))
+        self.assertEqual(
+            Decimal(str(resp.data['op_gravada'])) + Decimal(str(resp.data['igv'])),
+            Decimal(str(resp.data['total']))
+        )
+
+    def test_validacion_sunat_dni_mayor_700_sin_dni(self):
+        """Ventas mayores a S/ 700.00 son rechazadas en el backend si el cliente no tiene DNI de 8 dígitos."""
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token_vendedor)
+        # 40 cajas * S/ 20.00 = S/ 800.00 (> 700)
+        payload = {
+            "cliente": self.cliente.id,  # self.cliente no tiene DNI
+            "detalles_write": [
+                {
+                    "producto": self.producto.id,
+                    "lote": self.lote.id,
+                    "cantidad_real": 40,
+                    "cantidad_flotante": 0,
+                    "cantidad_blister": 0,
+                }
+            ]
+        }
+        resp = self.client.post(reverse('venta-create'), payload, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("SUNAT", str(resp.data))
+        self.assertIn("700", str(resp.data))
+
+    def test_validacion_sunat_dni_mayor_700_con_dni_valido(self):
+        """Ventas mayores a S/ 700.00 son aceptadas si el cliente cuenta con DNI de 8 dígitos."""
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token_vendedor)
+        cliente_con_dni = Cliente.objects.create(
+            nombre="Carlos",
+            apellido="Gomez",
+            dni="71234567"
+        )
+        payload = {
+            "cliente": cliente_con_dni.id,
+            "detalles_write": [
+                {
+                    "producto": self.producto.id,
+                    "lote": self.lote.id,
+                    "cantidad_real": 40,  # S/ 800.00
+                    "cantidad_flotante": 0,
+                    "cantidad_blister": 0,
+                }
+            ]
+        }
+        resp = self.client.post(reverse('venta-create'), payload, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Decimal(str(resp.data['total'])), Decimal("800.00"))
+        self.assertEqual(resp.data['cliente_dni'], "71234567")
+
     def test_logout_token_blacklist(self):
         """Cerrar sesión envía el refresh token a la lista negra."""
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token_vendedor)

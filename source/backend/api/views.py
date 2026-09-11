@@ -580,13 +580,13 @@ class InventoryCategoriesView(APIView):
 
 
 class LoteCatalogoView(generics.ListAPIView):
-    """Endpoint ligero para autocompletado de lotes al crear ventas."""
+    """Endpoint ligero para autocompletado de lotes al crear ventas con priorización FEFO."""
     permission_classes = [IsAuthenticated]
     serializer_class = LoteSerializer
     pagination_class = CatalogPagination
-    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo', 'marca__nombre']
+    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo', 'producto__dci', 'producto__registro_sanitario', 'marca__nombre']
     ordering_fields = ['producto__nombre', 'fecha_vencimiento', 'created_at']
-    filterset_fields = ['producto', 'tipo_producto', 'marca']
+    filterset_fields = ['producto', 'tipo_producto', 'marca', 'producto__condicion_venta']
 
     def get_queryset(self):
         return Lote.objects.select_related(
@@ -596,7 +596,7 @@ class LoteCatalogoView(generics.ListAPIView):
             producto__is_active=True
         ).filter(
             Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
-        )
+        ).order_by('fecha_vencimiento', 'created_at')
 
 
 class LogoutView(APIView):

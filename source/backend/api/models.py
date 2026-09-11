@@ -57,6 +57,19 @@ class Producto(models.Model):
     unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
     blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
 
+    CONDICION_VENTA_CHOICES = (
+        ('libre', 'Venta Libre'),
+        ('receta', 'Bajo Receta Médica'),
+        ('receta_retenida', 'Receta Retenida / Controlado'),
+    )
+
+    # Campos normativos y sanitarios (DIGEMID / MINSA)
+    dci = models.CharField(max_length=200, blank=True, null=True, help_text="Denominación Común Internacional / Principio Activo")
+    concentracion = models.CharField(max_length=100, blank=True, null=True, help_text="Concentración (ej. 500 mg, 1 g/5 ml)")
+    forma_farmaceutica = models.CharField(max_length=100, blank=True, null=True, help_text="Forma Farmacéutica (Tableta, Jarabe, etc.)")
+    registro_sanitario = models.CharField(max_length=50, blank=True, null=True, help_text="Registro Sanitario DIGEMID (ej. EE-12345, EN-67890)")
+    condicion_venta = models.CharField(max_length=30, choices=CONDICION_VENTA_CHOICES, default='libre', help_text="Condición de venta del producto")
+
     # Nuevos campos de presentacion
     presentacion_principal = models.BooleanField(default=True, help_text="Se vende por su presentación principal (Caja, Frasco, Tubo, etc.)")
     presentacion_blister = models.BooleanField(default=True, help_text="Se vende por blister")
@@ -250,6 +263,7 @@ class Recomendacion(models.Model):
 class Cliente(models.Model):
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100, blank=True, null=True)
+    dni = models.CharField(max_length=8, blank=True, null=True, help_text="DNI del cliente (8 dígitos para ventas > S/ 700)")
     email = models.EmailField(unique=True)
     telefono = models.CharField(max_length=50, blank=True, null=True)
 
@@ -325,7 +339,16 @@ class Venta(models.Model):
         ('Completado', 'Completado'),
         ('Cancelado', 'Cancelado'),
     )
+    TIPO_COMPROBANTE_CHOICES = (
+        ('Boleta', 'Boleta de Venta'),
+    )
     codigo = models.CharField(max_length=50, unique=True)
+    tipo_comprobante = models.CharField(
+        max_length=20,
+        choices=TIPO_COMPROBANTE_CHOICES,
+        default='Boleta',
+        help_text="Tipo de comprobante tributario emitido"
+    )
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='ventas_realizadas')
     fecha = models.DateTimeField(auto_now_add=True)
@@ -342,6 +365,20 @@ class Venta(models.Model):
             models.Index(fields=['estado'], name='idx_venta_estado'),
             models.Index(fields=['cliente'], name='idx_venta_cliente'),
         ]
+
+    @property
+    def op_gravada(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        return (self.total / Decimal('1.18')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def igv(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        return (self.total - self.op_gravada).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def subtotal(self):
+        return self.op_gravada
 
     def __str__(self):
         return f"Venta {self.codigo}"

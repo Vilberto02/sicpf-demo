@@ -49,14 +49,31 @@ class ProductoAdmin(admin.ModelAdmin):
     list_display = (
         'codigo',
         'nombre',
+        'dci',
+        'registro_sanitario',
+        'condicion_venta_badge',
         'precio_real',
         'categoria',
         'estado_registro',
         'estado_vencimiento',
     )
-    search_fields = ('codigo', 'nombre')
-    list_filter = ('is_active', 'categoria', TipoLoteFilter)
+    search_fields = ('codigo', 'nombre', 'dci', 'registro_sanitario')
+    list_filter = ('is_active', 'condicion_venta', 'categoria', TipoLoteFilter)
     actions = ['desactivar_productos', 'activar_productos']
+
+    @admin.display(description='Condición Venta', ordering='condicion_venta')
+    def condicion_venta_badge(self, obj):
+        colores = {
+            'libre': '#16a34a',      # verde neutro
+            'receta': '#d97706',     # ámbar
+            'receta_retenida': '#7e22ce', # púrpura
+        }
+        color = colores.get(obj.condicion_venta, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px; text-transform: uppercase;">{}</span>',
+            color,
+            obj.get_condicion_venta_display()
+        )
 
     @admin.display(description='Estado (Activo / Desactivado)', boolean=True, ordering='is_active')
     def estado_registro(self, obj):
@@ -204,8 +221,8 @@ class RecomendacionAdmin(admin.ModelAdmin):
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'apellido', 'email')
-    search_fields = ('nombre', 'apellido', 'email')
+    list_display = ('nombre', 'apellido', 'dni', 'email', 'telefono')
+    search_fields = ('nombre', 'apellido', 'dni', 'email')
 
 @admin.register(Rol)
 class RolAdmin(admin.ModelAdmin):
@@ -227,8 +244,9 @@ class DetalleVentaInline(admin.TabularInline):
 
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'cliente', 'usuario', 'total', 'fecha', 'estado')
-    list_filter = ('estado', 'fecha')
+    list_display = ('codigo', 'tipo_comprobante', 'cliente', 'usuario', 'total', 'fecha', 'estado')
+    list_filter = ('tipo_comprobante', 'estado', 'fecha')
+    search_fields = ('codigo', 'cliente__nombre', 'cliente__dni', 'usuario__user__username')
     inlines = [DetalleVentaInline]
 
 @admin.register(RegistroAuditoria)
