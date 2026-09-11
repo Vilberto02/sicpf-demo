@@ -19,6 +19,7 @@ export const CreateSaleSchema = z.object({
   usuario: z.number().int().positive().optional(),
   total: z.number().min(0, "El total no puede ser negativo."),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  tipo_comprobante: z.string().max(20).optional(),
   estado: z.string().min(1).max(20).optional(),
   detalles_write: z
     .array(SaleDetailSchema)

@@ -1,7 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Printer } from "lucide-react";
 import type { SaleItemType } from "@/features/sales/types";
 import type { VentaDetalleType } from "@/types";
 import { formatDateTime } from "@/features/shared/dateUtils";
+import { usePrintTicket } from "@/features/shared/hooks/usePrintTicket";
 
 interface SaleDetailsModalProps {
   sale: SaleItemType | null;
@@ -9,6 +12,19 @@ interface SaleDetailsModalProps {
 }
 
 export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
+  const { printTicket } = usePrintTicket();
+
+  const totalNum = sale ? Number(sale.total) || 0 : 0;
+  const opGravada = sale?.op_gravada !== undefined && sale?.op_gravada !== null
+    ? Number(sale.op_gravada)
+    : Number((totalNum / 1.18).toFixed(2));
+  const igv = sale?.igv !== undefined && sale?.igv !== null
+    ? Number(sale.igv)
+    : Number((totalNum - opGravada).toFixed(2));
+  const subtotal = sale?.subtotal !== undefined && sale?.subtotal !== null
+    ? Number(sale.subtotal)
+    : opGravada;
+
   return (
     <Dialog open={!!sale} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -16,6 +32,13 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
           <DialogTitle className="text-2xl text-primary font-bold">
             Detalle de venta {sale?.codigo}
           </DialogTitle>
+          {sale && (
+            <div className="flex gap-2 items-center text-xs text-muted-foreground mt-1">
+              <span className="bg-stone-200/50 text-muted-foreground font-semibold px-2 py-0.5 rounded-md">
+                {sale.tipo_comprobante_display || sale.tipo_comprobante || "Boleta de Venta"}
+              </span>
+            </div>
+          )}
         </DialogHeader>
         
         {sale && (
@@ -31,6 +54,9 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Cliente</p>
                 <p className="font-medium text-sm mt-1">{sale.cliente_nombre}</p>
+                {sale.cliente_dni && (
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">DNI: {sale.cliente_dni}</p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Vendedor</p>
@@ -108,7 +134,16 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
                             {i === 0 ? detalle.producto_nombre : ""}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">
-                            {i === 0 ? detalle.lote_codigo : ""}
+                            {i === 0 ? (
+                              <div>
+                                <span className="font-mono">{detalle.lote_codigo}</span>
+                                {detalle.lote_fecha_vencimiento && (
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    Vence: {detalle.lote_fecha_vencimiento}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ""}
                           </td>
                           <td className="px-4 py-3 text-center font-medium">
                             {r.cant} <span className="text-xs text-muted-foreground font-normal uppercase tracking-wider">{r.tipo}</span>
@@ -130,11 +165,36 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
               </div>
             </div>
 
-            {/* Totales */}
-            <div className="flex justify-end pt-4">
-              <div className="w-full md:w-1/2 flex justify-between items-center bg-primary/5 p-4 rounded-xl ring-1 ring-primary/20">
-                <span className=" font-semibold text-primary">Total pago</span>
-                <span className="text-2xl font-bold text-primary">S/{Number(sale.total).toFixed(2)}</span>
+            {/* Totales y Acciones */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pt-4 border-t">
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => printTicket(sale)}
+                  className="gap-2 cursor-pointer"
+                >
+                  <Printer size={16} />
+                  Imprimir Boleta
+                </Button>
+              </div>
+
+              <div className="w-full sm:w-80 bg-muted/30 p-4 rounded-xl ring-1 ring-black/5 space-y-2 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Op. Gravada:</span>
+                  <span className="font-mono font-medium text-foreground">S/ {opGravada.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>I.G.V. (18%):</span>
+                  <span className="font-mono font-medium text-foreground">S/ {igv.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-medium text-foreground">S/ {subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t font-semibold text-base">
+                  <span className="text-primary">Total a pagar:</span>
+                  <span className="text-xl font-bold text-primary font-mono">S/ {totalNum.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>

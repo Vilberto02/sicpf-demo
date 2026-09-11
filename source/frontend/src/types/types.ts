@@ -62,6 +62,12 @@ export type LoteType = {
   tipo_producto_display?: string;
   marca?: number | null;
   marca_nombre?: string | null;
+  producto_dci?: string | null;
+  producto_concentracion?: string | null;
+  producto_forma_farmaceutica?: string | null;
+  producto_registro_sanitario?: string | null;
+  producto_condicion_venta?: "libre" | "receta" | "receta_retenida";
+  producto_condicion_venta_display?: string;
   created_at?: string;
 };
 
@@ -71,6 +77,7 @@ export type VentaDetalleType = {
   producto_nombre?: string;
   lote?: number;
   lote_codigo?: string;
+  lote_fecha_vencimiento?: string;
   cantidad_real: number;
   cantidad_blister: number;
   cantidad_flotante: number;
@@ -82,10 +89,16 @@ export type VentaDetalleType = {
 export type VentaType = {
   id?: number;
   codigo: string;
+  tipo_comprobante?: string;
+  tipo_comprobante_display?: string;
   cliente: number;
   cliente_nombre?: string;
+  cliente_dni?: string | null;
   usuario?: number;
   total: number;
+  op_gravada?: number;
+  igv?: number;
+  subtotal?: number;
   fecha: string;
   estado: string;
   vendedor_nombre?: string;

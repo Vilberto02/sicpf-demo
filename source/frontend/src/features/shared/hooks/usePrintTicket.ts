@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { SaleItemType } from "@/features/sales/types";
 import type { VentaDetalleType } from "@/types";
+import { formatDateTime } from "@/features/shared/dateUtils";
 
 export function usePrintTicket() {
   const printTicket = useCallback((row: SaleItemType) => {
@@ -31,54 +32,87 @@ export function usePrintTicket() {
         if (qty > 0) {
           filasHTML += `<tr>
              <td>${qty} ${type}</td>
-             <td>${d.producto_nombre?.substring(0, 15) || "Producto"}</td>
-             <td class="right">${total.toFixed(2)}</td>
+             <td>
+               ${d.producto_nombre || "Producto"}
+               ${d.lote_codigo ? `<br/><span style="font-size: 9px; color: #444;">Lt: ${d.lote_codigo}</span>` : ""}
+             </td>
+             <td class="right">S/ ${total.toFixed(2)}</td>
            </tr>`;
         }
       });
     }
 
+    const totalNum = Number(row.total) || 0;
+    const opGravada = row.op_gravada !== undefined && row.op_gravada !== null
+      ? Number(row.op_gravada)
+      : Number((totalNum / 1.18).toFixed(2));
+    const igv = row.igv !== undefined && row.igv !== null
+      ? Number(row.igv)
+      : Number((totalNum - opGravada).toFixed(2));
+    const subtotal = row.subtotal !== undefined && row.subtotal !== null
+      ? Number(row.subtotal)
+      : opGravada;
+
+    const fechaDisplay = row.fecha ? formatDateTime(row.fecha) : "";
+    const comprobanteTitle = row.tipo_comprobante_display?.toUpperCase() || 
+      (row.tipo_comprobante === "factura" ? "FACTURA ELECTRÓNICA" : "BOLETA DE VENTA ELECTRÓNICA");
+
     const content = `
       <html>
         <head>
-          <title>Ticket ${row.codigo}</title>
+          <title>Comprobante ${row.codigo}</title>
           <style>
             @page { margin: 0; size: 80mm auto; }
             body { font-family: monospace; width: 75mm; padding: 5mm; margin: 0; font-size: 12px; color: black; }
             .center { text-align: center; }
             .bold { font-weight: bold; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { text-align: left; padding: 2px 0; font-size: 11px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th, td { text-align: left; padding: 3px 0; font-size: 11px; vertical-align: top; }
             .right { text-align: right; }
             .dashed { border-bottom: 1px dashed black; }
+            .totals-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 2px; }
           </style>
         </head>
         <body>
-           <div class="center bold" style="font-size: 16px">SICPF DEMO</div>
-           <div class="center">
-             Ticket: ${row.codigo}<br/>
-             Fecha: ${row.fecha}<br/>
-             Cliente: ${row.cliente_nombre || "Cliente General"}
+           <div class="center bold" style="font-size: 15px">GESTIÓN FARMACÉUTICA</div>
+           <div class="center bold" style="font-size: 12px; margin-top: 2px;">${comprobanteTitle}</div>
+           <div class="center" style="margin-top: 4px;">
+             N°: ${row.codigo}<br/>
+             Fecha: ${fechaDisplay}<br/>
+             Cliente: ${row.cliente_nombre || "CLIENTE GENERAL"}${row.cliente_dni ? `<br/>DNI: ${row.cliente_dni}` : ""}
            </div>
            <table>
              <thead>
                <tr class="dashed">
                  <th>Cant</th>
-                 <th>Prod</th>
-                 <th class="right">Tot</th>
+                 <th>Descripción</th>
+                 <th class="right">Total</th>
                </tr>
              </thead>
              <tbody>${filasHTML}</tbody>
            </table>
-           <br/>
-           <div style="display: flex; justify-content: space-between" class="bold dashed">
-             <span>TOTAL:</span>
-             <span>S/${Number(row.total).toFixed(2)}</span>
+           <div style="margin-top: 8px; border-top: 1px dashed black; padding-top: 5px;">
+             <div class="totals-row">
+               <span>OP. GRAVADA:</span>
+               <span>S/ ${opGravada.toFixed(2)}</span>
+             </div>
+             <div class="totals-row">
+               <span>I.G.V. (18%):</span>
+               <span>S/ ${igv.toFixed(2)}</span>
+             </div>
+             <div class="totals-row">
+               <span>SUBTOTAL:</span>
+               <span>S/ ${subtotal.toFixed(2)}</span>
+             </div>
+             <div class="totals-row bold" style="font-size: 13px; margin-top: 4px; padding-top: 4px; border-top: 1px solid black;">
+               <span>TOTAL A PAGAR:</span>
+               <span>S/ ${totalNum.toFixed(2)}</span>
+             </div>
            </div>
            <br/>
-           <div class="center">
+           <div class="center" style="font-size: 11px;">
              Atendido por: ${row.vendedor_nombre || "Vendedor"}<br/>
-             ¡Gracias por su compra!
+             ¡Gracias por su preferencia!
            </div>
         </body>
       </html>
@@ -90,7 +124,11 @@ export function usePrintTicket() {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
     }
-    setTimeout(() => document.body.removeChild(iframe), 2000);
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 2000);
   }, []);
 
   return { printTicket };
