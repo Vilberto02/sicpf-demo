@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -379,5 +379,116 @@ class SecurityAndAuditTest(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token_admin)
         resp_admin = self.client.get(reverse('registro-auditoria-list'))
         self.assertEqual(resp_admin.status_code, status.HTTP_200_OK)
+
+
+class AdminPanelEstadoTest(TestCase):
+    def setUp(self):
+        from django.contrib.admin.sites import AdminSite
+        from api.admin import ProductoAdmin, LoteAdmin
+
+        self.site = AdminSite()
+        self.producto_admin = ProductoAdmin(Producto, self.site)
+        self.lote_admin = LoteAdmin(Lote, self.site)
+
+        self.user_admin = User.objects.create_superuser(username='admin_test', password='password123')
+        self.categoria = Categoria.objects.create(nombre="Antibióticos")
+        self.presentacion = Presentacion.objects.create(nombre="Tableta", abreviatura="TAB")
+
+        self.producto = Producto.objects.create(
+            codigo="MED-100",
+            nombre="Amoxicilina 500mg",
+            categoria=self.categoria,
+            presentacion=self.presentacion,
+            precio_real=Decimal("25.00"),
+            precio_flotante=Decimal("1.50"),
+            is_active=True
+        )
+
+        self.lote = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-2026-01",
+            fecha_vencimiento=date.today() + timedelta(days=200),
+            stock_real=50,
+            stock_flotante=0,
+            is_active=True
+        )
+
+    def test_producto_admin_columns_and_methods(self):
+        """Verifica que ProductoAdmin incluya estado_registro y estado_vencimiento."""
+        self.assertIn('estado_registro', self.producto_admin.list_display)
+        self.assertIn('estado_vencimiento', self.producto_admin.list_display)
+
+        # Producto activo
+        self.assertTrue(self.producto_admin.estado_registro(self.producto))
+        venc_html = self.producto_admin.estado_vencimiento(self.producto)
+        self.assertIn("activo", venc_html)
+
+        # Producto desactivado
+        self.producto.is_active = False
+        self.producto.save()
+        self.assertFalse(self.producto_admin.estado_registro(self.producto))
+
+    def test_producto_admin_actions(self):
+        """Verifica acciones masivas de desactivar y activar productos con auditoría."""
+        from django.test import RequestFactory
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        factory = RequestFactory()
+        request = factory.post('/admin/api/producto/')
+        request.user = self.user_admin
+        setattr(request, 'session', 'session')
+        messages = FallbackStorage(request)
+        setattr(request, '_messages', messages)
+
+        # Desactivar
+        qs = Producto.objects.filter(pk=self.producto.pk)
+        self.producto_admin.desactivar_productos(request, qs)
+
+        self.producto.refresh_from_db()
+        self.assertFalse(self.producto.is_active)
+        self.lote.refresh_from_db()
+        self.assertFalse(self.lote.is_active)
+
+        audit_deact = RegistroAuditoria.objects.filter(
+            accion="ELIMINACION",
+            tabla_afectada="Producto",
+            registro_id=str(self.producto.pk)
+        ).first()
+        self.assertIsNotNone(audit_deact)
+        self.assertEqual(audit_deact.detalles.get('tipo'), 'soft_delete_admin')
+
+        # Reactivar
+        self.producto_admin.activar_productos(request, qs)
+        self.producto.refresh_from_db()
+        self.assertTrue(self.producto.is_active)
+        self.lote.refresh_from_db()
+        self.assertTrue(self.lote.is_active)
+
+    def test_lote_admin_columns_and_actions(self):
+        """Verifica columnas y acciones de LoteAdmin."""
+        self.assertIn('estado_registro', self.lote_admin.list_display)
+        self.assertIn('estado_vencimiento', self.lote_admin.list_display)
+
+        self.assertTrue(self.lote_admin.estado_registro(self.lote))
+        venc_html = self.lote_admin.estado_vencimiento(self.lote)
+        self.assertIn("activo", venc_html)
+
+        from django.test import RequestFactory
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        factory = RequestFactory()
+        request = factory.post('/admin/api/lote/')
+        request.user = self.user_admin
+        setattr(request, 'session', 'session')
+        messages = FallbackStorage(request)
+        setattr(request, '_messages', messages)
+
+        qs = Lote.objects.filter(pk=self.lote.pk)
+        self.lote_admin.desactivar_lotes(request, qs)
+        self.lote.refresh_from_db()
+        self.assertFalse(self.lote.is_active)
+
+        self.lote_admin.activar_lotes(request, qs)
+        self.lote.refresh_from_db()
+        self.assertTrue(self.lote.is_active)
+
 
 
