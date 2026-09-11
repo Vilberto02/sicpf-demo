@@ -41,6 +41,11 @@ const emptyForm = {
   codigo: "",
   nombre: "",
   descripcion: "",
+  dci: "",
+  concentracion: "",
+  forma_farmaceutica: "",
+  registro_sanitario: "",
+  condicion_venta: "libre" as "libre" | "receta" | "receta_retenida",
   categoria: "",
   presentacion: "",
   precio_real: "",
@@ -58,6 +63,11 @@ const toForm = (product: ProductoType) => ({
   codigo: product.codigo,
   nombre: product.nombre,
   descripcion: product.descripcion ?? "",
+  dci: product.dci ?? "",
+  concentracion: product.concentracion ?? "",
+  forma_farmaceutica: product.forma_farmaceutica ?? "",
+  registro_sanitario: product.registro_sanitario ?? "",
+  condicion_venta: (product.condicion_venta ?? "libre") as "libre" | "receta" | "receta_retenida",
   categoria: String(product.categoria),
   presentacion: String(product.presentacion),
   precio_real: String(product.precio_real ?? ""),
@@ -164,6 +174,11 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
       codigo: parsed.data.codigo,
       nombre: parsed.data.nombre,
       descripcion: parsed.data.descripcion || null,
+      dci: parsed.data.dci || null,
+      concentracion: parsed.data.concentracion || null,
+      forma_farmaceutica: parsed.data.forma_farmaceutica || null,
+      registro_sanitario: parsed.data.registro_sanitario || null,
+      condicion_venta: parsed.data.condicion_venta,
       categoria: Number(parsed.data.categoria),
       presentacion: Number(parsed.data.presentacion),
       precio_real: Number(parsed.data.precio_real),
@@ -247,6 +262,64 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
             {formErrors.descripcion && (
               <span className="text-sm text-red-700 ml-2">{formErrors.descripcion}</span>
             )}
+          </div>
+
+          {/* Información Sanitaria y Farmacéutica */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Principio Activo (DCI)</Label>
+              <Input
+                value={formData.dci}
+                placeholder="Ej. Paracetamol"
+                onChange={(e) => setFormData({ ...formData, dci: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Concentración</Label>
+              <Input
+                value={formData.concentracion}
+                placeholder="Ej. 500 mg, 1 g/5 ml"
+                onChange={(e) => setFormData({ ...formData, concentracion: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Forma Farmacéutica</Label>
+              <Input
+                value={formData.forma_farmaceutica}
+                placeholder="Ej. Tableta, Jarabe, Cápsula"
+                onChange={(e) => setFormData({ ...formData, forma_farmaceutica: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Registro Sanitario (DIGEMID)</Label>
+              <Input
+                value={formData.registro_sanitario}
+                placeholder="Ej. EN-01234, EE-05678"
+                onChange={(e) => setFormData({ ...formData, registro_sanitario: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Condición de Venta</Label>
+            <Select
+              value={formData.condicion_venta}
+              onValueChange={(value: "libre" | "receta" | "receta_retenida") =>
+                setFormData({ ...formData, condicion_venta: value })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar condición..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="libre">Venta Libre</SelectItem>
+                <SelectItem value="receta">Bajo Receta Médica</SelectItem>
+                <SelectItem value="receta_retenida">Receta Retenida / Controlado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

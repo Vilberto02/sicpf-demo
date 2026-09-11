@@ -19,6 +19,12 @@ export type ProductoType = {
   categoria_nombre?: string;
   tipo_producto?: string;
   marcas_disponibles?: string[];
+  dci?: string | null;
+  concentracion?: string | null;
+  forma_farmaceutica?: string | null;
+  registro_sanitario?: string | null;
+  condicion_venta?: "libre" | "receta" | "receta_retenida";
+  condicion_venta_display?: string;
   created_at?: string;
 };
 

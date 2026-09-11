@@ -45,10 +45,30 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
             {product?.nombre}
           </DialogTitle>
           {product && (
-            <div className="flex gap-3 items-center text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
               <span className="font-mono">{product.codigo}</span>
-              <span>·</span>
+              <span>-</span>
               <span>{product.categoria_nombre}</span>
+              {product.condicion_venta === "libre" && (
+                <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Venta Libre
+                </span>
+              )}
+              {product.condicion_venta === "receta" && (
+                <span className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Bajo Receta Médica
+                </span>
+              )}
+              {product.condicion_venta === "receta_retenida" && (
+                <span className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Receta Retenida / Controlado
+                </span>
+              )}
+              {product.registro_sanitario && (
+                <span className="bg-muted text-foreground border px-2 py-0.5 rounded-full text-xs font-mono font-medium">
+                  RS: {product.registro_sanitario}
+                </span>
+              )}
             </div>
           )}
         </DialogHeader>
@@ -74,8 +94,28 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            {/* Ficha Farmacéutica DIGEMID */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/20 border text-sm">
               <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo (DCI)</p>
+                <p className="font-medium mt-1 text-primary">{product.dci || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Concentración</p>
+                <p className="font-medium mt-1">{product.concentracion || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Forma Farmacéutica</p>
+                <p className="font-medium mt-1">{product.forma_farmaceutica || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Condición de Venta</p>
+                <p className="font-medium mt-1">{product.condicion_venta_display || "Venta Libre"}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="row-span-2">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Descripción</p>
                 <p className="font-medium mt-1">{product.descripcion || "Sin descripción"}</p>
               </div>
@@ -93,10 +133,10 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                   )}
                 </div>
               </div>
-              <div className="col-span-2">
+              <div className="">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Contenido</p>
                 <p className="font-medium mt-1">
-                  {product.unidades_por_caja} und/caja · {product.blisters_por_caja} blísteres/caja ·{" "}
+                  {product.unidades_por_caja} und/caja <br /> {product.blisters_por_caja} blísteres/caja <br />{" "}
                   {product.unidades_por_blister} und/blíster
                 </p>
               </div>
@@ -110,7 +150,6 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                     <tr>
                       <th className="px-4 py-3 font-medium">Código</th>
                       <th className="px-4 py-3 font-medium">Tipo</th>
-                      <th className="px-4 py-3 font-medium">Marca</th>
                       <th className="px-4 py-3 font-medium">Vencimiento</th>
                       <th className="px-4 py-3 font-medium text-right">Cajas</th>
                       <th className="px-4 py-3 font-medium text-right">Unid.</th>
@@ -140,7 +179,6 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">{lote.marca_nombre || "—"}</td>
                             <td className="px-4 py-3">{formatDate(lote.fecha_vencimiento)}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_real}</td>
                             <td className="px-4 py-3 text-right tabular-nums">{lote.stock_flotante}</td>

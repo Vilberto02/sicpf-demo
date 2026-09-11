@@ -29,10 +29,30 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
             Lote {lote?.codigo_lote}
           </DialogTitle>
           {lote && (
-            <div className="flex gap-3 items-center text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{lote.producto_nombre}</span>
-              <span>·</span>
+              <span>-</span>
               <span className="font-mono">{lote.producto_codigo}</span>
+              {lote.producto_condicion_venta === "libre" && (
+                <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Venta Libre
+                </span>
+              )}
+              {lote.producto_condicion_venta === "receta" && (
+                <span className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Bajo Receta Médica
+                </span>
+              )}
+              {lote.producto_condicion_venta === "receta_retenida" && (
+                <span className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  Receta Retenida / Controlado
+                </span>
+              )}
+              {lote.producto_registro_sanitario && (
+                <span className="bg-muted text-foreground border px-2 py-0.5 rounded-full text-xs font-mono font-medium">
+                  RS: {lote.producto_registro_sanitario}
+                </span>
+              )}
             </div>
           )}
         </DialogHeader>
@@ -55,6 +75,26 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Estado</p>
                 <div className="mt-1">{getEstadoBadge(lote.estado)}</div>
+              </div>
+            </div>
+
+            {/* Ficha Farmacéutica DIGEMID */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/20 border text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo (DCI)</p>
+                <p className="font-medium mt-1 text-primary">{lote.producto_dci || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Concentración</p>
+                <p className="font-medium mt-1">{lote.producto_concentracion || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Forma Farmacéutica</p>
+                <p className="font-medium mt-1">{lote.producto_forma_farmaceutica || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Registro Sanitario</p>
+                <p className="font-medium mt-1 font-mono text-xs">{lote.producto_registro_sanitario || "—"}</p>
               </div>
             </div>
 
@@ -120,7 +160,7 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Contenido</p>
                 <p className="font-medium mt-1">
-                  {lote.unidades_por_caja} und/caja · {lote.blisters_por_caja} blísteres/caja ·{" "}
+                  {lote.unidades_por_caja} und/caja <br /> {lote.blisters_por_caja} blísteres/caja <br />{" "}
                   {lote.unidades_por_blister} und/blíster
                 </p>
               </div>
