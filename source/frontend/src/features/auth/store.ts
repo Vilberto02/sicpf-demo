@@ -9,35 +9,43 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isCheckingAuth: boolean;
+  isLoading: boolean;
   error: string | null;
   userProfile: UserProfileType | null;
-  loginUser: (credentials: LoginInput) => Promise<void>;
+  loginUser: (credentials: LoginInput) => Promise<boolean>;
   logoutUser: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   editProfile: (data: Record<string, unknown>) => Promise<boolean>;
   changeOwnPassword: (
     data: { current_password: string; new_password: string }
   ) => Promise<{ ok: boolean; logoutRequired?: boolean }>;
+  clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: getToken(),
   isAuthenticated: !!getToken(),
   isCheckingAuth: !!getToken(),
+  isLoading: false,
   error: null,
   userProfile: null,
+  clearError: () => set({ error: null }),
   loginUser: async (credentials) => {
-    set({ error: null });
+    set({ error: null, isLoading: true });
     try {
       const data = await login(credentials);
       setTokens(data.access, data.refresh);
-      set({ token: data.access, isAuthenticated: true });
+      set({ token: data.access, isAuthenticated: true, error: null });
+      return true;
     } catch (error) {
       let errorMessage = getErrorMessage(error);
       if (errorMessage === "No active account found with the given credentials") {
         errorMessage = "Las credenciales proporcionadas son incorrectas.";
       }
       set({ error: errorMessage, isAuthenticated: false });
+      return false;
+    } finally {
+      set({ isLoading: false });
     }
   },
   logoutUser: async () => {
