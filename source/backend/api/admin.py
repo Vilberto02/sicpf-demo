@@ -1,11 +1,30 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta, 
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta, 
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
-    RegistroAuditoria
+    RegistroAuditoria, Negocio, MetodoPago
 )
 from .services import AuditService
+
+@admin.register(Negocio)
+class NegocioAdmin(admin.ModelAdmin):
+    list_display = ('nombre_comercial', 'ruc', 'direccion', 'telefono', 'email', 'is_active')
+    search_fields = ('nombre_comercial', 'razon_social', 'ruc')
+    fieldsets = (
+        ('Identificación del Negocio', {
+            'fields': ('nombre_comercial', 'razon_social', 'ruc', 'logo_url')
+        }),
+        ('Ubicación y Contacto', {
+            'fields': ('direccion', 'distrito', 'provincia', 'departamento', 'telefono', 'email')
+        }),
+        ('Configuración de Comprobantes (Boleta)', {
+            'fields': ('serie_boleta_defecto', 'moneda_nombre', 'moneda_simbolo', 'url_consulta', 'mensaje_pie', 'leyenda_software')
+        }),
+        ('Estado', {
+            'fields': ('is_active',)
+        }),
+    )
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
@@ -26,6 +45,12 @@ class PresentacionAdmin(admin.ModelAdmin):
 class MarcaAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'descripcion')
     search_fields = ('nombre',)
+
+@admin.register(FormaFarmaceutica)
+class FormaFarmaceuticaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion', 'is_active')
+    search_fields = ('nombre',)
+    list_filter = ('is_active',)
 
 class TipoLoteFilter(admin.SimpleListFilter):
     title = 'Tipo de Lotes'
@@ -50,6 +75,7 @@ class ProductoAdmin(admin.ModelAdmin):
         'codigo',
         'nombre',
         'dci',
+        'forma_farmaceutica',
         'registro_sanitario',
         'condicion_venta_badge',
         'precio_real',
@@ -58,7 +84,7 @@ class ProductoAdmin(admin.ModelAdmin):
         'estado_vencimiento',
     )
     search_fields = ('codigo', 'nombre', 'dci', 'registro_sanitario')
-    list_filter = ('is_active', 'condicion_venta', 'categoria', TipoLoteFilter)
+    list_filter = ('is_active', 'condicion_venta', 'forma_farmaceutica', 'categoria', TipoLoteFilter)
     actions = ['desactivar_productos', 'activar_productos']
 
     @admin.display(description='Condición Venta', ordering='condicion_venta')
@@ -242,12 +268,19 @@ class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta
     extra = 1
 
+@admin.register(MetodoPago)
+class MetodoPagoAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion', 'is_active', 'created_at')
+    search_fields = ('nombre', 'descripcion')
+    list_filter = ('is_active',)
+
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'tipo_comprobante', 'cliente', 'usuario', 'total', 'fecha', 'estado')
-    list_filter = ('tipo_comprobante', 'estado', 'fecha')
+    list_display = ('codigo', 'serie', 'correlativo', 'tipo_comprobante', 'metodo_pago', 'sede', 'cliente', 'usuario', 'total', 'fecha', 'estado')
+    list_filter = ('tipo_comprobante', 'metodo_pago', 'sede', 'estado', 'fecha')
     search_fields = ('codigo', 'cliente__nombre', 'cliente__dni', 'usuario__user__username')
     inlines = [DetalleVentaInline]
+
 
 @admin.register(RegistroAuditoria)
 class RegistroAuditoriaAdmin(admin.ModelAdmin):

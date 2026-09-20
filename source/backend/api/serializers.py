@@ -6,17 +6,28 @@ from rest_framework import serializers
 # pyrefly: ignore [missing-import]
 from django.contrib.auth.models import User
 from .models import (
-    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
-    RegistroAuditoria
+    RegistroAuditoria, Negocio, MetodoPago
 )
 from .permissions import sync_user_groups, is_admin_user
 from .services import AlertGenerationService, AuditService
+
+class MetodoPagoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MetodoPago
+        fields = '__all__'
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
         fields = '__all__'
+
+class NegocioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Negocio
+        fields = '__all__'
+
 
 class PresentacionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,10 +39,16 @@ class MarcaSerializer(serializers.ModelSerializer):
         model = Marca
         fields = '__all__'
 
+class FormaFarmaceuticaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormaFarmaceutica
+        fields = '__all__'
+
 class ProductoSerializer(serializers.ModelSerializer):
     # Optional: include category name for easier frontend display
     categoria_nombre = serializers.ReadOnlyField(source='categoria.nombre')
     presentacion_nombre = serializers.ReadOnlyField(source='presentacion.nombre')
+    forma_farmaceutica_nombre = serializers.ReadOnlyField(source='forma_farmaceutica.nombre')
     # Estado derivado de los lotes con stock (solo lectura)
     estado = serializers.SerializerMethodField()
     tipo_producto = serializers.ReadOnlyField()
@@ -50,7 +67,8 @@ class LoteSerializer(serializers.ModelSerializer):
     producto_codigo = serializers.ReadOnlyField(source='producto.codigo')
     producto_dci = serializers.ReadOnlyField(source='producto.dci')
     producto_concentracion = serializers.ReadOnlyField(source='producto.concentracion')
-    producto_forma_farmaceutica = serializers.ReadOnlyField(source='producto.forma_farmaceutica')
+    producto_forma_farmaceutica = serializers.ReadOnlyField(source='producto.forma_farmaceutica.nombre')
+    producto_forma_farmaceutica_nombre = serializers.ReadOnlyField(source='producto.forma_farmaceutica.nombre')
     producto_registro_sanitario = serializers.ReadOnlyField(source='producto.registro_sanitario')
     producto_condicion_venta = serializers.ReadOnlyField(source='producto.condicion_venta')
     producto_condicion_venta_display = serializers.CharField(source='producto.get_condicion_venta_display', read_only=True)
@@ -412,6 +430,18 @@ class VentaSerializer(serializers.ModelSerializer):
     op_gravada = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     igv = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    serie = serializers.CharField(required=False, default='B001')
+    correlativo = serializers.CharField(required=False, allow_null=True)
+    forma_pago = serializers.CharField(required=False, default='Contado')
+    metodo_pago = serializers.PrimaryKeyRelatedField(
+        queryset=MetodoPago.objects.all(), required=False, allow_null=True
+    )
+    metodo_pago_nombre = serializers.ReadOnlyField(source='metodo_pago.nombre')
+    sede = serializers.PrimaryKeyRelatedField(
+        queryset=Sede.objects.all(), required=False, allow_null=True
+    )
+    sede_nombre = serializers.ReadOnlyField(source='sede.nombre')
+    sede_direccion = serializers.SerializerMethodField()
     codigo = serializers.CharField(required=False)
     total = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     usuario = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -419,6 +449,26 @@ class VentaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Venta
         fields = '__all__'
+
+    def get_sede_direccion(self, obj):
+        if obj.sede and obj.sede.direccion:
+            return obj.sede.direccion
+        if obj.usuario and getattr(obj.usuario, 'sede', None) and obj.usuario.sede.direccion:
+            return obj.usuario.sede.direccion
+        return None
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict) and 'metodo_pago' in data:
+            mp_val = data.get('metodo_pago')
+            if isinstance(mp_val, str) and not mp_val.isdigit():
+                data = data.copy()
+                mp_obj = MetodoPago.objects.filter(nombre__iexact=mp_val.strip()).first()
+                if mp_obj:
+                    data['metodo_pago'] = mp_obj.id
+                else:
+                    default_mp = MetodoPago.objects.filter(is_active=True, nombre__iexact='Efectivo').first()
+                    data['metodo_pago'] = default_mp.id if default_mp else None
+        return super().to_internal_value(data)
 
     @transaction.atomic
     def create(self, validated_data):
@@ -433,13 +483,31 @@ class VentaSerializer(serializers.ModelSerializer):
             if not perfil:
                 perfil, _ = Usuario.objects.get_or_create(user=request.user)
             validated_data['usuario'] = perfil
+            if not validated_data.get('sede') and getattr(perfil, 'sede', None):
+                validated_data['sede'] = perfil.sede
+
+        # Asignar método de pago por defecto si no viene
+        if not validated_data.get('metodo_pago'):
+            default_mp = MetodoPago.objects.filter(is_active=True, nombre__iexact='Efectivo').first() or MetodoPago.objects.filter(is_active=True).first()
+            if default_mp:
+                validated_data['metodo_pago'] = default_mp
+
+        # Manejo de serie y correlativo oficial (ej. B001 - 000123)
+        serie = validated_data.get('serie') or 'B001'
+        if not validated_data.get('correlativo'):
+            ultimo = Venta.objects.filter(serie=serie).exclude(correlativo__isnull=True).order_by('-id').first()
+            try:
+                sig_num = int(ultimo.correlativo) + 1 if (ultimo and ultimo.correlativo) else 1
+            except (ValueError, TypeError):
+                sig_num = Venta.objects.filter(serie=serie).count() + 1
+            correlativo_gen = f"{sig_num:06d}"
+            validated_data['serie'] = serie
+            validated_data['correlativo'] = correlativo_gen
 
         # Generación de código seguro en el servidor si no viene o para evitar colisiones
         codigo_enviado = validated_data.get('codigo')
         if not codigo_enviado or Venta.objects.filter(codigo=codigo_enviado).exists():
-            hoy_str = date.today().strftime('%Y%m%d')
-            secuencia = uuid.uuid4().hex[:6].upper()
-            validated_data['codigo'] = f"VNT-{hoy_str}-{secuencia}"
+            validated_data['codigo'] = f"{validated_data['serie']}-{validated_data['correlativo']}"
 
         # Bloqueo pesimista con select_for_update para evitar condiciones de carrera (Race Conditions)
         lote_ids = [d.get('lote').id for d in detalles_data if d.get('lote')]

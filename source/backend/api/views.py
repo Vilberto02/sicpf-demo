@@ -5,7 +5,7 @@ from rest_framework.response import Response
 # pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from django.db.models.functions import TruncMonth
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 # pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
 # pyrefly: ignore [missing-import]
@@ -16,22 +16,26 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (
-    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
-    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO
+    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO, Negocio, MetodoPago
 )
 from .serializers import (
-    CategoriaSerializer, PresentacionSerializer, MarcaSerializer, ProductoSerializer, LoteSerializer,
+    CategoriaSerializer, PresentacionSerializer, MarcaSerializer, FormaFarmaceuticaSerializer,
+    ProductoSerializer, LoteSerializer,
     PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
     ClienteSerializer, RolSerializer, UsuarioSerializer, SedeSerializer,
-    VentaSerializer, DetalleVentaSerializer, RegistroAuditoriaSerializer
+    VentaSerializer, DetalleVentaSerializer, RegistroAuditoriaSerializer,
+    NegocioSerializer, MetodoPagoSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsAdminUserRole, IsAdminOrReadOnly, CanCancelOrDeleteSale, is_admin_user
 from .services import (
-    CategoriaService, PresentacionService, MarcaService, ProductoService, LoteService,
+    CategoriaService, PresentacionService, MarcaService, FormaFarmaceuticaService,
+    ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService, SedeService,
-    VentaService, DetalleVentaService, AlertGenerationService, AuditService
+    VentaService, DetalleVentaService, AlertGenerationService, AuditService,
+    MetodoPagoService
 )
 from .pagination import CatalogPagination
 
@@ -110,6 +114,23 @@ MarcaListView, MarcaCreateView, MarcaDetailView, MarcaUpdateView, MarcaDeleteVie
     ordering_fields=['nombre'],
     write_permission_class=IsAdminUserRole,
 )
+
+# FormaFarmaceutica Views (escritura solo Administrador, lectura para todos autenticados)
+FormaFarmaceuticaListView, FormaFarmaceuticaCreateView, FormaFarmaceuticaDetailView, FormaFarmaceuticaUpdateView, FormaFarmaceuticaDeleteView = create_generic_views(
+    FormaFarmaceuticaService, FormaFarmaceuticaSerializer,
+    search_fields=['nombre'],
+    ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
+)
+
+# MetodoPago Views (escritura solo Administrador, lectura para todos autenticados)
+MetodoPagoListView, MetodoPagoCreateView, MetodoPagoDetailView, MetodoPagoUpdateView, MetodoPagoDeleteView = create_generic_views(
+    MetodoPagoService, MetodoPagoSerializer,
+    search_fields=['nombre', 'descripcion'],
+    ordering_fields=['nombre', 'id'],
+    write_permission_class=IsAdminUserRole,
+)
+
 
 # Sede Views (solo lectura para formularios)
 SedeListView = create_generic_views(
@@ -293,7 +314,7 @@ class InventoryStatsView(APIView):
 
     def get(self, request):
         from decimal import Decimal
-        hoy = datetime.now().date()
+        hoy = timezone.localdate()
         limite_por_vencer = hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
 
         agg = Lote.objects.filter(
@@ -341,8 +362,9 @@ class SaleStatsView(APIView):
         pending_orders = qs.filter(estado="Pendiente").count()
         completed_orders = qs.filter(estado="Completado").count()
 
-        today = datetime.now().date()
-        start_of_week = today - timedelta(days=today.weekday())
+        today = timezone.localdate()
+        start_of_week_date = today - timedelta(days=today.weekday())
+        start_of_week = timezone.make_aware(datetime.combine(start_of_week_date, time.min))
         total_revenue = qs.filter(
             estado="Completado",
             fecha__gte=start_of_week
@@ -359,7 +381,7 @@ class AlertStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        today = datetime.now().date()
+        today = timezone.localdate()
         agg = Alerta.objects.aggregate(
             total_alerts=Count('id'),
             quiebres_estimados=Count('id', filter=Q(tipo="quiebre")),
@@ -405,7 +427,7 @@ class AlertPendingView(APIView):
 class DashboardChartView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        five_months_ago = datetime.now().date() - timedelta(days=150)
+        five_months_ago = timezone.now() - timedelta(days=150)
         sales = Venta.objects.filter(
             fecha__gte=five_months_ago, estado="Completado"
         ).annotate(month=TruncMonth('fecha')).values('month').annotate(
@@ -638,4 +660,15 @@ class RegistroAuditoriaListView(generics.ListAPIView):
 
     def get_queryset(self):
         return RegistroAuditoria.objects.all().select_related('usuario')
+
+
+class NegocioView(APIView):
+    """GET /api/negocio/ - Obtiene la configuración del negocio/empresa para comprobantes."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        negocio = Negocio.get_solo()
+        serializer = NegocioSerializer(negocio)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 

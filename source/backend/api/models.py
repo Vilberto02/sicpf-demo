@@ -30,6 +30,7 @@ class Presentacion(models.Model):
     class Meta:
         verbose_name_plural = 'Presentaciones'
         verbose_name = 'Presentación'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -41,6 +42,21 @@ class Marca(models.Model):
     class Meta:
         verbose_name_plural = 'Marcas'
         verbose_name = 'Marca'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+class FormaFarmaceutica(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Indica si la forma farmacéutica está activa")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Formas Farmacéuticas'
+        verbose_name = 'Forma Farmacéutica'
         ordering = ['nombre']
 
     def __str__(self):
@@ -66,11 +82,17 @@ class Producto(models.Model):
     # Campos normativos y sanitarios (DIGEMID / MINSA)
     dci = models.CharField(max_length=200, blank=True, null=True, help_text="Denominación Común Internacional / Principio Activo")
     concentracion = models.CharField(max_length=100, blank=True, null=True, help_text="Concentración (ej. 500 mg, 1 g/5 ml)")
-    forma_farmaceutica = models.CharField(max_length=100, blank=True, null=True, help_text="Forma Farmacéutica (Tableta, Jarabe, etc.)")
+    forma_farmaceutica = models.ForeignKey(
+        FormaFarmaceutica,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='productos',
+        help_text="Forma Farmacéutica (Tableta, Jarabe, etc.)"
+    )
     registro_sanitario = models.CharField(max_length=50, blank=True, null=True, help_text="Registro Sanitario DIGEMID (ej. EE-12345, EN-67890)")
     condicion_venta = models.CharField(max_length=30, choices=CONDICION_VENTA_CHOICES, default='libre', help_text="Condición de venta del producto")
 
-    # Nuevos campos de presentacion
     presentacion_principal = models.BooleanField(default=True, help_text="Se vende por su presentación principal (Caja, Frasco, Tubo, etc.)")
     presentacion_blister = models.BooleanField(default=True, help_text="Se vende por blister")
     presentacion_unidad = models.BooleanField(default=True, help_text="Se vende por unidad mínima (pastilla, ml)")
@@ -198,6 +220,7 @@ class PrediccionML(models.Model):
     class Meta:
         verbose_name_plural = 'Predicciones ML'
         verbose_name = 'Predicción ML'
+        ordering = ['-id']
 
     def __str__(self):
         return f"Predicción {self.id} - {self.producto.nombre}"
@@ -256,6 +279,7 @@ class Recomendacion(models.Model):
     class Meta:
         verbose_name_plural = 'Recomendaciones'
         verbose_name = 'Recomendación'
+        ordering = ['id']
 
     def __str__(self):
         return self.titulo
@@ -285,6 +309,7 @@ class Rol(models.Model):
     class Meta:
         verbose_name_plural = 'Roles'
         verbose_name = 'Rol'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -296,6 +321,7 @@ class Sede(models.Model):
     class Meta:
         verbose_name_plural = 'Sedes'
         verbose_name = 'Sede'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -333,6 +359,21 @@ class Usuario(models.Model):
     def __str__(self):
         return f"{self.nombre} {self.apellido}".strip() or f"Usuario #{self.pk}"
 
+class MetodoPago(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Indica si el método de pago está activo")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Métodos de Pago'
+        verbose_name = 'Método de Pago'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
 class Venta(models.Model):
     ESTADO_CHOICES = (
         ('Pendiente', 'Pendiente'),
@@ -343,12 +384,17 @@ class Venta(models.Model):
         ('Boleta', 'Boleta de Venta'),
     )
     codigo = models.CharField(max_length=50, unique=True)
+    serie = models.CharField(max_length=10, default="B001", help_text="Serie del comprobante")
+    correlativo = models.CharField(max_length=20, blank=True, null=True, help_text="Correlativo numérico")
     tipo_comprobante = models.CharField(
         max_length=20,
         choices=TIPO_COMPROBANTE_CHOICES,
         default='Boleta',
         help_text="Tipo de comprobante tributario emitido"
     )
+    forma_pago = models.CharField(max_length=30, default="Contado", help_text="Forma de pago (Contado, Crédito)")
+    metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT, null=True, blank=True, related_name='ventas')
+    sede = models.ForeignKey(Sede, on_delete=models.PROTECT, null=True, blank=True, related_name='ventas', help_text="Sede donde se realizó la venta")
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='ventas_realizadas')
     fecha = models.DateTimeField(auto_now_add=True)
@@ -397,6 +443,7 @@ class DetalleVenta(models.Model):
     class Meta:
         verbose_name_plural = 'Detalles de Venta'
         verbose_name = 'Detalle de Venta'
+        ordering = ['id']
 
     def __str__(self):
         return f"Detalle {self.id} de Venta {self.venta.codigo}"
@@ -437,4 +484,48 @@ class RegistroAuditoria(models.Model):
     def __str__(self):
         usr = self.usuario.username if self.usuario else "Anónimo/Sistema"
         return f"[{self.fecha.strftime('%Y-%m-%d %H:%M:%S')}] {self.accion} por {usr} en {self.tabla_afectada or 'N/A'}"
+
+
+class Negocio(models.Model):
+    nombre_comercial = models.CharField(max_length=150, default="SICPF")
+    razon_social = models.CharField(max_length=200, default="SICPF S.A.C.")
+    ruc = models.CharField(max_length=11, default="10157484405", help_text="RUC de 11 dígitos")
+    direccion = models.CharField(max_length=255, default="CALLE ANIMAS NRO. 124")
+    departamento = models.CharField(max_length=100, default="LIMA")
+    provincia = models.CharField(max_length=100, default="HUARAL")
+    distrito = models.CharField(max_length=100, default="HUARAL")
+    telefono = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    logo_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL externa del logotipo")
+    url_consulta = models.CharField(max_length=255, default="facturacion.sicpf.com/consulta", help_text="URL para consultar comprobantes")
+    mensaje_pie = models.TextField(
+        default="¡NO HAY CAMBIOS NI DEVOLUCIONES!\n¡GRACIAS POR SU COMPRA!",
+        help_text="Mensaje de agradecimiento y políticas al pie del comprobante"
+    )
+    leyenda_software = models.CharField(
+        max_length=150,
+        default="UN SOFTWARE DE SICPF\nWWW.SICPF.COM",
+        help_text="Crédito de software al pie del comprobante"
+    )
+    serie_boleta_defecto = models.CharField(max_length=4, default="B001")
+    moneda_nombre = models.CharField(max_length=20, default="SOLES")
+    moneda_simbolo = models.CharField(max_length=5, default="S/")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración del Negocio"
+        verbose_name_plural = "Configuración del Negocio"
+
+    def __str__(self):
+        return f"{self.nombre_comercial} (RUC: {self.ruc})"
+
+    @classmethod
+    def get_solo(cls):
+        obj = cls.objects.filter(is_active=True).first()
+        if not obj:
+            obj = cls.objects.create()
+        return obj
+
 

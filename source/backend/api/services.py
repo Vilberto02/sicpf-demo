@@ -3,9 +3,9 @@ from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Sum, Count, F, Q, Case, When, Value, IntegerField
 from .models import (
-    Categoria, Presentacion, Marca, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
-    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO
+    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO, MetodoPago
 )
 
 class AuditService:
@@ -94,13 +94,36 @@ class PresentacionService(BaseService):
 class MarcaService(BaseService):
     model = Marca
 
+class FormaFarmaceuticaService(BaseService):
+    model = FormaFarmaceutica
+
+class MetodoPagoService(BaseService):
+    model = MetodoPago
+
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.filter(is_active=True)
+
+    @classmethod
+    def delete(cls, pk):
+        instance = cls.get_by_id(pk)
+        instance.is_active = False
+        instance.save(update_fields=['is_active', 'updated_at'])
+        AuditService.registrar(
+            accion='ELIMINACION',
+            tabla_afectada='MetodoPago',
+            registro_id=pk,
+            detalles={'nombre': instance.nombre, 'tipo': 'soft_delete'}
+        )
+
+
 class ProductoService(BaseService):
     model = Producto
 
     @classmethod
     def get_queryset(cls):
         return cls.model.objects.filter(is_active=True).select_related(
-            'categoria', 'presentacion'
+            'categoria', 'presentacion', 'forma_farmaceutica'
         ).prefetch_related('lotes', 'lotes__marca')
 
     @classmethod

@@ -6,8 +6,8 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from decimal import Decimal
 from .models import (
-    Categoria, Presentacion, Marca, Producto, Lote, Cliente, Rol, Usuario,
-    Venta, DetalleVenta, RegistroAuditoria, Alerta
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, Cliente, Rol, Usuario,
+    Venta, DetalleVenta, RegistroAuditoria, Alerta, Sede, MetodoPago
 )
 from .services import CategoriaService, ProductoService
 
@@ -671,6 +671,155 @@ class MarcaAndLoteTipoTest(TestCase):
         nombres = [m['nombre'] for m in results]
         self.assertIn('Bayer', nombres)
         self.assertIn('Genfar', nombres)
+
+    def test_forma_farmaceutica_crud_and_product_fk(self):
+        """Verifica la creación de FormaFarmaceutica y su vinculación como FK en Producto."""
+        forma = FormaFarmaceutica.objects.create(nombre="Jarabe", descripcion="Líquido viscoso")
+        self.producto.forma_farmaceutica = forma
+        self.producto.save()
+
+        # Endpoint listar formas farmacéuticas
+        resp = self.client.get(reverse('forma-farmaceutica-list'))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data.get('results', resp.data)
+        self.assertTrue(any(f['nombre'] == 'Jarabe' for f in results))
+
+        # Endpoint detalle producto expone forma_farmaceutica_nombre
+        resp_prod = self.client.get(reverse('producto-detail', kwargs={'pk': self.producto.pk}))
+        self.assertEqual(resp_prod.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_prod.data['forma_farmaceutica'], forma.id)
+        self.assertEqual(resp_prod.data['forma_farmaceutica_nombre'], "Jarabe")
+
+
+class MetodoPagoAndVentaSedeTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.rol_admin = Rol.objects.create(nombre="Administrador")
+        self.admin_user = User.objects.create_user(
+            username='admin_pos',
+            password='Password123!',
+            first_name='Admin',
+            last_name='Sistema'
+        )
+        self.sede_central = Sede.objects.create(
+            nombre="Sede Central Huaral",
+            direccion="Calle Derecha 456, Huaral"
+        )
+        self.admin_perfil = Usuario.objects.create(
+            user=self.admin_user,
+            rol=self.rol_admin,
+            sede=self.sede_central
+        )
+
+        resp = self.client.post(reverse('token_obtain_pair'), {
+            'username': 'admin_pos',
+            'password': 'Password123!'
+        })
+        self.token = resp.data['access']
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+
+        self.metodo_efectivo, _ = MetodoPago.objects.get_or_create(nombre="Efectivo", defaults={"descripcion": "Pago en efectivo"})
+        self.metodo_yape, _ = MetodoPago.objects.get_or_create(nombre="Yape", defaults={"descripcion": "Billetera digital"})
+
+        self.categoria = Categoria.objects.create(nombre="Medicamentos")
+        self.presentacion = Presentacion.objects.create(nombre="Caja", abreviatura="CJ")
+        self.producto = Producto.objects.create(
+            codigo="PROD-TEST-1",
+            nombre="Ibuprofeno 400mg",
+            categoria=self.categoria,
+            presentacion=self.presentacion,
+            precio_real=Decimal("10.00"),
+            precio_flotante=Decimal("1.00"),
+            precio_blister=Decimal("5.00"),
+            is_active=True
+        )
+        self.lote = Lote.objects.create(
+            producto=self.producto,
+            codigo_lote="LOT-IBU-01",
+            fecha_vencimiento=date.today() + timedelta(days=200),
+            stock_real=50,
+            stock_flotante=100,
+            is_active=True
+        )
+        self.cliente = Cliente.objects.create(
+            nombre="Juan",
+            apellido="Pérez",
+            dni="12345678",
+            email="juan.perez@example.com"
+        )
+
+    def test_metodos_pago_list_and_create(self):
+        """Verifica listar métodos de pago y crear un nuevo método con rol Administrador."""
+        resp = self.client.get(reverse('metodo-pago-list'))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data.get('results', resp.data)
+        nombres = [m['nombre'] for m in results]
+        self.assertIn('Efectivo', nombres)
+        self.assertIn('Yape', nombres)
+
+        # Crear nuevo método que no exista
+        create_resp = self.client.post(reverse('metodo-pago-create'), {
+            'nombre': 'Culqi',
+            'descripcion': 'Pasarela Culqi'
+        })
+        self.assertEqual(create_resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_resp.data['nombre'], 'Culqi')
+
+
+    def test_venta_asigna_sede_y_metodo_pago(self):
+        """Verifica que al crear una venta se asigne la sede del vendedor y el método de pago especificado."""
+        payload = {
+            'tipo_comprobante': 'Boleta',
+            'cliente': self.cliente.id,
+            'metodo_pago': self.metodo_yape.id,
+            'detalles_write': [
+                {
+                    'producto': self.producto.id,
+                    'lote': self.lote.id,
+                    'cantidad_real': 2,
+                    'cantidad_flotante': 0,
+                    'cantidad_blister': 0
+                }
+            ]
+        }
+        resp = self.client.post(reverse('venta-create'), payload, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        venta_id = resp.data['id']
+        venta = Venta.objects.get(id=venta_id)
+
+        # Debe asociar la sede del perfil del usuario en sesión
+        self.assertEqual(venta.sede, self.sede_central)
+        self.assertEqual(venta.metodo_pago, self.metodo_yape)
+
+        # Serializer de venta debe exponer los campos de lectura
+        self.assertEqual(resp.data['sede'], self.sede_central.id)
+        self.assertEqual(resp.data['sede_nombre'], 'Sede Central Huaral')
+        self.assertEqual(resp.data['sede_direccion'], 'Calle Derecha 456, Huaral')
+        self.assertEqual(resp.data['metodo_pago'], self.metodo_yape.id)
+        self.assertEqual(resp.data['metodo_pago_nombre'], 'Yape')
+
+    def test_venta_metodo_pago_por_nombre(self):
+        """Verifica que si se envía el nombre del método de pago en string, se resuelva correctamente."""
+        payload = {
+            'tipo_comprobante': 'Boleta',
+            'cliente': self.cliente.id,
+            'metodo_pago': 'Efectivo',
+            'detalles_write': [
+                {
+                    'producto': self.producto.id,
+                    'lote': self.lote.id,
+                    'cantidad_real': 1,
+                    'cantidad_flotante': 0,
+                    'cantidad_blister': 0
+                }
+            ]
+        }
+        resp = self.client.post(reverse('venta-create'), payload, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data['metodo_pago_nombre'], 'Efectivo')
+
 
 
 

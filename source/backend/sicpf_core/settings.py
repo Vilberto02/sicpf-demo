@@ -223,6 +223,7 @@ SPECTACULAR_SETTINGS = {
 
 # Security Headers & Cookie Settings
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -270,3 +271,16 @@ LOGGING = {
     },
 }
 
+JAZZMIN_SETTINGS = {
+    # title of the window (Will default to current_admin_site.site_title if absent or None)
+    "site_title": "SICPF Admin",
+
+    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
+    "site_header": "SICPF",
+
+    # Title on the brand (19 chars max) (defaults to current_admin_site.site_header if absent or None)
+    "site_brand": "SICPF Admin",
+
+    # Welcome text on the login screen
+    "welcome_sign": "Bienvenido a SICPF",
+}
