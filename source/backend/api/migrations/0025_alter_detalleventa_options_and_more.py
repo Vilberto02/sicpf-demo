@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0023_metodopago_venta_sede_alter_negocio_nombre_comercial_and_more'),
+        ('api', '0024_seed_metodos_pago_y_sedes'),
     ]
 
     operations = [
