@@ -4,40 +4,6 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
-def seed_metodos_and_prepare_ventas(apps, schema_editor):
-    MetodoPago = apps.get_model('api', 'MetodoPago')
-    Venta = apps.get_model('api', 'Venta')
-    metodos = [
-        {'nombre': 'Efectivo', 'descripcion': 'Pago en efectivo'},
-        {'nombre': 'Yape', 'descripcion': 'Billetera digital Yape'},
-        {'nombre': 'Plin', 'descripcion': 'Billetera digital Plin'},
-        {'nombre': 'Tarjeta', 'descripcion': 'Tarjeta de débito o crédito (POS)'},
-        {'nombre': 'Transferencia', 'descripcion': 'Transferencia bancaria directa'},
-    ]
-    efectivo_obj = None
-    for m in metodos:
-        obj, _ = MetodoPago.objects.get_or_create(nombre=m['nombre'], defaults={'descripcion': m['descripcion'], 'is_active': True})
-        if m['nombre'] == 'Efectivo':
-            efectivo_obj = obj
-
-    if efectivo_obj:
-        Venta.objects.filter(metodo_pago__isnull=True).update(metodo_pago=efectivo_obj)
-
-
-def update_ventas_sede(apps, schema_editor):
-    Venta = apps.get_model('api', 'Venta')
-    Sede = apps.get_model('api', 'Sede')
-    primera_sede = Sede.objects.first()
-
-    for venta in Venta.objects.filter(sede__isnull=True).select_related('usuario'):
-        if venta.usuario and getattr(venta.usuario, 'sede_id', None):
-            venta.sede_id = venta.usuario.sede_id
-            venta.save(update_fields=['sede'])
-        elif primera_sede:
-            venta.sede = primera_sede
-            venta.save(update_fields=['sede'])
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -81,8 +47,6 @@ class Migration(migrations.Migration):
             name='razon_social',
             field=models.CharField(default='SICPF S.A.C.', max_length=200),
         ),
-        migrations.RunPython(seed_metodos_and_prepare_ventas, migrations.RunPython.noop),
-        migrations.RunPython(update_ventas_sede, migrations.RunPython.noop),
     ]
 
 
