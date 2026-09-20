@@ -23,7 +23,7 @@ const getEstadoBadge = (estado: string) => {
 export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
   return (
     <Dialog open={!!lote} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl text-primary font-bold">
             Lote {lote?.codigo_lote}
@@ -45,7 +45,7 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               )}
               {lote.producto_condicion_venta === "receta_retenida" && (
                 <span className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-xs font-semibold">
-                  Receta Retenida / Controlado
+                  Receta Retenida
                 </span>
               )}
               {lote.producto_registro_sanitario && (
@@ -81,20 +81,20 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
             {/* Ficha Farmacéutica DIGEMID */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/20 border text-sm">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo (DCI)</p>
-                <p className="font-medium mt-1 text-primary">{lote.producto_dci || "—"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo</p>
+                <p className="font-medium mt-1">{lote.producto_dci || "Ninguna"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Concentración</p>
-                <p className="font-medium mt-1">{lote.producto_concentracion || "—"}</p>
+                <p className="font-medium mt-1">{lote.producto_concentracion || "Ninguna"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Forma Farmacéutica</p>
-                <p className="font-medium mt-1">{lote.producto_forma_farmaceutica || "—"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">F. Farmacéutica</p>
+                <p className="font-medium mt-1">{lote.producto_forma_farmaceutica || "Ninguna"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Registro Sanitario</p>
-                <p className="font-medium mt-1 font-mono text-xs">{lote.producto_registro_sanitario || "—"}</p>
+                <p className="font-medium mt-1">{lote.producto_registro_sanitario || "No registrado"}</p>
               </div>
             </div>
 
@@ -115,7 +115,7 @@ export function LoteDetailsModal({ lote, onClose }: LoteDetailsModalProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Marca</p>
-                <p className="font-medium text-sm mt-1">{lote.marca_nombre || "—"}</p>
+                <p className="font-medium text-sm mt-1">{lote.marca_nombre || "No registrado"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Registrado</p>

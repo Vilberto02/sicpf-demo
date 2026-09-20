@@ -3,6 +3,7 @@ import type {
   ProductoType,
   CategoriaType,
   PresentacionType,
+  FormaFarmaceuticaType,
 } from "./types";
 import type { PaginatedResponse } from "@/types";
 
@@ -30,3 +31,5 @@ export const getProductStats = () =>
 export const getCategorias = () => apiClient<PaginatedResponse<CategoriaType>>("/categorias/");
 export const getPresentaciones = () =>
   apiClient<PaginatedResponse<PresentacionType>>("/presentaciones/");
+export const getFormasFarmaceuticas = () =>
+  apiClient<PaginatedResponse<FormaFarmaceuticaType>>("/formas-farmaceuticas/");

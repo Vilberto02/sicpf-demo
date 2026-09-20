@@ -35,6 +35,12 @@ export type MarcaType = {
   descripcion?: string | null;
 };
 
+export type FormaFarmaceuticaType = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
 export type LoteType = {
   id: number;
   producto: number;
@@ -84,6 +90,7 @@ export type VentaDetalleType = {
   precio_real: number;
   precio_blister: number;
   precio_flotante: number;
+  subtotal?: number;
 };
 
 export type VentaType = {
@@ -99,6 +106,14 @@ export type VentaType = {
   op_gravada?: number;
   igv?: number;
   subtotal?: number;
+  serie?: string;
+  correlativo?: string;
+  forma_pago?: string;
+  metodo_pago?: number | string;
+  metodo_pago_nombre?: string;
+  sede?: number | null;
+  sede_nombre?: string | null;
+  sede_direccion?: string | null;
   fecha: string;
   estado: string;
   vendedor_nombre?: string;

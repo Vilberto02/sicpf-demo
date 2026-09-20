@@ -65,7 +65,7 @@ export function ProductSection() {
   const {
     products, stats, count, page, pageSize,
     fetchProducts, fetchStats, removeProduct, loading,
-    setPage, setSearch, setCategory
+    setPage, setSearch, setCategory, category, search
   } = useProductStore();
   const userProfile = useAuthStore((s) => s.userProfile);
   const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
@@ -172,6 +172,8 @@ export function ProductSection() {
           categories={inventoryCategories?.labels || []}
           categoryLabel="Categoría"
           onCategoryFilter={setCategory}
+          selectedCategoryValue={category || "Todos"}
+          searchValue={search}
           statusHeaderProps="Estado"
           loading={loading}
           onView={setViewingProduct}

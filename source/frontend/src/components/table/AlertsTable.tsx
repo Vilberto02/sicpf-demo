@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export function AlertsTable() {
   const {
     items, fetchItems, loading, markReviewed, markDiscarded,
-    count, page, pageSize, setPage, setSearch,
+    count, page, pageSize, setPage, search, setSearch,
     estado, setEstado, nivelRiesgo, setNivelRiesgo
   } = useAlertsStore();
   const [selectedAlert, setSelectedAlert] = useState<AlertItemType | null>(null);
@@ -40,14 +40,14 @@ export function AlertsTable() {
     },
     {
       accessorKey: "stock_minimo",
-      header: "Stock Minimo",
+      header: "Stock minimo",
       meta: { align: "right" },
       cell: ({ row }) =>
         `${row.original.stock_minimo} c / ${row.original.stock_minimo_flotante ?? 0} u`,
     },
     {
       accessorKey: "fecha_alerta",
-      header: "Fecha",
+      header: "Fecha de alerta",
       cell: ({ row }) => formatDate(row.getValue("fecha_alerta") as string),
     },
     {
@@ -171,6 +171,7 @@ export function AlertsTable() {
         columns={alertsColumns}
         data={items}
         searchPlaceholder="Buscar por producto"
+        searchValue={search}
         statusHeaderProps="N. Riesgo"
         customFilters={customFilterControls}
         loading={loading}

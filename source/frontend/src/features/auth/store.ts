@@ -14,6 +14,7 @@ interface AuthState {
   userProfile: UserProfileType | null;
   loginUser: (credentials: LoginInput) => Promise<boolean>;
   logoutUser: () => Promise<void>;
+  handleSessionExpired: () => void;
   fetchProfile: () => Promise<void>;
   editProfile: (data: Record<string, unknown>) => Promise<boolean>;
   changeOwnPassword: (
@@ -59,6 +60,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
     clearToken();
     set({ token: null, isAuthenticated: false, userProfile: null });
+  },
+  handleSessionExpired: () => {
+    clearToken();
+    set({ token: null, isAuthenticated: false, userProfile: null, isCheckingAuth: false });
   },
   fetchProfile: async () => {
     set({ isCheckingAuth: true });

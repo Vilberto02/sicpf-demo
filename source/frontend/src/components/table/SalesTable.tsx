@@ -49,8 +49,8 @@ const salesColumns: ColumnDef<SaleItemType>[] = [
 export function SalesTable() {
   const {
     items, fetchItems, loading, updateItem, fetchStats,
-    count, page, pageSize, setPage, setSearch,
-    usuarioId, setUsuarioId, setStatus
+    count, page, pageSize, setPage, search, setSearch,
+    usuarioId, setUsuarioId, status, setStatus
   } = useSalesStore();
   const [selectedSale, setSelectedSale] = useState<SaleItemType | null>(null);
   
@@ -111,6 +111,8 @@ export function SalesTable() {
         categoryLabel="Estado"
         statusHeaderProps="Estado"
         onCategoryFilter={setStatus}
+        selectedCategoryValue={status || "Todos"}
+        searchValue={search}
         loading={loading}
         onView={handleView}
         onPrint={printTicket}

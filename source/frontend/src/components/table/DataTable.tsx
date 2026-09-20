@@ -1,10 +1,8 @@
 import {
   useReactTable,
   type ColumnDef,
-  type ColumnFiltersState,
   getCoreRowModel,
   getPaginationRowModel,
-  getFilteredRowModel,
   flexRender,
 } from "@tanstack/react-table";
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
@@ -44,6 +42,9 @@ interface DataTableProps<TData, TValue> {
   onSearch?: (search: string) => void;
   onCategoryFilter?: (category: string) => void;
   categoryLabel?: string;
+  categoryKey?: string;
+  selectedCategoryValue?: string;
+  searchValue?: string;
   customFilters?: React.ReactNode;
 }
 
@@ -186,11 +187,31 @@ export function DataTable<TData, TValue>({
   onSearch,
   onCategoryFilter,
   categoryLabel = "Categoría",
+  categoryKey,
+  selectedCategoryValue,
+  searchValue,
   customFilters,
 }: DataTableProps<TData, TValue>) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [globalFilter, setGlobalFilter] = useState(searchValue || "");
+  const [selectedCategory, setSelectedCategory] = useState(selectedCategoryValue || "Todos");
+
+  useEffect(() => {
+    if (selectedCategoryValue !== undefined) {
+      setSelectedCategory(selectedCategoryValue || "Todos");
+      if (!serverSide) {
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      }
+    }
+  }, [selectedCategoryValue, serverSide]);
+
+  useEffect(() => {
+    if (searchValue !== undefined) {
+      setGlobalFilter(searchValue);
+      if (!serverSide) {
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      }
+    }
+  }, [searchValue, serverSide]);
   
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -207,11 +228,14 @@ export function DataTable<TData, TValue>({
 
   const handleSearch = useCallback((value: string) => {
     setGlobalFilter(value);
+    if (!serverSide) {
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }
     if (serverSide && onSearch) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       const timer = setTimeout(() => {
         onSearch(value);
-      }, 300);
+      }, 400);
       debounceTimerRef.current = timer;
     }
   }, [serverSide, onSearch]);
@@ -258,7 +282,7 @@ export function DataTable<TData, TValue>({
     // Client-side filtering as fallback
     let filtered = data;
     if (globalFilter) {
-      const term = globalFilter.toLowerCase();
+      const term = globalFilter.trim().toLowerCase();
       filtered = filtered.filter((row) =>
         Object.values(row as Record<string, unknown>).some(
           (val) => val !== null && val !== undefined && String(val).toLowerCase().includes(term)
@@ -268,12 +292,14 @@ export function DataTable<TData, TValue>({
     if (selectedCategory && selectedCategory !== "Todos" && selectedCategory !== "Todas las categorias") {
       filtered = filtered.filter((row) => {
         const r = row as Record<string, unknown>;
-        return r.categoria === selectedCategory || r.categoria_nombre === selectedCategory ||
-               r.status === selectedCategory || r.nivel_riesgo === selectedCategory;
+        const categoryVal = (categoryKey ? r[categoryKey] : undefined) ??
+          r.rol_nombre ?? r.categoria ?? r.categoria_nombre ?? r.status ?? r.nivel_riesgo;
+        return categoryVal !== null && categoryVal !== undefined &&
+          String(categoryVal).toLowerCase() === selectedCategory.toLowerCase();
       });
     }
     return filtered;
-  }, [data, serverSide, globalFilter, selectedCategory]);
+  }, [data, serverSide, globalFilter, selectedCategory, categoryKey]);
 
   const effectiveTotalCount = serverSide ? totalCount : displayData.length;
   const effectivePageCount = Math.max(1, Math.ceil(effectiveTotalCount / (serverSide ? pageSize : pagination.pageSize)));
@@ -283,9 +309,7 @@ export function DataTable<TData, TValue>({
     data: displayData,
     columns: enhancedColumns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: serverSide ? undefined : getFilteredRowModel(),
     getPaginationRowModel: serverSide ? undefined : getPaginationRowModel(),
-    onColumnFiltersChange: setColumnFilters,
     onPaginationChange: (updater) => {
       if (!serverSide) {
         setPagination(updater);
@@ -294,8 +318,6 @@ export function DataTable<TData, TValue>({
     manualPagination: serverSide,
     pageCount: effectivePageCount,
     state: {
-      columnFilters,
-      globalFilter: serverSide ? "" : globalFilter,
       pagination: {
         pageIndex: effectivePageIndex,
         pageSize: serverSide ? pageSize : pagination.pageSize,
@@ -303,21 +325,16 @@ export function DataTable<TData, TValue>({
     },
   });
 
-
   const handleCategoryChange = useCallback((value: string) => {
     setSelectedCategory(value);
     const normalizedCategory = value === "Todos" || value === "Todas las categorias" ? "" : value;
-    if (serverSide) {
-      if (onCategoryFilter) {
-        onCategoryFilter(normalizedCategory);
-      }
-    } else {
-      const col = enhancedTable.getColumn("categoria") || enhancedTable.getColumn("category") || enhancedTable.getColumn("status") || enhancedTable.getColumn("estado");
-      if (col) {
-        col.setFilterValue(normalizedCategory);
-      }
+    if (onCategoryFilter) {
+      onCategoryFilter(normalizedCategory);
     }
-  }, [serverSide, onCategoryFilter, enhancedTable]);
+    if (!serverSide) {
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }
+  }, [serverSide, onCategoryFilter]);
 
   const handlePageChange = (newPage: number) => {
     if (serverSide && onPageChange) {
@@ -327,7 +344,7 @@ export function DataTable<TData, TValue>({
     }
   };
 
-  if (loading) {
+  if (loading && data.length === 0 && !globalFilter && (!selectedCategory || selectedCategory === "Todos")) {
     return <DataTableSkeleton rows={6} columns={Math.min(columns.length + 2, 8)} />;
   }
 
@@ -403,7 +420,17 @@ export function DataTable<TData, TValue>({
             ))}
           </thead>
           <tbody>
-            {enhancedTable.getRowModel().rows.length === 0 ? (
+            {loading ? (
+              Array.from({ length: Math.min(pageSize, 6) }).map((_, idx) => (
+                <tr key={`skel-${idx}`} className="border-b border-border">
+                  {enhancedColumns.map((_, cIdx) => (
+                    <td key={cIdx} className="py-3 px-4">
+                      <div className="h-4 bg-muted/70 animate-pulse rounded" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : enhancedTable.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={enhancedColumns.length} className="py-12 text-center text-muted-foreground bg-muted/10 font-medium">
                   Aún no hay registros para mostrar.

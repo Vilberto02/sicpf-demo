@@ -31,7 +31,7 @@ export function InventorySection() {
               onSaved={fetchStats}
             >
               <Button className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm">
-                <Plus></Plus> Agregar Lote
+                <Plus></Plus> Agregar lote
               </Button>
             </LoteSheet>
           </div>

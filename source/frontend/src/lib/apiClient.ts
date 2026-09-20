@@ -1,4 +1,4 @@
-import { getToken, getRefreshToken, setToken, clearToken } from "@/features/auth/token";
+import { getToken, getRefreshToken, setToken, setTokens, clearToken } from "@/features/auth/token";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -88,6 +88,9 @@ export async function apiClient<T>(
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
       clearToken();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:session-expired"));
+      }
       throw new Error("Su sesión ha expirado. Por favor, vuelva a iniciar sesión.");
     }
 
@@ -124,7 +127,13 @@ export async function apiClient<T>(
 
       const refreshData = await refreshResponse.json();
       const newAccessToken = refreshData.access as string;
-      setToken(newAccessToken);
+      const newRefreshToken = refreshData.refresh as string | undefined;
+
+      if (newRefreshToken) {
+        setTokens(newAccessToken, newRefreshToken);
+      } else {
+        setToken(newAccessToken);
+      }
 
       processQueue(null, newAccessToken);
       isRefreshing = false;

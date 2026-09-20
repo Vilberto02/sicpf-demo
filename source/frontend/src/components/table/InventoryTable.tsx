@@ -9,6 +9,8 @@ import { LoteDetailsModal } from "../modals/LoteDetailsModal";
 import { LoteSheet } from "../modals/LoteSheet";
 import { ProductStatusBadge } from "@/features/shared/badges";
 import { formatDate } from "@/features/shared/dateUtils";
+import { confirmAction } from "@/features/shared/confirmDialog";
+import { toast } from "sonner";
 
 const inventoryColumns: ColumnDef<InventoryItemType>[] = [
   {
@@ -95,7 +97,7 @@ const inventoryColumns: ColumnDef<InventoryItemType>[] = [
 export default function InventoryTable() {
   const {
     items, categories, fetchItems, fetchCategories, loading, fetchStats,
-    count, page, pageSize, setPage, setStatus
+    count, page, pageSize, setPage, setStatus, search, status, removeItem
   } = useInventoryStore();
   const userProfile = useAuthStore((state) => state.userProfile);
   const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
@@ -118,6 +120,22 @@ export default function InventoryTable() {
     setIsEditOpen(true);
   };
 
+  const handleDeleteLote = async (row: InventoryItemType) => {
+    const confirmed = await confirmAction({
+      title: "¿Eliminar lote?",
+      text: `Se desactivará el lote "${row.codigo_lote}" (${row.producto_nombre}). Esta acción retirará el lote del inventario activo.`,
+    });
+
+    if (confirmed) {
+      try {
+        await removeItem(row.id);
+        toast.success(`Lote ${row.codigo_lote} eliminado correctamente.`);
+      } catch {
+        toast.error("No se pudo eliminar el lote.");
+      }
+    }
+  };
+
   return (
     <>
       <DataTable
@@ -128,15 +146,18 @@ export default function InventoryTable() {
         categoryLabel="Categoría"
         statusHeaderProps="Estado"
         onCategoryFilter={setStatus}
+        selectedCategoryValue={status || "Todos"}
+        searchValue={search}
         loading={loading}
         onView={handleView}
         onEdit={isAdmin ? handleEdit : undefined}
+        onDelete={isAdmin ? handleDeleteLote : undefined}
         serverSide
         totalCount={count}
         page={page - 1}
         pageSize={pageSize}
         onPageChange={(p) => setPage(p + 1)}
-        onSearch={(search) => useInventoryStore.getState().setSearch(search)}
+        onSearch={(s) => useInventoryStore.getState().setSearch(s)}
       />
 
       <LoteDetailsModal

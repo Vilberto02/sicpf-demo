@@ -33,12 +33,10 @@ export const ProductSchema = z.object({
     .nullable()
     .transform((v) => (v ? v : null)),
   forma_farmaceutica: z
-    .string()
-    .trim()
-    .max(100, "La forma farmacéutica no puede superar 100 caracteres.")
+    .union([z.number(), z.string()])
     .optional()
     .nullable()
-    .transform((v) => (v ? v : null)),
+    .transform((v) => (v && v !== "none" && Number(v) > 0 ? Number(v) : null)),
   registro_sanitario: z
     .string()
     .trim()

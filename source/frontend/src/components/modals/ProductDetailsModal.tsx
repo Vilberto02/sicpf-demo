@@ -39,7 +39,7 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
 
   return (
     <Dialog open={!!product} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl text-primary font-bold">
             {product?.nombre}
@@ -97,16 +97,16 @@ export function ProductDetailsModal({ product, onClose }: ProductDetailsModalPro
             {/* Ficha Farmacéutica DIGEMID */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-muted/20 border text-sm">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo (DCI)</p>
-                <p className="font-medium mt-1 text-primary">{product.dci || "—"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Principio Activo</p>
+                <p className="font-medium mt-1">{product.dci || "Ninguna"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Concentración</p>
-                <p className="font-medium mt-1">{product.concentracion || "—"}</p>
+                <p className="font-medium mt-1">{product.concentracion || "Ninguna"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Forma Farmacéutica</p>
-                <p className="font-medium mt-1">{product.forma_farmaceutica || "—"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">F. Farmacéutica</p>
+                <p className="font-medium mt-1">{product.forma_farmaceutica_nombre || "Ninguna"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Condición de Venta</p>
