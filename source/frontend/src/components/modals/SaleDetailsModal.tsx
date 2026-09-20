@@ -59,18 +59,28 @@ export function SaleDetailsModal({ sale, onClose }: SaleDetailsModalProps) {
                 )}
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Vendedor</p>
-                <p className="font-medium text-sm mt-1">{sale.vendedor_nombre}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Vendedor / Sede</p>
+                <p className="font-medium text-sm mt-1">{sale.vendedor_nombre || "Vendedor"}</p>
+                {sale.sede_nombre && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{sale.sede_nombre}</p>
+                )}
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Estado</p>
-                <span className={`px-2 py-1 inline-block mt-1 text-xs font-semibold rounded-md border text-sm ${
-                  sale.estado === "Completado" ? "text-green-600 border-green-600/30 bg-green-50" :
-                  sale.estado === "Pendiente" ? "text-yellow-600 border-yellow-600/30 bg-yellow-50" :
-                  "text-red-600 border-red-600/30 bg-red-50"
-                }`}>
-                  {sale.estado}
-                </span>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Estado / Pago</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span className={`px-2 py-0.5 inline-block text-xs font-semibold rounded-md border ${
+                    sale.estado === "Completado" ? "text-green-600 border-green-600/30 bg-green-50" :
+                    sale.estado === "Pendiente" ? "text-yellow-600 border-yellow-600/30 bg-yellow-50" :
+                    "text-red-600 border-red-600/30 bg-red-50"
+                  }`}>
+                    {sale.estado}
+                  </span>
+                  {(sale.metodo_pago_nombre || sale.metodo_pago) && (
+                    <span className="px-2 py-0.5 inline-block text-xs font-medium rounded-md border bg-muted/50 text-foreground">
+                      {sale.metodo_pago_nombre || sale.metodo_pago}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

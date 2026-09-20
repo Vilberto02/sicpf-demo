@@ -20,6 +20,11 @@ export const CreateSaleSchema = z.object({
   total: z.number().min(0, "El total no puede ser negativo."),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   tipo_comprobante: z.string().max(20).optional(),
+  forma_pago: z.string().max(30).optional(),
+  metodo_pago: z.union([z.number().int().positive(), z.string().max(50)]).optional(),
+  sede: z.number().int().positive().nullable().optional(),
+  serie: z.string().max(10).optional(),
+  correlativo: z.string().max(20).optional(),
   estado: z.string().min(1).max(20).optional(),
   detalles_write: z
     .array(SaleDetailSchema)
