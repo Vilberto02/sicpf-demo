@@ -18,6 +18,35 @@ export const ProductSchema = z.object({
     .optional()
     .nullable()
     .transform((v) => (v ? v : null)),
+  dci: z
+    .string()
+    .trim()
+    .max(200, "El DCI no puede superar 200 caracteres.")
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
+  concentracion: z
+    .string()
+    .trim()
+    .max(100, "La concentración no puede superar 100 caracteres.")
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
+  forma_farmaceutica: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable()
+    .transform((v) => (v && v !== "none" && Number(v) > 0 ? Number(v) : null)),
+  registro_sanitario: z
+    .string()
+    .trim()
+    .max(50, "El Registro Sanitario no puede superar 50 caracteres.")
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
+  condicion_venta: z
+    .enum(["libre", "receta", "receta_retenida"])
+    .default("libre"),
   categoria: z.union([z.number(), z.string()]).refine((v) => v !== "" && Number(v) > 0, {
     message: "Debe seleccionar una categoría.",
   }),

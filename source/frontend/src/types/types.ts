@@ -29,6 +29,18 @@ export type BarChartProps = {
   label: string[];
 };
 
+export type MarcaType = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
+export type FormaFarmaceuticaType = {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+};
+
 export type LoteType = {
   id: number;
   producto: number;
@@ -52,6 +64,16 @@ export type LoteType = {
   presentacion_nombre: string;
   presentacion_abrev: string;
   estado: string;
+  tipo_producto?: "marca" | "generico";
+  tipo_producto_display?: string;
+  marca?: number | null;
+  marca_nombre?: string | null;
+  producto_dci?: string | null;
+  producto_concentracion?: string | null;
+  producto_forma_farmaceutica?: string | null;
+  producto_registro_sanitario?: string | null;
+  producto_condicion_venta?: "libre" | "receta" | "receta_retenida";
+  producto_condicion_venta_display?: string;
   created_at?: string;
 };
 
@@ -61,21 +83,37 @@ export type VentaDetalleType = {
   producto_nombre?: string;
   lote?: number;
   lote_codigo?: string;
+  lote_fecha_vencimiento?: string;
   cantidad_real: number;
   cantidad_blister: number;
   cantidad_flotante: number;
   precio_real: number;
   precio_blister: number;
   precio_flotante: number;
+  subtotal?: number;
 };
 
 export type VentaType = {
   id?: number;
   codigo: string;
+  tipo_comprobante?: string;
+  tipo_comprobante_display?: string;
   cliente: number;
   cliente_nombre?: string;
+  cliente_dni?: string | null;
   usuario?: number;
   total: number;
+  op_gravada?: number;
+  igv?: number;
+  subtotal?: number;
+  serie?: string;
+  correlativo?: string;
+  forma_pago?: string;
+  metodo_pago?: number | string;
+  metodo_pago_nombre?: string;
+  sede?: number | null;
+  sede_nombre?: string | null;
+  sede_direccion?: string | null;
   fecha: string;
   estado: string;
   vendedor_nombre?: string;

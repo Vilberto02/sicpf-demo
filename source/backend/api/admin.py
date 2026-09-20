@@ -1,9 +1,30 @@
-# pyrefly: ignore [missing-import]
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta, 
-    Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta, 
+    Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
+    RegistroAuditoria, Negocio, MetodoPago
 )
+from .services import AuditService
+
+@admin.register(Negocio)
+class NegocioAdmin(admin.ModelAdmin):
+    list_display = ('nombre_comercial', 'ruc', 'direccion', 'telefono', 'email', 'is_active')
+    search_fields = ('nombre_comercial', 'razon_social', 'ruc')
+    fieldsets = (
+        ('Identificación del Negocio', {
+            'fields': ('nombre_comercial', 'razon_social', 'ruc', 'logo_url')
+        }),
+        ('Ubicación y Contacto', {
+            'fields': ('direccion', 'distrito', 'provincia', 'departamento', 'telefono', 'email')
+        }),
+        ('Configuración de Comprobantes (Boleta)', {
+            'fields': ('serie_boleta_defecto', 'moneda_nombre', 'moneda_simbolo', 'url_consulta', 'mensaje_pie', 'leyenda_software')
+        }),
+        ('Estado', {
+            'fields': ('is_active',)
+        }),
+    )
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
@@ -20,23 +41,194 @@ class PresentacionAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'abreviatura')
     search_fields = ('nombre', 'abreviatura')
 
+@admin.register(Marca)
+class MarcaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion')
+    search_fields = ('nombre',)
+
+@admin.register(FormaFarmaceutica)
+class FormaFarmaceuticaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion', 'is_active')
+    search_fields = ('nombre',)
+    list_filter = ('is_active',)
+
+class TipoLoteFilter(admin.SimpleListFilter):
+    title = 'Tipo de Lotes'
+    parameter_name = 'tipo_lote'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('marca', 'Con lotes de marca'),
+            ('generico', 'Con lotes genéricos'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'marca':
+            return queryset.filter(lotes__tipo_producto='marca', lotes__is_active=True).distinct()
+        if self.value() == 'generico':
+            return queryset.filter(lotes__tipo_producto='generico', lotes__is_active=True).distinct()
+        return queryset
+
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'nombre', 'precio_real', 'estado', 'categoria')
-    search_fields = ('codigo', 'nombre')
+    list_display = (
+        'codigo',
+        'nombre',
+        'dci',
+        'forma_farmaceutica',
+        'registro_sanitario',
+        'condicion_venta_badge',
+        'precio_real',
+        'categoria',
+        'estado_registro',
+        'estado_vencimiento',
+    )
+    search_fields = ('codigo', 'nombre', 'dci', 'registro_sanitario')
+    list_filter = ('is_active', 'condicion_venta', 'forma_farmaceutica', 'categoria', TipoLoteFilter)
+    actions = ['desactivar_productos', 'activar_productos']
 
-    @admin.display(description='Estado')
-    def estado(self, obj):
-        return obj.estado
+    @admin.display(description='Condición Venta', ordering='condicion_venta')
+    def condicion_venta_badge(self, obj):
+        colores = {
+            'libre': '#16a34a',      # verde neutro
+            'receta': '#d97706',     # ámbar
+            'receta_retenida': '#7e22ce', # púrpura
+        }
+        color = colores.get(obj.condicion_venta, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px; text-transform: uppercase;">{}</span>',
+            color,
+            obj.get_condicion_venta_display()
+        )
+
+    @admin.display(description='Estado (Activo / Desactivado)', boolean=True, ordering='is_active')
+    def estado_registro(self, obj):
+        return obj.is_active
+
+    @admin.display(description='Estado (Vencimiento)')
+    def estado_vencimiento(self, obj):
+        colores = {
+            'activo': '#16a34a',
+            'por vencer': '#d97706',
+            'vencido': '#dc2626',
+        }
+        color = colores.get(obj.estado, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px; text-transform: uppercase;">{}</span>',
+            color,
+            obj.estado
+        )
+
+    @admin.action(description='Desactivar productos seleccionados (Soft Delete)')
+    def desactivar_productos(self, request, queryset):
+        total = 0
+        for producto in queryset:
+            producto.is_active = False
+            producto.save()
+            producto.lotes.update(is_active=False)
+            AuditService.registrar(
+                accion='ELIMINACION',
+                tabla_afectada='Producto',
+                registro_id=producto.pk,
+                detalles={'codigo': producto.codigo, 'nombre': producto.nombre, 'tipo': 'soft_delete_admin'},
+                request=request
+            )
+            total += 1
+        self.message_user(request, f"{total} producto(s) desactivado(s) exitosamente junto a sus lotes.")
+
+    @admin.action(description='Activar / Restaurar productos seleccionados')
+    def activar_productos(self, request, queryset):
+        total = 0
+        for producto in queryset:
+            producto.is_active = True
+            producto.save()
+            producto.lotes.update(is_active=True)
+            AuditService.registrar(
+                accion='MODIFICACION',
+                tabla_afectada='Producto',
+                registro_id=producto.pk,
+                detalles={'codigo': producto.codigo, 'nombre': producto.nombre, 'tipo': 'reactivar_admin'},
+                request=request
+            )
+            total += 1
+        self.message_user(request, f"{total} producto(s) reactivado(s) exitosamente junto a sus lotes.")
 
 @admin.register(Lote)
 class LoteAdmin(admin.ModelAdmin):
-    list_display = ('codigo_lote', 'producto', 'stock_real', 'stock_flotante', 'fecha_vencimiento', 'estado')
-    search_fields = ('codigo_lote', 'producto__nombre')
+    list_display = (
+        'codigo_lote',
+        'producto',
+        'tipo_producto_badge',
+        'marca',
+        'stock_real',
+        'stock_flotante',
+        'fecha_vencimiento',
+        'estado_registro',
+        'estado_vencimiento',
+    )
+    search_fields = ('codigo_lote', 'producto__nombre', 'marca__nombre')
+    list_filter = ('is_active', 'tipo_producto', 'marca', 'fecha_vencimiento')
+    actions = ['desactivar_lotes', 'activar_lotes']
 
-    @admin.display(description='Estado')
-    def estado(self, obj):
-        return obj.estado
+    @admin.display(description='Tipo', ordering='tipo_producto')
+    def tipo_producto_badge(self, obj):
+        if obj.tipo_producto == 'marca':
+            return format_html(
+                '<span style="background-color: #2563eb; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">MARCA</span>'
+            )
+        return format_html(
+            '<span style="background-color: #059669; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">GENÉRICO</span>'
+        )
+
+    @admin.display(description='Estado (Activo / Desactivado)', boolean=True, ordering='is_active')
+    def estado_registro(self, obj):
+        return obj.is_active
+
+    @admin.display(description='Estado (Vencimiento)')
+    def estado_vencimiento(self, obj):
+        colores = {
+            'activo': '#16a34a',
+            'por vencer': '#d97706',
+            'vencido': '#dc2626',
+        }
+        color = colores.get(obj.estado, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px; text-transform: uppercase;">{}</span>',
+            color,
+            obj.estado
+        )
+
+    @admin.action(description='Desactivar lotes seleccionados (Soft Delete)')
+    def desactivar_lotes(self, request, queryset):
+        total = 0
+        for lote in queryset:
+            lote.is_active = False
+            lote.save()
+            AuditService.registrar(
+                accion='ELIMINACION',
+                tabla_afectada='Lote',
+                registro_id=lote.pk,
+                detalles={'codigo_lote': lote.codigo_lote, 'producto': lote.producto.nombre, 'tipo': 'soft_delete_admin'},
+                request=request
+            )
+            total += 1
+        self.message_user(request, f"{total} lote(s) desactivado(s) exitosamente.")
+
+    @admin.action(description='Activar / Restaurar lotes seleccionados')
+    def activar_lotes(self, request, queryset):
+        total = 0
+        for lote in queryset:
+            lote.is_active = True
+            lote.save()
+            AuditService.registrar(
+                accion='MODIFICACION',
+                tabla_afectada='Lote',
+                registro_id=lote.pk,
+                detalles={'codigo_lote': lote.codigo_lote, 'producto': lote.producto.nombre, 'tipo': 'reactivar_admin'},
+                request=request
+            )
+            total += 1
+        self.message_user(request, f"{total} lote(s) reactivado(s) exitosamente.")
 
 @admin.register(PrediccionML)
 class PrediccionMLAdmin(admin.ModelAdmin):
@@ -55,8 +247,8 @@ class RecomendacionAdmin(admin.ModelAdmin):
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'apellido', 'email')
-    search_fields = ('nombre', 'apellido', 'email')
+    list_display = ('nombre', 'apellido', 'dni', 'email', 'telefono')
+    search_fields = ('nombre', 'apellido', 'dni', 'email')
 
 @admin.register(Rol)
 class RolAdmin(admin.ModelAdmin):
@@ -76,8 +268,24 @@ class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta
     extra = 1
 
+@admin.register(MetodoPago)
+class MetodoPagoAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion', 'is_active', 'created_at')
+    search_fields = ('nombre', 'descripcion')
+    list_filter = ('is_active',)
+
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'cliente', 'usuario', 'total', 'fecha', 'estado')
-    list_filter = ('estado', 'fecha')
+    list_display = ('codigo', 'serie', 'correlativo', 'tipo_comprobante', 'metodo_pago', 'sede', 'cliente', 'usuario', 'total', 'fecha', 'estado')
+    list_filter = ('tipo_comprobante', 'metodo_pago', 'sede', 'estado', 'fecha')
+    search_fields = ('codigo', 'cliente__nombre', 'cliente__dni', 'usuario__user__username')
     inlines = [DetalleVentaInline]
+
+
+@admin.register(RegistroAuditoria)
+class RegistroAuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'accion', 'usuario', 'tabla_afectada', 'registro_id', 'ip_origen')
+    list_filter = ('accion', 'fecha', 'tabla_afectada')
+    search_fields = ('usuario__username', 'tabla_afectada', 'registro_id', 'detalles')
+    readonly_fields = ('fecha', 'usuario', 'accion', 'tabla_afectada', 'registro_id', 'detalles', 'ip_origen', 'user_agent')
+

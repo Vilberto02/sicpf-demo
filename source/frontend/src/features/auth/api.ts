@@ -23,3 +23,10 @@ export const changePassword = (data: { current_password: string; new_password: s
     method: "POST",
     body: JSON.stringify(data),
   });
+
+export const logout = async (refresh: string): Promise<void> => {
+  return apiClient<void>("/auth/logout/", {
+    method: "POST",
+    body: JSON.stringify({ refresh }),
+  });
+};

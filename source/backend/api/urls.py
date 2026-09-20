@@ -13,6 +13,28 @@ urlpatterns = [
     # Presentaciones
     path('presentaciones/', views.PresentacionListView.as_view(), name='presentacion-list'),
 
+    # Marcas
+    path('marcas/', views.MarcaListView.as_view(), name='marca-list'),
+    path('marcas/create/', views.MarcaCreateView.as_view(), name='marca-create'),
+    path('marcas/<int:pk>/', views.MarcaDetailView.as_view(), name='marca-detail'),
+    path('marcas/<int:pk>/update/', views.MarcaUpdateView.as_view(), name='marca-update'),
+    path('marcas/<int:pk>/delete/', views.MarcaDeleteView.as_view(), name='marca-delete'),
+
+    # Formas Farmacéuticas
+    path('formas-farmaceuticas/', views.FormaFarmaceuticaListView.as_view(), name='forma-farmaceutica-list'),
+    path('formas-farmaceuticas/create/', views.FormaFarmaceuticaCreateView.as_view(), name='forma-farmaceutica-create'),
+    path('formas-farmaceuticas/<int:pk>/', views.FormaFarmaceuticaDetailView.as_view(), name='forma-farmaceutica-detail'),
+    path('formas-farmaceuticas/<int:pk>/update/', views.FormaFarmaceuticaUpdateView.as_view(), name='forma-farmaceutica-update'),
+    path('formas-farmaceuticas/<int:pk>/delete/', views.FormaFarmaceuticaDeleteView.as_view(), name='forma-farmaceutica-delete'),
+
+    # Métodos de Pago
+    path('metodos-pago/', views.MetodoPagoListView.as_view(), name='metodo-pago-list'),
+    path('metodos-pago/create/', views.MetodoPagoCreateView.as_view(), name='metodo-pago-create'),
+    path('metodos-pago/<int:pk>/', views.MetodoPagoDetailView.as_view(), name='metodo-pago-detail'),
+    path('metodos-pago/<int:pk>/update/', views.MetodoPagoUpdateView.as_view(), name='metodo-pago-update'),
+    path('metodos-pago/<int:pk>/delete/', views.MetodoPagoDeleteView.as_view(), name='metodo-pago-delete'),
+
+
     # Sedes (solo lectura para formularios)
     path('sedes/', views.SedeListView.as_view(), name='sede-list'),
 
@@ -88,4 +110,7 @@ urlpatterns = [
     path('dashboard/chart/', views.DashboardChartView.as_view(), name='dashboard-chart'),
     path('auth/profile/', views.UserProfileView.as_view(), name='auth-profile'),
     path('auth/change-password/', views.ChangePasswordView.as_view(), name='auth-change-password'),
+    path('auth/logout/', views.LogoutView.as_view(), name='auth-logout'),
+    path('auditoria/', views.RegistroAuditoriaListView.as_view(), name='registro-auditoria-list'),
+    path('negocio/', views.NegocioView.as_view(), name='negocio-detail'),
 ]

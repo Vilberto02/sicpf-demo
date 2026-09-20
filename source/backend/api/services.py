@@ -3,10 +3,36 @@ from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Sum, Count, F, Q, Case, When, Value, IntegerField
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Usuario, Venta, DetalleVenta, Sede,
-    DIAS_HORIZONTE_VENCIMIENTO
+    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO, MetodoPago
 )
+
+class AuditService:
+    @classmethod
+    def registrar(cls, accion, tabla_afectada=None, registro_id=None, detalles=None, user=None, request=None):
+        from .middleware import get_current_request, get_current_user, get_client_ip
+        if request is None:
+            request = get_current_request()
+        if user is None:
+            user = get_current_user()
+        if user is not None:
+            from django.contrib.auth.models import User
+            if not getattr(user, 'pk', None) or not User.objects.filter(pk=user.pk).exists():
+                user = None
+        
+        ip = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500] if request else ''
+
+        return RegistroAuditoria.objects.create(
+            usuario=user,
+            accion=accion,
+            tabla_afectada=tabla_afectada,
+            registro_id=str(registro_id) if registro_id is not None else None,
+            detalles=detalles or {},
+            ip_origen=ip,
+            user_agent=user_agent
+        )
 
 class BaseService:
     model = None
@@ -25,7 +51,14 @@ class BaseService:
 
     @classmethod
     def create(cls, data):
-        return cls.model.objects.create(**data)
+        instance = cls.model.objects.create(**data)
+        AuditService.registrar(
+            accion='CREACION',
+            tabla_afectada=cls.model.__name__,
+            registro_id=instance.pk,
+            detalles={'campos': list(data.keys())}
+        )
+        return instance
 
     @classmethod
     def update(cls, pk, data):
@@ -33,11 +66,23 @@ class BaseService:
         for key, value in data.items():
             setattr(instance, key, value)
         instance.save()
+        AuditService.registrar(
+            accion='MODIFICACION',
+            tabla_afectada=cls.model.__name__,
+            registro_id=pk,
+            detalles={'campos_actualizados': list(data.keys())}
+        )
         return instance
 
     @classmethod
     def delete(cls, pk):
         instance = cls.get_by_id(pk)
+        AuditService.registrar(
+            accion='ELIMINACION',
+            tabla_afectada=cls.model.__name__,
+            registro_id=pk,
+            detalles={'tipo': 'hard_delete'}
+        )
         instance.delete()
 
 class CategoriaService(BaseService):
@@ -46,20 +91,73 @@ class CategoriaService(BaseService):
 class PresentacionService(BaseService):
     model = Presentacion
 
+class MarcaService(BaseService):
+    model = Marca
+
+class FormaFarmaceuticaService(BaseService):
+    model = FormaFarmaceutica
+
+class MetodoPagoService(BaseService):
+    model = MetodoPago
+
+    @classmethod
+    def get_queryset(cls):
+        return cls.model.objects.filter(is_active=True)
+
+    @classmethod
+    def delete(cls, pk):
+        instance = cls.get_by_id(pk)
+        instance.is_active = False
+        instance.save(update_fields=['is_active', 'updated_at'])
+        AuditService.registrar(
+            accion='ELIMINACION',
+            tabla_afectada='MetodoPago',
+            registro_id=pk,
+            detalles={'nombre': instance.nombre, 'tipo': 'soft_delete'}
+        )
+
+
 class ProductoService(BaseService):
     model = Producto
 
     @classmethod
     def get_queryset(cls):
-        return cls.model.objects.select_related('categoria', 'presentacion').prefetch_related('lotes')
+        return cls.model.objects.filter(is_active=True).select_related(
+            'categoria', 'presentacion', 'forma_farmaceutica'
+        ).prefetch_related('lotes', 'lotes__marca')
+
+    @classmethod
+    def delete(cls, pk):
+        instance = cls.get_by_id(pk)
+        instance.is_active = False
+        instance.save()
+        instance.lotes.update(is_active=False)
+        AuditService.registrar(
+            accion='ELIMINACION',
+            tabla_afectada='Producto',
+            registro_id=pk,
+            detalles={'codigo': instance.codigo, 'nombre': instance.nombre, 'tipo': 'soft_delete'}
+        )
 
 class LoteService(BaseService):
     model = Lote
 
     @classmethod
     def get_queryset(cls):
-        return cls.model.objects.select_related(
-            'producto', 'producto__categoria', 'producto__presentacion'
+        return cls.model.objects.filter(is_active=True).select_related(
+            'producto', 'producto__categoria', 'producto__presentacion', 'marca'
+        )
+
+    @classmethod
+    def delete(cls, pk):
+        instance = cls.get_by_id(pk)
+        instance.is_active = False
+        instance.save()
+        AuditService.registrar(
+            accion='ELIMINACION',
+            tabla_afectada='Lote',
+            registro_id=pk,
+            detalles={'codigo_lote': instance.codigo_lote, 'producto_id': instance.producto_id, 'tipo': 'soft_delete'}
         )
 
 class PrediccionMLService(BaseService):

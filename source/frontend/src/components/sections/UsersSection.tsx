@@ -46,6 +46,7 @@ export function UsersSection() {
   const [passwordUser, setPasswordUser] = useState<UsuarioItemType | null>(null);
   const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [selectedRole, setSelectedRole] = useState("Todos");
 
   useEffect(() => {
     fetchItems();
@@ -203,7 +204,7 @@ export function UsersSection() {
       header: "Email",
     },
     {
-      id: "categoria",
+      id: "rol_nombre",
       accessorKey: "rol_nombre",
       header: "Rol",
       cell: ({ row }) => {
@@ -321,6 +322,9 @@ export function UsersSection() {
         searchPlaceholder="Buscar por nombre o email"
         categories={roles.map((r) => r.nombre)}
         categoryLabel="Rol"
+        categoryKey="rol_nombre"
+        selectedCategoryValue={selectedRole}
+        onCategoryFilter={setSelectedRole}
         statusHeaderProps="Estado"
         loading={loading}
       />

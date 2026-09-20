@@ -17,8 +17,19 @@ export type ProductoType = {
   presentacion_nombre?: string;
   categoria: number;
   categoria_nombre?: string;
+  tipo_producto?: string;
+  marcas_disponibles?: string[];
+  dci?: string | null;
+  concentracion?: string | null;
+  forma_farmaceutica?: number | null;
+  forma_farmaceutica_nombre?: string | null;
+  registro_sanitario?: string | null;
+  condicion_venta?: "libre" | "receta" | "receta_retenida";
+  condicion_venta_display?: string;
   created_at?: string;
 };
+
+export type { MarcaType, FormaFarmaceuticaType } from "@/types/types";
 
 export type CategoriaType = {
   id: number;

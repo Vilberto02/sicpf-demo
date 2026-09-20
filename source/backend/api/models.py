@@ -30,6 +30,34 @@ class Presentacion(models.Model):
     class Meta:
         verbose_name_plural = 'Presentaciones'
         verbose_name = 'Presentación'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+class Marca(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = 'Marcas'
+        verbose_name = 'Marca'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+class FormaFarmaceutica(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Indica si la forma farmacéutica está activa")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Formas Farmacéuticas'
+        verbose_name = 'Forma Farmacéutica'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -45,7 +73,26 @@ class Producto(models.Model):
     unidades_por_blister = models.IntegerField(default=1, help_text="Cantidad de unidades/pastillas por blister")
     blisters_por_caja = models.IntegerField(default=1, help_text="Cantidad de blisters por caja")
 
-    # Nuevos campos de presentacion
+    CONDICION_VENTA_CHOICES = (
+        ('libre', 'Venta Libre'),
+        ('receta', 'Bajo Receta Médica'),
+        ('receta_retenida', 'Receta Retenida / Controlado'),
+    )
+
+    # Campos normativos y sanitarios (DIGEMID / MINSA)
+    dci = models.CharField(max_length=200, blank=True, null=True, help_text="Denominación Común Internacional / Principio Activo")
+    concentracion = models.CharField(max_length=100, blank=True, null=True, help_text="Concentración (ej. 500 mg, 1 g/5 ml)")
+    forma_farmaceutica = models.ForeignKey(
+        FormaFarmaceutica,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='productos',
+        help_text="Forma Farmacéutica (Tableta, Jarabe, etc.)"
+    )
+    registro_sanitario = models.CharField(max_length=50, blank=True, null=True, help_text="Registro Sanitario DIGEMID (ej. EE-12345, EN-67890)")
+    condicion_venta = models.CharField(max_length=30, choices=CONDICION_VENTA_CHOICES, default='libre', help_text="Condición de venta del producto")
+
     presentacion_principal = models.BooleanField(default=True, help_text="Se vende por su presentación principal (Caja, Frasco, Tubo, etc.)")
     presentacion_blister = models.BooleanField(default=True, help_text="Se vende por blister")
     presentacion_unidad = models.BooleanField(default=True, help_text="Se vende por unidad mínima (pastilla, ml)")
@@ -54,7 +101,9 @@ class Producto(models.Model):
     stock_minimo_real = models.IntegerField(default=10, help_text="Stock minimo en cajas cerradas")
     stock_minimo_flotante = models.IntegerField(default=20, help_text="Stock minimo en unidades sueltas")
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
+    is_active = models.BooleanField(default=True, help_text="Indica si el producto está activo (Soft Delete)")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Productos'
@@ -86,16 +135,57 @@ class Producto(models.Model):
             return "por vencer"
         return "activo"
 
+    @property
+    def tipo_producto(self):
+        tipos = set(
+            lote.tipo_producto for lote in self.lotes.filter(is_active=True)
+            if lote.stock_real > 0 or lote.stock_flotante > 0
+        )
+        if not tipos:
+            tipos = set(lote.tipo_producto for lote in self.lotes.filter(is_active=True))
+        if not tipos:
+            return "sin lotes"
+        if len(tipos) > 1:
+            return "mixto"
+        return tipos.pop()
+
+    @property
+    def marcas_disponibles(self):
+        return list(set(
+            lote.marca.nombre for lote in self.lotes.filter(is_active=True) if lote.marca_id
+        ))
+
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
 class Lote(models.Model):
+    TIPO_PRODUCTO_CHOICES = (
+        ('marca', 'De Marca'),
+        ('generico', 'Genérico'),
+    )
+
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes')
     codigo_lote = models.CharField(max_length=100)
     fecha_vencimiento = models.DateField()
     stock_real = models.IntegerField(default=0)
     stock_flotante = models.IntegerField(default=0)
+    tipo_producto = models.CharField(
+        max_length=20,
+        choices=TIPO_PRODUCTO_CHOICES,
+        default='generico',
+        help_text="Clasificación del lote: de marca o genérico"
+    )
+    marca = models.ForeignKey(
+        Marca,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes',
+        help_text="Marca comercial o laboratorio asociado al lote"
+    )
+    is_active = models.BooleanField(default=True, help_text="Indica si el lote está activo (Soft Delete)")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def estado(self):
@@ -114,6 +204,7 @@ class Lote(models.Model):
             models.Index(fields=['-created_at'], name='idx_lote_created_at'),
             models.Index(fields=['fecha_vencimiento'], name='idx_lote_fecha_venc'),
             models.Index(fields=['producto'], name='idx_lote_producto'),
+            models.Index(fields=['tipo_producto'], name='idx_lote_tipo_prod'),
         ]
 
     def __str__(self):
@@ -129,6 +220,7 @@ class PrediccionML(models.Model):
     class Meta:
         verbose_name_plural = 'Predicciones ML'
         verbose_name = 'Predicción ML'
+        ordering = ['-id']
 
     def __str__(self):
         return f"Predicción {self.id} - {self.producto.nombre}"
@@ -187,6 +279,7 @@ class Recomendacion(models.Model):
     class Meta:
         verbose_name_plural = 'Recomendaciones'
         verbose_name = 'Recomendación'
+        ordering = ['id']
 
     def __str__(self):
         return self.titulo
@@ -194,6 +287,7 @@ class Recomendacion(models.Model):
 class Cliente(models.Model):
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100, blank=True, null=True)
+    dni = models.CharField(max_length=8, blank=True, null=True, help_text="DNI del cliente (8 dígitos para ventas > S/ 700)")
     email = models.EmailField(unique=True)
     telefono = models.CharField(max_length=50, blank=True, null=True)
 
@@ -215,6 +309,7 @@ class Rol(models.Model):
     class Meta:
         verbose_name_plural = 'Roles'
         verbose_name = 'Rol'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -226,6 +321,7 @@ class Sede(models.Model):
     class Meta:
         verbose_name_plural = 'Sedes'
         verbose_name = 'Sede'
+        ordering = ['nombre']
 
     def __str__(self):
         return self.nombre
@@ -263,16 +359,46 @@ class Usuario(models.Model):
     def __str__(self):
         return f"{self.nombre} {self.apellido}".strip() or f"Usuario #{self.pk}"
 
+class MetodoPago(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Indica si el método de pago está activo")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Métodos de Pago'
+        verbose_name = 'Método de Pago'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
 class Venta(models.Model):
     ESTADO_CHOICES = (
         ('Pendiente', 'Pendiente'),
         ('Completado', 'Completado'),
         ('Cancelado', 'Cancelado'),
     )
+    TIPO_COMPROBANTE_CHOICES = (
+        ('Boleta', 'Boleta de Venta'),
+    )
     codigo = models.CharField(max_length=50, unique=True)
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ventas_realizadas')
+    serie = models.CharField(max_length=10, default="B001", help_text="Serie del comprobante")
+    correlativo = models.CharField(max_length=20, blank=True, null=True, help_text="Correlativo numérico")
+    tipo_comprobante = models.CharField(
+        max_length=20,
+        choices=TIPO_COMPROBANTE_CHOICES,
+        default='Boleta',
+        help_text="Tipo de comprobante tributario emitido"
+    )
+    forma_pago = models.CharField(max_length=30, default="Contado", help_text="Forma de pago (Contado, Crédito)")
+    metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT, null=True, blank=True, related_name='ventas')
+    sede = models.ForeignKey(Sede, on_delete=models.PROTECT, null=True, blank=True, related_name='ventas', help_text="Sede donde se realizó la venta")
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='ventas_realizadas')
     fecha = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     total = models.DecimalField(max_digits=12, decimal_places=2)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Completado')
 
@@ -286,13 +412,27 @@ class Venta(models.Model):
             models.Index(fields=['cliente'], name='idx_venta_cliente'),
         ]
 
+    @property
+    def op_gravada(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        return (self.total / Decimal('1.18')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def igv(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        return (self.total - self.op_gravada).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def subtotal(self):
+        return self.op_gravada
+
     def __str__(self):
         return f"Venta {self.codigo}"
 
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    lote = models.ForeignKey(Lote, on_delete=models.PROTECT)
     cantidad_real = models.IntegerField(default=0)
     cantidad_flotante = models.IntegerField(default=0)
     cantidad_blister = models.IntegerField(default=0)
@@ -303,6 +443,89 @@ class DetalleVenta(models.Model):
     class Meta:
         verbose_name_plural = 'Detalles de Venta'
         verbose_name = 'Detalle de Venta'
+        ordering = ['id']
 
     def __str__(self):
         return f"Detalle {self.id} de Venta {self.venta.codigo}"
+
+
+class RegistroAuditoria(models.Model):
+    ACCION_CHOICES = (
+        ('LOGIN_EXITOSO', 'Inicio de sesión exitoso'),
+        ('LOGIN_FALLIDO', 'Intento de sesión fallido'),
+        ('LOGOUT', 'Cierre de sesión'),
+        ('CREACION', 'Creación de registro'),
+        ('MODIFICACION', 'Modificación de registro'),
+        ('ELIMINACION', 'Eliminación/Desactivación'),
+        ('ANULACION_VENTA', 'Anulación de venta'),
+        ('CAMBIO_PASSWORD', 'Cambio de contraseña'),
+        ('ACCESO_DENEGADO', 'Acceso denegado (403)'),
+        ('ALERTA_GESTIONADA', 'Gestión de Alerta'),
+    )
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='registros_auditoria')
+    accion = models.CharField(max_length=50, choices=ACCION_CHOICES)
+    tabla_afectada = models.CharField(max_length=100, blank=True, null=True)
+    registro_id = models.CharField(max_length=100, blank=True, null=True)
+    detalles = models.JSONField(default=dict, blank=True)
+    ip_origen = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'Registros de Auditoría'
+        verbose_name = 'Registro de Auditoría'
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['-fecha'], name='idx_audit_fecha'),
+            models.Index(fields=['accion'], name='idx_audit_accion'),
+            models.Index(fields=['usuario'], name='idx_audit_usuario'),
+        ]
+
+    def __str__(self):
+        usr = self.usuario.username if self.usuario else "Anónimo/Sistema"
+        return f"[{self.fecha.strftime('%Y-%m-%d %H:%M:%S')}] {self.accion} por {usr} en {self.tabla_afectada or 'N/A'}"
+
+
+class Negocio(models.Model):
+    nombre_comercial = models.CharField(max_length=150, default="SICPF")
+    razon_social = models.CharField(max_length=200, default="SICPF S.A.C.")
+    ruc = models.CharField(max_length=11, default="10157484405", help_text="RUC de 11 dígitos")
+    direccion = models.CharField(max_length=255, default="CALLE ANIMAS NRO. 124")
+    departamento = models.CharField(max_length=100, default="LIMA")
+    provincia = models.CharField(max_length=100, default="HUARAL")
+    distrito = models.CharField(max_length=100, default="HUARAL")
+    telefono = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    logo_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL externa del logotipo")
+    url_consulta = models.CharField(max_length=255, default="facturacion.sicpf.com/consulta", help_text="URL para consultar comprobantes")
+    mensaje_pie = models.TextField(
+        default="¡NO HAY CAMBIOS NI DEVOLUCIONES!\n¡GRACIAS POR SU COMPRA!",
+        help_text="Mensaje de agradecimiento y políticas al pie del comprobante"
+    )
+    leyenda_software = models.CharField(
+        max_length=150,
+        default="UN SOFTWARE DE SICPF\nWWW.SICPF.COM",
+        help_text="Crédito de software al pie del comprobante"
+    )
+    serie_boleta_defecto = models.CharField(max_length=4, default="B001")
+    moneda_nombre = models.CharField(max_length=20, default="SOLES")
+    moneda_simbolo = models.CharField(max_length=5, default="S/")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración del Negocio"
+        verbose_name_plural = "Configuración del Negocio"
+
+    def __str__(self):
+        return f"{self.nombre_comercial} (RUC: {self.ruc})"
+
+    @classmethod
+    def get_solo(cls):
+        obj = cls.objects.filter(is_active=True).first()
+        if not obj:
+            obj = cls.objects.create()
+        return obj
+
+

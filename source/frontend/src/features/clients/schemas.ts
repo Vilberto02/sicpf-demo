@@ -11,6 +11,13 @@ export const ClienteSchema = z.object({
     .trim()
     .min(1, "El apellido es obligatorio.")
     .max(100, "El apellido no puede superar 100 caracteres."),
+  dni: z
+    .string()
+    .trim()
+    .refine((v) => !v || /^\d{8}$/.test(v), {
+      message: "El DNI debe contener exactamente 8 dígitos numéricos.",
+    })
+    .optional(),
   email: z
     .string()
     .trim()

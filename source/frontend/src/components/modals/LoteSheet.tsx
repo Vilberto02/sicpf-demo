@@ -9,15 +9,23 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useInventoryStore } from "@/features/inventory/store";
 import { useProductStore } from "@/features/products/store";
+import { getMarcas } from "@/features/inventory/api";
 import { SearchableSelect } from "../common/SearchableSelect";
 import { NewProductDialog } from "./NewProductDialog";
-import type { LoteType } from "@/types/types";
+import type { LoteType, MarcaType } from "@/types/types";
 import type { ProductoType } from "@/features/products/types";
 import { getErrorMessage } from "@/features/shared/errorUtils";
 
@@ -26,6 +34,8 @@ type LoteFormValues = {
   fecha_vencimiento: string;
   stock_real: string;
   stock_flotante: string;
+  tipo_producto: "marca" | "generico";
+  marca: string;
 };
 
 const emptyLote: LoteFormValues = {
@@ -33,6 +43,8 @@ const emptyLote: LoteFormValues = {
   fecha_vencimiento: "",
   stock_real: "",
   stock_flotante: "",
+  tipo_producto: "generico",
+  marca: "",
 };
 
 type LoteSheetProps = {
@@ -48,6 +60,7 @@ export function LoteSheet({ open, onOpenChange, lote, onSaved, children }: LoteS
   const { products, fetchProducts } = useProductStore();
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [marcas, setMarcas] = useState<MarcaType[]>([]);
 
   const isControlled = open !== undefined;
   const isOpen = isControlled ? !!open : internalOpen;
@@ -67,12 +80,15 @@ export function LoteSheet({ open, onOpenChange, lote, onSaved, children }: LoteS
   useEffect(() => {
     if (isOpen) {
       fetchProducts();
+      getMarcas().then(setMarcas).catch(() => setMarcas([]));
       if (lote) {
         setLoteData({
           codigo_lote: lote.codigo_lote,
           fecha_vencimiento: lote.fecha_vencimiento,
           stock_real: String(lote.stock_real),
           stock_flotante: String(lote.stock_flotante),
+          tipo_producto: lote.tipo_producto || "generico",
+          marca: lote.marca ? String(lote.marca) : "",
         });
       } else {
         resetLoteForm();
@@ -88,20 +104,21 @@ export function LoteSheet({ open, onOpenChange, lote, onSaved, children }: LoteS
     }
     setIsSaving(true);
     try {
+      const payload = {
+        codigo_lote: loteData.codigo_lote.trim(),
+        fecha_vencimiento: loteData.fecha_vencimiento,
+        stock_real: Number(loteData.stock_real || 0),
+        stock_flotante: Number(loteData.stock_flotante || 0),
+        tipo_producto: loteData.tipo_producto,
+        marca: loteData.marca ? Number(loteData.marca) : null,
+      };
+
       if (lote) {
-        await updateItem(lote.id, {
-          codigo_lote: loteData.codigo_lote.trim(),
-          fecha_vencimiento: loteData.fecha_vencimiento,
-          stock_real: Number(loteData.stock_real || 0),
-          stock_flotante: Number(loteData.stock_flotante || 0),
-        });
+        await updateItem(lote.id, payload);
       } else {
         await addItem({
           producto: selectedProduct!.id,
-          codigo_lote: loteData.codigo_lote.trim(),
-          fecha_vencimiento: loteData.fecha_vencimiento,
-          stock_real: Number(loteData.stock_real || 0),
-          stock_flotante: Number(loteData.stock_flotante || 0),
+          ...payload,
         });
       }
       toast.success(
@@ -185,6 +202,46 @@ export function LoteSheet({ open, onOpenChange, lote, onSaved, children }: LoteS
               value={loteData.fecha_vencimiento}
               onChange={(e) => setLoteData({ ...loteData, fecha_vencimiento: e.target.value })}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="tipoProducto">Tipo</Label>
+              <Select
+                value={loteData.tipo_producto}
+                onValueChange={(val: "marca" | "generico") =>
+                  setLoteData({ ...loteData, tipo_producto: val })
+                }
+              >
+                <SelectTrigger id="tipoProducto">
+                  <SelectValue placeholder="Seleccione tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generico">Genérico</SelectItem>
+                  <SelectItem value="marca">De Marca</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="marcaSelect">Marca</Label>
+              <Select
+                value={loteData.marca || "none"}
+                onValueChange={(val) =>
+                  setLoteData({ ...loteData, marca: val === "none" ? "" : val })
+                }
+              >
+                <SelectTrigger id="marcaSelect">
+                  <SelectValue placeholder="Seleccione marca" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin marca específica</SelectItem>
+                  {marcas.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-3">

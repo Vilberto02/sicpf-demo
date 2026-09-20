@@ -8,22 +8,28 @@ import { Navigate } from "react-router";
 import { useAuthStore } from "@/features/auth/store";
 import { toast } from "sonner";
 import { LoginSchema, type LoginInput } from "@/features/auth/schemas";
+import { Loader2 } from "lucide-react";
 
 export function LoginPage() {
   const [redirect, setRedirect] = useState<boolean>(false);
   const {
     register,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     handleSubmit,
   } = useForm<LoginInput>({
     mode: "onChange",
     resolver: zodResolver(LoginSchema),
   });
 
-  const { loginUser, isAuthenticated, error } = useAuthStore();
+  const { loginUser, isAuthenticated, error, isLoading, clearError } = useAuthStore();
+  const isPending = isSubmitting || isLoading;
 
   const onSubmit: SubmitHandler<LoginInput> = async (data) => {
-    await loginUser({ username: data.username, password: data.password });
+    try {
+      await loginUser({ username: data.username, password: data.password });
+    } catch {
+      // Uncaught errors handled gracefully
+    }
   };
 
   useEffect(() => {
@@ -36,8 +42,9 @@ export function LoginPage() {
   useEffect(() => {
     if (error) {
       toast.error(error);
+      clearError();
     }
-  }, [error]);
+  }, [error, clearError]);
 
   if (redirect) return <Navigate to="/"></Navigate>;
 
@@ -68,6 +75,7 @@ export function LoginPage() {
             id="username"
             placeholder="Ingrese su usuario"
             type="text"
+            disabled={isPending}
             {...register("username", {
               required: {
                 value: true,
@@ -87,6 +95,7 @@ export function LoginPage() {
             id="password"
             placeholder="Ingresa tu contraseña"
             type="password"
+            disabled={isPending}
             {...register("password", {
               required: {
                 value: true,
@@ -100,8 +109,20 @@ export function LoginPage() {
             </span>
           )}
         </div>
-        <Button variant={"default"} className="cursor-pointer w-full mt-2">
-          Continuar
+        <Button
+          type="submit"
+          variant={"default"}
+          disabled={isPending}
+          className="w-full mt-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 transition-all flex items-center justify-center gap-2"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Iniciando sesión...</span>
+            </>
+          ) : (
+            "Continuar"
+          )}
         </Button>
       </form>
     </div>

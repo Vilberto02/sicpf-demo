@@ -10,6 +10,7 @@ import { NewProductDialog } from "@/components/modals/NewProductDialog";
 import { ProductDetailsModal } from "@/components/modals/ProductDetailsModal";
 import { useProductStore } from "@/features/products/store";
 import { useInventoryStore } from "@/features/inventory/store";
+import { useAuthStore } from "@/features/auth/store";
 import type { ProductoType } from "@/features/products/types";
 import { ProductStatusBadge } from "@/features/shared/badges";
 import { confirmAction } from "@/features/shared/confirmDialog";
@@ -64,8 +65,11 @@ export function ProductSection() {
   const {
     products, stats, count, page, pageSize,
     fetchProducts, fetchStats, removeProduct, loading,
-    setPage, setSearch, setCategory
+    setPage, setSearch, setCategory, category, search
   } = useProductStore();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const isAdmin = userProfile?.role === "Administrador" || userProfile?.role === "Superusuario";
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductoType | null>(null);
   const [viewingProduct, setViewingProduct] = useState<ProductoType | null>(null);
@@ -115,12 +119,14 @@ export function ProductSection() {
           </div>
         </div>
 
-        <Button
-          className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm"
-          onClick={openCreateDialog}
-        >
-          <Plus></Plus> Agregar producto
-        </Button>
+        {isAdmin && (
+          <Button
+            className="cursor-pointer flex gap-2 items-center w-full md:w-auto shadow-sm"
+            onClick={openCreateDialog}
+          >
+            <Plus></Plus> Agregar producto
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
@@ -166,11 +172,13 @@ export function ProductSection() {
           categories={inventoryCategories?.labels || []}
           categoryLabel="Categoría"
           onCategoryFilter={setCategory}
+          selectedCategoryValue={category || "Todos"}
+          searchValue={search}
           statusHeaderProps="Estado"
           loading={loading}
           onView={setViewingProduct}
-          onEdit={openEditDialog}
-          onDelete={handleDelete}
+          onEdit={isAdmin ? openEditDialog : undefined}
+          onDelete={isAdmin ? handleDelete : undefined}
           serverSide
           totalCount={count}
           page={page - 1}

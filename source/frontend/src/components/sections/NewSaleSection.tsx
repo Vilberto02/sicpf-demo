@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag, ArrowLeft } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Search, Plus, Trash2, Save, Printer, UserPlus, Handbag, ArrowLeft, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -14,7 +14,10 @@ import type { LoteType } from "@/types/types";
 import type { ClienteType } from "@/features/clients/types";
 import { ClienteSchema } from "@/features/clients/schemas";
 import { CreateSaleSchema } from "@/features/sales/schemas";
+import { getMetodosPago } from "@/features/paymentMethods/api";
+import type { MetodoPagoType } from "@/features/paymentMethods/types";
 import { SearchableSelect } from "../common/SearchableSelect";
+import { confirmAction } from "@/features/shared/confirmDialog";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +26,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type CartItem = {
   id: string;
@@ -128,14 +138,18 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [lotes, setLotes] = useState<LoteType[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRequestRef = useRef<number>(0);
 
   const [selectedClient, setSelectedClient] = useState<ClienteType | null>(null);
+  const [metodosPagoList, setMetodosPagoList] = useState<MetodoPagoType[]>([]);
+  const [metodoPago, setMetodoPago] = useState<string>("Efectivo");
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
 
   const [newClientData, setNewClientData] = useState({
     nombre: "",
     apellido: "",
+    dni: "",
     email: "",
     telefono: "",
     direccion: "",
@@ -143,34 +157,57 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
   const fetchCatalog = useCallback(async (search?: string) => {
+    const requestId = ++activeRequestRef.current;
     setCatalogLoading(true);
     try {
-      const data = await getLoteCatalogo({ page_size: 100, search: search || undefined });
-      setLotes(data.results);
+      const data = await getLoteCatalogo({ page_size: 100, search: search?.trim() || undefined });
+      if (requestId === activeRequestRef.current) {
+        setLotes(Array.isArray(data) ? data : data?.results ?? []);
+      }
     } catch (error) {
-      console.error(error);
+      if (requestId === activeRequestRef.current) {
+        toast.error("Error al cargar el catálogo de productos");
+      }
     } finally {
-      setCatalogLoading(false);
+      if (requestId === activeRequestRef.current) {
+        setCatalogLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     fetchCatalog();
     fetchClients();
+    getMetodosPago().then((methods) => {
+      setMetodosPagoList(methods);
+      if (methods.length > 0 && !methods.some((m) => m.nombre === metodoPago)) {
+        setMetodoPago(methods[0].nombre);
+      }
+    });
   }, [fetchCatalog, fetchClients]);
 
   const handleCatalogSearch = useCallback((value: string) => {
     setSearchTerm(value);
-    if (debounceTimer) clearTimeout(debounceTimer);
-    const timer = setTimeout(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
       fetchCatalog(value);
     }, 300);
-    setDebounceTimer(timer);
-  }, [debounceTimer, fetchCatalog]);
+  }, [fetchCatalog]);
 
-  if (clientsLoading) {
-    return <NewSaleSectionSkeleton />;
-  }
+  // Identificar lote sugerido según norma FEFO (el que expira primero con stock) por producto
+  const fefoSuggestedLoteIds = useMemo(() => {
+    const suggested = new Set<number>();
+    const seenProducts = new Set<number>();
+
+    for (const lote of (lotes || [])) {
+      const hasStock = (lote.stock_real ?? 0) > 0 || (lote.stock_flotante ?? 0) > 0;
+      if (hasStock && !seenProducts.has(lote.producto)) {
+        suggested.add(lote.id);
+        seenProducts.add(lote.producto);
+      }
+    }
+    return suggested;
+  }, [lotes]);
 
   const getStockLimits = (lote: LoteType) => {
     const unidades_en_principal = Math.max(lote.unidades_por_caja, lote.blisters_por_caja * lote.unidades_por_blister);
@@ -204,7 +241,13 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
       }
       return [...prev, { id: cartId, lote, qty: 1, type }];
     });
-    toast.success(`${lote.producto_nombre} (${type}) agregado a la canasta.`);
+    if (lote.producto_condicion_venta === "receta_retenida") {
+      toast.warning(`${lote.producto_nombre}: Medicamento controlado. Requiere verificacion y retencion de receta medica.`);
+    } else if (lote.producto_condicion_venta === "receta") {
+      toast.warning(`${lote.producto_nombre}: Requiere receta medica para su despacho.`);
+    } else {
+      toast.success(`${lote.producto_nombre} (${type}) agregado a la canasta.`);
+    }
   };
 
   const removeFromCart = (cartId: string) => {
@@ -235,6 +278,18 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
   };
 
   const total = cart.reduce((acc, item) => acc + getPrice(item) * item.qty, 0);
+  const opGravada = Number((total / 1.18).toFixed(2));
+  const igv = Number((total - opGravada).toFixed(2));
+  const subtotal = opGravada;
+
+  const hasReceta = useMemo(
+    () => cart.some((item) => item.lote.producto_condicion_venta === "receta"),
+    [cart]
+  );
+  const hasRecetaRetenida = useMemo(
+    () => cart.some((item) => item.lote.producto_condicion_venta === "receta_retenida"),
+    [cart]
+  );
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,7 +309,7 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
       toast.success("Cliente creado y seleccionado.");
       setSelectedClient(client);
       setIsClientModalOpen(false);
-      setNewClientData({ nombre: "", apellido: "", email: "", telefono: "", direccion: "" });
+      setNewClientData({ nombre: "", apellido: "", dni: "", email: "", telefono: "", direccion: "" });
     }
   };
 
@@ -266,6 +321,27 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
     if (!selectedClient) {
       toast.error("Debe seleccionar un cliente.");
       return;
+    }
+
+    // Validación de medicamentos controlados (Receta Retenida)
+    if (hasRecetaRetenida) {
+      const confirmed = await confirmAction({
+        title: "Verificación de Receta Retenida",
+        text: "La canasta incluye medicamentos controlados (Receta Retenida). ¿Confirma que cuenta con la receta médica física correspondiente debidamente verificada?",
+        confirmText: "Sí, receta verificada",
+      });
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    // Validación SUNAT: Para ventas mayores a S/ 700.00 es obligatorio consignar el DNI (8 dígitos)
+    if (total > 700) {
+      const clientDni = selectedClient.dni ? String(selectedClient.dni).trim() : "";
+      if (!clientDni || clientDni.length !== 8 || !/^\d{8}$/.test(clientDni)) {
+        toast.error("Para ventas mayores a S/ 700.00 es obligatorio que el cliente cuente con DNI (8 dígitos) según normativa SUNAT.");
+        return;
+      }
     }
 
     const detalles_write = cart.map(item => ({
@@ -280,7 +356,11 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
     }));
 
     const saleData = {
-      codigo: `VNT-${Date.now().toString().slice(-6)}`,
+      codigo: `B001-${Date.now().toString().slice(-6)}`,
+      tipo_comprobante: "Boleta",
+      serie: "B001",
+      forma_pago: "Contado",
+      metodo_pago: metodoPago,
       cliente: selectedClient.id,
       usuario: userProfile?.id,
       total,
@@ -307,6 +387,10 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
     }
   };
 
+  if (clientsLoading) {
+    return <NewSaleSectionSkeleton />;
+  }
+
   return (
     <div className="flex flex-col gap-6 min-w-0 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -326,16 +410,19 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 items-start">
         {/* Catálogo de Productos */}
-        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4">
+        <div className="bg-card shadow-sm ring-1 ring-black/5 rounded-xl p-6 flex flex-col gap-4 h-full">
           <h4 className="text-xl font-semibold text-primary">Catálogo</h4>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre o lote..."
-              className="pl-9"
+              placeholder="Buscar por nombre, principio activo (DCI) o lote..."
+              className="pl-9 pr-9"
               value={searchTerm}
               onChange={(e) => handleCatalogSearch(e.target.value)}
             />
+            {catalogLoading && (
+              <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
           </div>
           <div className="h-[500px] overflow-y-auto mt-2 border rounded-md divide-y">
             {catalogLoading ? (
@@ -353,8 +440,38 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
                   return (
                   <div key={lote.id} className="flex flex-col xl:flex-row justify-between xl:items-center p-4 hover:bg-muted/50 transition-colors gap-4">
                     <div>
-                      <p className="font-semibold text-primary">{lote.producto_nombre}</p>
-                      <p className="text-xs text-muted-foreground mb-1">Lote: {lote.codigo_lote} | Vence: {lote.fecha_vencimiento} </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-primary">{lote.producto_nombre}</p>
+                        {fefoSuggestedLoteIds.has(lote.id) && (
+                          <span
+                            className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                            title="Lote sugerido según norma FEFO (vence primero)"
+                          >
+                            Sugerido (FEFO)
+                          </span>
+                        )}
+                        {lote.producto_condicion_venta === "receta" && (
+                          <span
+                            className="bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                            title="Requiere receta médica"
+                          >
+                            Bajo Receta
+                          </span>
+                        )}
+                        {lote.producto_condicion_venta === "receta_retenida" && (
+                          <span
+                            className="bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                            title="Medicamento controlado con receta médica retenida"
+                          >
+                            Receta Retenida
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-1 mt-1">
+                        Lote: {lote.codigo_lote} {" | "} 
+                        {lote.marca_nombre ? ` ${lote.marca_nombre}` : lote.tipo_producto === "generico" ? " Genérico" : ""}
+                        {" | "}Vence: {lote.fecha_vencimiento}
+                      </p>
                       <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium">
                         {lote.presentacion_principal !== false && (
                           <span className="bg-primary/10 text-primary px-2 py-1 rounded-md">
@@ -452,12 +569,29 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
                         <span className="text-sm text-red-700 ml-2">{clientErrors.email}</span>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <Label>Teléfono</Label>
-                      <Input value={newClientData.telefono} placeholder="Ej. 999888777" onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} />
-                      {clientErrors.telefono && (
-                        <span className="text-sm text-red-700 ml-2">{clientErrors.telefono}</span>
-                      )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>DNI (8 dígitos)</Label>
+                        <Input
+                          value={newClientData.dni}
+                          maxLength={8}
+                          placeholder="Ej. 74839201"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 8);
+                            setNewClientData({ ...newClientData, dni: val });
+                          }}
+                        />
+                        {clientErrors.dni && (
+                          <span className="text-sm text-red-700 ml-2">{clientErrors.dni}</span>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Teléfono</Label>
+                        <Input value={newClientData.telefono} placeholder="Ej. 999888777" onChange={e => setNewClientData({...newClientData, telefono: e.target.value})} />
+                        {clientErrors.telefono && (
+                          <span className="text-sm text-red-700 ml-2">{clientErrors.telefono}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Dirección</Label>
@@ -478,7 +612,7 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
 
           <div className="h-[300px] overflow-y-auto border rounded-md mt-2">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b sticky top-0">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted border-b sticky top-0">
                 <tr>
                   <th className="px-3 py-3 font-medium">Producto</th>
                   <th className="px-3 py-3 font-medium w-[80px]">Cant.</th>
@@ -490,7 +624,9 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
                 {cart.map((item) => (
                   <tr key={item.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                     <td className="px-3 py-3">
-                      <p className="font-medium text-sm line-clamp-1">{item.lote.producto_nombre}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-sm line-clamp-1">{item.lote.producto_nombre}</p>
+                      </div>
                       <p className="text-[10px] text-muted-foreground uppercase">{item.type} | S/{Number(getPrice(item)).toFixed(2)}</p>
                     </td>
                     <td className="px-3 py-3">
@@ -523,9 +659,67 @@ export function NewSaleSection({ onBack }: { onBack?: () => void }) {
             </table>
           </div>
 
-          <div className="flex justify-between items-center mt-2 p-3 bg-muted/30 rounded-lg">
-            <span className="text-lg font-semibold">Total a cobrar:</span>
-            <span className="text-2xl font-bold text-primary">S/{total.toFixed(2)}</span>
+          {hasRecetaRetenida ? (
+            <div className="text-xs text-purple-700 dark:text-purple-400 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-lg">
+              <span className="font-semibold">Atención sanitaria:</span> La canasta incluye medicamentos fiscalizados (Receta Retenida). Es obligatorio solicitar, verificar y archivar la receta médica física.
+            </div>
+          ) : hasReceta ? (
+            <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+              <span className="font-semibold">Atención farmacéutica:</span> La canasta incluye medicamentos que requieren receta médica. Verifique la prescripción antes de completar la venta.
+            </div>
+          ) : null}
+
+          {total > 700 && (
+            <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+              <span className="font-semibold">Venta mayor a S/ 700.00:</span> Por normativa SUNAT, es obligatorio que el cliente cuente con DNI (8 dígitos) para emitir la Boleta.
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5 p-3 bg-muted/20 rounded-lg border border-border/50 text-sm mt-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Método de Pago
+            </span>
+            <Select value={metodoPago} onValueChange={setMetodoPago}>
+              <SelectTrigger className="w-full h-9 bg-background cursor-pointer">
+                <SelectValue placeholder="Seleccionar método de pago" />
+              </SelectTrigger>
+              <SelectContent>
+                {metodosPagoList.length > 0 ? (
+                  metodosPagoList.map((mp) => (
+                    <SelectItem key={mp.id} value={mp.nombre}>
+                      {mp.nombre}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <>
+                    <SelectItem value="Efectivo">Efectivo</SelectItem>
+                    <SelectItem value="Yape">Yape</SelectItem>
+                    <SelectItem value="Plin">Plin</SelectItem>
+                    <SelectItem value="Tarjeta">Tarjeta</SelectItem>
+                    <SelectItem value="Transferencia">Transferencia</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 p-3.5 bg-muted/30 rounded-lg border border-border/50 text-sm mt-2">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Op. Gravada (18% IGV):</span>
+              <span className="font-mono font-medium text-foreground">S/ {opGravada.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>I.G.V. (18%):</span>
+              <span className="font-mono font-medium text-foreground">S/ {igv.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal:</span>
+              <span className="font-mono font-medium text-foreground">S/ {subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t font-semibold">
+              <span className="text-base text-primary">Total a cobrar (Boleta):</span>
+              <span className="text-2xl font-bold text-primary font-mono">S/ {total.toFixed(2)}</span>
+            </div>
           </div>
 
           <div className="flex gap-3 mt-2">

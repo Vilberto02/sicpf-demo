@@ -44,6 +44,16 @@ def sync_user_groups(user, rol):
         user.groups.add(get_or_create_rol_group(rol))
 
 
+def is_admin_user(user):
+    """Verifica si el usuario es superusuario de Django o tiene rol Administrador/Superusuario."""
+    if not (user and user.is_authenticated):
+        return False
+    if user.is_superuser:
+        return True
+    perfil = getattr(user, "usuario_perfil", None) or getattr(user, "usuario", None)
+    return bool(perfil and perfil.rol and perfil.rol.nombre in ["Administrador", "Superusuario"])
+
+
 class IsOwnerOrAdmin(BasePermission):
     """Permite el acceso solo al dueño del negocio (superuser de Django)
     o a usuarios con rol 'Administrador'."""
@@ -51,9 +61,33 @@ class IsOwnerOrAdmin(BasePermission):
     message = "Solo el dueño del negocio o administradores pueden gestionar usuarios y roles."
 
     def has_permission(self, request, view):
+        return is_admin_user(request.user)
+
+
+class IsAdminUserRole(BasePermission):
+    """Permite el acceso únicamente a administradores."""
+    message = "Esta acción requiere privilegios de Administrador."
+
+    def has_permission(self, request, view):
+        return is_admin_user(request.user)
+
+
+class IsAdminOrReadOnly(BasePermission):
+    """Lectura permitida a usuarios autenticados; escritura restringida a Administradores."""
+    message = "Solo los administradores pueden modificar estos datos."
+
+    def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
             return False
-        if request.user.is_superuser:
+        if request.method in SAFE_METHODS:
             return True
-        perfil = getattr(request.user, "usuario_perfil", None)
-        return bool(perfil and perfil.rol and perfil.rol.nombre == "Administrador")
+        return is_admin_user(request.user)
+
+
+class CanCancelOrDeleteSale(BasePermission):
+    """Solo los administradores pueden anular o eliminar ventas."""
+    message = "Toda anulación o eliminación de ventas requiere autorización de un Administrador."
+
+    def has_permission(self, request, view):
+        return is_admin_user(request.user)
+

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,11 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useProductStore } from "@/features/products/store";
-import { getCategorias, getPresentaciones } from "@/features/products/api";
+import { getCategorias, getPresentaciones, getFormasFarmaceuticas } from "@/features/products/api";
 import type {
   ProductoType,
   CategoriaType,
   PresentacionType,
+  FormaFarmaceuticaType,
 } from "@/features/products/types";
 import { ProductSchema } from "@/features/products/schemas";
 
@@ -41,6 +43,11 @@ const emptyForm = {
   codigo: "",
   nombre: "",
   descripcion: "",
+  dci: "",
+  concentracion: "",
+  forma_farmaceutica: "",
+  registro_sanitario: "",
+  condicion_venta: "libre" as "libre" | "receta" | "receta_retenida",
   categoria: "",
   presentacion: "",
   precio_real: "",
@@ -58,6 +65,11 @@ const toForm = (product: ProductoType) => ({
   codigo: product.codigo,
   nombre: product.nombre,
   descripcion: product.descripcion ?? "",
+  dci: product.dci ?? "",
+  concentracion: product.concentracion ?? "",
+  forma_farmaceutica: product.forma_farmaceutica ? String(product.forma_farmaceutica) : "",
+  registro_sanitario: product.registro_sanitario ?? "",
+  condicion_venta: (product.condicion_venta ?? "libre") as "libre" | "receta" | "receta_retenida",
   categoria: String(product.categoria),
   presentacion: String(product.presentacion),
   precio_real: String(product.precio_real ?? ""),
@@ -82,6 +94,7 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
   };
   const [categorias, setCategorias] = useState<CategoriaType[]>([]);
   const [presentaciones, setPresentaciones] = useState<PresentacionType[]>([]);
+  const [formasFarmaceuticas, setFormasFarmaceuticas] = useState<FormaFarmaceuticaType[]>([]);
   const [formData, setFormData] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -94,6 +107,9 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
     getPresentaciones()
       .then((data) => setPresentaciones(Array.isArray(data) ? data : data.results ?? []))
       .catch((e) => toast.error(`Error al cargar presentaciones: ${e.message}`));
+    getFormasFarmaceuticas()
+      .then((data) => setFormasFarmaceuticas(Array.isArray(data) ? data : data.results ?? []))
+      .catch((e) => toast.error(`Error al cargar formas farmacéuticas: ${e.message}`));
   }, [isOpen]);
 
   useEffect(() => {
@@ -132,6 +148,11 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
       codigo: formData.codigo,
       nombre: formData.nombre,
       descripcion: formData.descripcion,
+      dci: formData.dci,
+      concentracion: formData.concentracion,
+      forma_farmaceutica: formData.forma_farmaceutica,
+      registro_sanitario: formData.registro_sanitario,
+      condicion_venta: formData.condicion_venta,
       categoria: formData.categoria,
       presentacion: formData.presentacion,
       precio_real: formData.precio_real,
@@ -164,6 +185,11 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
       codigo: parsed.data.codigo,
       nombre: parsed.data.nombre,
       descripcion: parsed.data.descripcion || null,
+      dci: parsed.data.dci || null,
+      concentracion: parsed.data.concentracion || null,
+      forma_farmaceutica: parsed.data.forma_farmaceutica || null,
+      registro_sanitario: parsed.data.registro_sanitario || null,
+      condicion_venta: parsed.data.condicion_venta,
       categoria: Number(parsed.data.categoria),
       presentacion: Number(parsed.data.presentacion),
       precio_real: Number(parsed.data.precio_real),
@@ -206,11 +232,11 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
             </Button>
           </DialogTrigger>
         ))}
-      <DialogContent>
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{product ? "Editar producto" : "Nuevo producto"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSaveProduct} className="flex flex-col gap-4 py-4 max-h-[70vh] overflow-y-auto px-1">
+        <form onSubmit={handleSaveProduct} className="flex flex-col gap-4 py-4 max-h-[90vh] overflow-y-auto px-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Código</Label>
@@ -239,7 +265,7 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
           </div>
           <div className="space-y-2">
             <Label>Descripción</Label>
-            <Input
+            <Textarea
               value={formData.descripcion}
               placeholder="Ej. Analgésico 500mg"
               onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
@@ -247,6 +273,87 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
             {formErrors.descripcion && (
               <span className="text-sm text-red-700 ml-2">{formErrors.descripcion}</span>
             )}
+          </div>
+
+          {/* Información Sanitaria y Farmacéutica */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Principio Activo (DCI)</Label>
+              <Input
+                value={formData.dci}
+                placeholder="Ej. Paracetamol"
+                onChange={(e) => setFormData({ ...formData, dci: e.target.value })}
+              />
+              {formErrors.dci && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.dci}</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Concentración</Label>
+              <Input
+                value={formData.concentracion}
+                placeholder="Ej. 500 mg, 1 g/5 ml"
+                onChange={(e) => setFormData({ ...formData, concentracion: e.target.value })}
+              />
+              {formErrors.concentracion && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.concentracion}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Forma Farmacéutica</Label>
+              <Select
+                value={formData.forma_farmaceutica || "none"}
+                onValueChange={(value) => setFormData({ ...formData, forma_farmaceutica: value === "none" ? "" : value })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar forma..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin especificar</SelectItem>
+                  {formasFarmaceuticas.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)}>
+                      {f.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formErrors.forma_farmaceutica && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.forma_farmaceutica}</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Registro Sanitario (DIGEMID)</Label>
+              <Input
+                value={formData.registro_sanitario}
+                placeholder="Ej. EN-01234, EE-05678"
+                onChange={(e) => setFormData({ ...formData, registro_sanitario: e.target.value })}
+              />
+              {formErrors.registro_sanitario && (
+                <span className="text-sm text-red-700 ml-2">{formErrors.registro_sanitario}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Condición de Venta</Label>
+            <Select
+              value={formData.condicion_venta}
+              onValueChange={(value: "libre" | "receta" | "receta_retenida") =>
+                setFormData({ ...formData, condicion_venta: value })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar condición..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="libre">Venta Libre</SelectItem>
+                <SelectItem value="receta">Bajo Receta Médica</SelectItem>
+                <SelectItem value="receta_retenida">Receta Retenida / Controlado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -322,7 +429,7 @@ export function NewProductDialog({ product, onSaved, children, open, onOpenChang
                 onChange={(e) => setFormData({ ...formData, precio_flotante: e.target.value })}
               />
               {formErrors.precio_flotante && (
-                <span className="text-sm text-red-700 ml-2">{formErrors.precio_flotante}</span>
+                <span className="text-xs text-red-700">{formErrors.precio_flotante}</span>
               )}
             </div>
             <div className="space-y-2">

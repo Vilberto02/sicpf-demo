@@ -5,39 +5,48 @@ from rest_framework.response import Response
 # pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from django.db.models.functions import TruncMonth
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 # pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
 # pyrefly: ignore [missing-import]
 from django.db.models import Q, Sum, Count, F, Case, When, Value, IntegerField, CharField, DateField, Subquery, OuterRef
 from django.utils import timezone
 
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import (
-    Categoria, Presentacion, Producto, Lote, PrediccionML, Alerta,
+    Categoria, Presentacion, Marca, FormaFarmaceutica, Producto, Lote, PrediccionML, Alerta,
     Recomendacion, Cliente, Rol, Sede, Usuario, Venta, DetalleVenta,
-    DIAS_HORIZONTE_VENCIMIENTO
+    RegistroAuditoria, DIAS_HORIZONTE_VENCIMIENTO, Negocio, MetodoPago
 )
 from .serializers import (
-    CategoriaSerializer, PresentacionSerializer, ProductoSerializer, LoteSerializer,
+    CategoriaSerializer, PresentacionSerializer, MarcaSerializer, FormaFarmaceuticaSerializer,
+    ProductoSerializer, LoteSerializer,
     PrediccionMLSerializer, AlertaSerializer, RecomendacionSerializer,
     ClienteSerializer, RolSerializer, UsuarioSerializer, SedeSerializer,
-    VentaSerializer, DetalleVentaSerializer
+    VentaSerializer, DetalleVentaSerializer, RegistroAuditoriaSerializer,
+    NegocioSerializer, MetodoPagoSerializer
 )
-from .permissions import IsOwnerOrAdmin
+from .permissions import IsOwnerOrAdmin, IsAdminUserRole, IsAdminOrReadOnly, CanCancelOrDeleteSale, is_admin_user
 from .services import (
-    CategoriaService, PresentacionService, ProductoService, LoteService,
+    CategoriaService, PresentacionService, MarcaService, FormaFarmaceuticaService,
+    ProductoService, LoteService,
     PrediccionMLService, AlertaService, RecomendacionService,
     ClienteService, RolService, UsuarioService, SedeService,
-    VentaService, DetalleVentaService, AlertGenerationService
+    VentaService, DetalleVentaService, AlertGenerationService, AuditService,
+    MetodoPagoService
 )
 from .pagination import CatalogPagination
 
 
 def create_generic_views(model_service, model_serializer, permission_class=IsAuthenticated,
-                         search_fields=None, ordering_fields=None, filterset_fields=None):
+                         search_fields=None, ordering_fields=None, filterset_fields=None,
+                         write_permission_class=None):
     _search_fields = search_fields or []
     _ordering_fields = ordering_fields or '__all__'
     _filterset_fields = filterset_fields
+    _write_perm = write_permission_class or permission_class
 
     class ListView(generics.ListAPIView):
         permission_classes = [permission_class]
@@ -50,7 +59,7 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return model_service.get_queryset()
 
     class CreateView(generics.CreateAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         serializer_class = model_serializer
         def create(self, request, *args, **kwargs):
             serializer = self.get_serializer(data=request.data)
@@ -65,7 +74,7 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return model_service.get_by_id(self.kwargs['pk'])
 
     class UpdateView(generics.UpdateAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         serializer_class = model_serializer
         def get_object(self):
             return model_service.get_by_id(self.kwargs['pk'])
@@ -77,18 +86,19 @@ def create_generic_views(model_service, model_serializer, permission_class=IsAut
             return Response(self.get_serializer(instance).data)
 
     class DeleteView(generics.DestroyAPIView):
-        permission_classes = [permission_class]
+        permission_classes = [_write_perm]
         def delete(self, request, *args, **kwargs):
             model_service.delete(self.kwargs['pk'])
             return Response(status=status.HTTP_204_NO_CONTENT)
 
     return ListView, CreateView, DetailView, UpdateView, DeleteView
 
-# Categoria Views
+# Categoria Views (escritura solo Administrador)
 CategoriaListView, CategoriaCreateView, CategoriaDetailView, CategoriaUpdateView, CategoriaDeleteView = create_generic_views(
     CategoriaService, CategoriaSerializer,
     search_fields=['nombre'],
     ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
 )
 
 # Presentacion Views (solo lectura para formularios)
@@ -97,26 +107,53 @@ PresentacionListView = create_generic_views(
     ordering_fields=['nombre'],
 )[0]
 
+# Marca Views (escritura solo Administrador, lectura para todos autenticados)
+MarcaListView, MarcaCreateView, MarcaDetailView, MarcaUpdateView, MarcaDeleteView = create_generic_views(
+    MarcaService, MarcaSerializer,
+    search_fields=['nombre'],
+    ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
+)
+
+# FormaFarmaceutica Views (escritura solo Administrador, lectura para todos autenticados)
+FormaFarmaceuticaListView, FormaFarmaceuticaCreateView, FormaFarmaceuticaDetailView, FormaFarmaceuticaUpdateView, FormaFarmaceuticaDeleteView = create_generic_views(
+    FormaFarmaceuticaService, FormaFarmaceuticaSerializer,
+    search_fields=['nombre'],
+    ordering_fields=['nombre'],
+    write_permission_class=IsAdminUserRole,
+)
+
+# MetodoPago Views (escritura solo Administrador, lectura para todos autenticados)
+MetodoPagoListView, MetodoPagoCreateView, MetodoPagoDetailView, MetodoPagoUpdateView, MetodoPagoDeleteView = create_generic_views(
+    MetodoPagoService, MetodoPagoSerializer,
+    search_fields=['nombre', 'descripcion'],
+    ordering_fields=['nombre', 'id'],
+    write_permission_class=IsAdminUserRole,
+)
+
+
 # Sede Views (solo lectura para formularios)
 SedeListView = create_generic_views(
     SedeService, SedeSerializer,
     ordering_fields=['nombre'],
 )[0]
 
-# Producto Views
+# Producto Views (escritura solo Administrador)
 ProductoListView, ProductoCreateView, ProductoDetailView, ProductoUpdateView, ProductoDeleteView = create_generic_views(
     ProductoService, ProductoSerializer,
     search_fields=['codigo', 'nombre', 'descripcion'],
     ordering_fields=['codigo', 'nombre', 'precio_real', 'created_at', 'categoria'],
     filterset_fields=['categoria', 'categoria__nombre'],
+    write_permission_class=IsAdminUserRole,
 )
 
-# Lote Views
+# Lote Views (escritura solo Administrador)
 LoteListView, LoteCreateView, LoteDetailView, LoteUpdateView, LoteDeleteView = create_generic_views(
     LoteService, LoteSerializer,
-    search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo'],
-    ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at'],
-    filterset_fields=['producto', 'producto__categoria__nombre'],
+    search_fields=['codigo_lote', 'producto__nombre', 'producto__codigo', 'marca__nombre'],
+    ordering_fields=['codigo_lote', 'fecha_vencimiento', 'stock_real', 'created_at', 'tipo_producto'],
+    filterset_fields=['producto', 'producto__categoria__nombre', 'tipo_producto', 'marca'],
+    write_permission_class=IsAdminUserRole,
 )
 
 # Cliente Views
@@ -182,19 +219,32 @@ class CustomVentaListView(_venta_views[0]):
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        is_admin = user.is_superuser
-        if hasattr(user, 'usuario') and user.usuario.rol and user.usuario.rol.nombre in ['Administrador', 'Superusuario']:
-            is_admin = True
-        
-        if not is_admin:
+        if not is_admin_user(user):
             qs = qs.filter(usuario__user=user)
         return qs
 
+class CustomVentaDetailView(_venta_views[2]):
+    def get_object(self):
+        obj = super().get_object()
+        if not is_admin_user(self.request.user) and obj.usuario.user != self.request.user:
+            raise PermissionDenied("No tienes permiso para consultar esta venta.")
+        return obj
+
+class CustomVentaUpdateView(_venta_views[3]):
+    def get_object(self):
+        obj = super().get_object()
+        if not is_admin_user(self.request.user) and obj.usuario.user != self.request.user:
+            raise PermissionDenied("No tienes permiso para modificar esta venta.")
+        return obj
+
+class CustomVentaDeleteView(_venta_views[4]):
+    permission_classes = [CanCancelOrDeleteSale]
+
 VentaListView = CustomVentaListView
 VentaCreateView = _venta_views[1]
-VentaDetailView = _venta_views[2]
-VentaUpdateView = _venta_views[3]
-VentaDeleteView = _venta_views[4]
+VentaDetailView = CustomVentaDetailView
+VentaUpdateView = CustomVentaUpdateView
+VentaDeleteView = CustomVentaDeleteView
 
 # Alerta Views
 AlertListView, AlertCreateView, AlertDetailView, AlertUpdateView, AlertDeleteView = create_generic_views(
@@ -219,12 +269,14 @@ class ProductStatsView(APIView):
         hoy = tz.localdate()
 
         lotes_by_producto = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0
         ).values('producto').annotate(
             total_real=Sum('stock_real')
         )
 
         lotes_por_vencer = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0,
             fecha_vencimiento__gt=hoy,
             fecha_vencimiento__lte=hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
@@ -233,6 +285,7 @@ class ProductStatsView(APIView):
         )
 
         lotes_vencidos = Lote.objects.filter(
+            is_active=True,
             stock_real__gt=0,
             fecha_vencimiento__lte=hoy
         ).values('producto').annotate(
@@ -243,7 +296,7 @@ class ProductStatsView(APIView):
         ids_por_vencer = set(d['producto'] for d in lotes_por_vencer)
         ids_vencidos = set(d['producto'] for d in lotes_vencidos)
 
-        total = Producto.objects.count()
+        total = Producto.objects.filter(is_active=True).count()
         activos = len(ids_con_stock - ids_vencidos)
         por_vencer = len(ids_por_vencer - ids_vencidos)
         vencidos = len(ids_vencidos)
@@ -261,10 +314,13 @@ class InventoryStatsView(APIView):
 
     def get(self, request):
         from decimal import Decimal
-        hoy = datetime.now().date()
+        hoy = timezone.localdate()
         limite_por_vencer = hoy + timedelta(days=DIAS_HORIZONTE_VENCIMIENTO)
 
         agg = Lote.objects.filter(
+            is_active=True,
+            producto__is_active=True
+        ).filter(
             Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
         ).aggregate(
             total_lotes=Count('id'),
@@ -306,8 +362,9 @@ class SaleStatsView(APIView):
         pending_orders = qs.filter(estado="Pendiente").count()
         completed_orders = qs.filter(estado="Completado").count()
 
-        today = datetime.now().date()
-        start_of_week = today - timedelta(days=today.weekday())
+        today = timezone.localdate()
+        start_of_week_date = today - timedelta(days=today.weekday())
+        start_of_week = timezone.make_aware(datetime.combine(start_of_week_date, time.min))
         total_revenue = qs.filter(
             estado="Completado",
             fecha__gte=start_of_week
@@ -324,7 +381,7 @@ class AlertStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        today = datetime.now().date()
+        today = timezone.localdate()
         agg = Alerta.objects.aggregate(
             total_alerts=Count('id'),
             quiebres_estimados=Count('id', filter=Q(tipo="quiebre")),
@@ -370,7 +427,7 @@ class AlertPendingView(APIView):
 class DashboardChartView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        five_months_ago = datetime.now().date() - timedelta(days=150)
+        five_months_ago = timezone.now() - timedelta(days=150)
         sales = Venta.objects.filter(
             fecha__gte=five_months_ago, estado="Completado"
         ).annotate(month=TruncMonth('fecha')).values('month').annotate(
@@ -545,17 +602,73 @@ class InventoryCategoriesView(APIView):
 
 
 class LoteCatalogoView(generics.ListAPIView):
-    """Endpoint ligero para autocompletado de lotes al crear ventas."""
+    """Endpoint ligero para autocompletado de lotes al crear ventas con priorización FEFO."""
     permission_classes = [IsAuthenticated]
     serializer_class = LoteSerializer
     pagination_class = CatalogPagination
-    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo']
+    search_fields = ['codigo_lote', 'producto__nombre', 'producto__codigo', 'producto__dci', 'producto__registro_sanitario', 'marca__nombre']
     ordering_fields = ['producto__nombre', 'fecha_vencimiento', 'created_at']
-    filterset_fields = ['producto']
+    filterset_fields = ['producto', 'tipo_producto', 'marca', 'producto__condicion_venta']
 
     def get_queryset(self):
         return Lote.objects.select_related(
-            'producto', 'producto__categoria', 'producto__presentacion'
+            'producto', 'producto__categoria', 'producto__presentacion', 'marca'
+        ).filter(
+            is_active=True,
+            producto__is_active=True
         ).filter(
             Q(stock_real__gt=0) | Q(stock_flotante__gt=0)
-        )
+        ).order_by('fecha_vencimiento', 'created_at')
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout/ - Invalida el refresh token en la lista negra y registra el evento."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {"detail": "Se requiere el refresh token para cerrar sesión."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            AuditService.registrar(
+                accion='LOGOUT',
+                tabla_afectada='AUTH',
+                registro_id=request.user.id,
+                detalles={'mensaje': 'Sesión cerrada y refresh token revocado'},
+                request=request
+            )
+            return Response({"detail": "Sesión cerrada correctamente."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": f"Token inválido o ya revocado: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class RegistroAuditoriaListView(generics.ListAPIView):
+    """GET /api/auditoria/ - Consulta de eventos de auditoría (exclusivo Administrador)."""
+    permission_classes = [IsAdminUserRole]
+    serializer_class = RegistroAuditoriaSerializer
+    search_fields = ['usuario__username', 'accion', 'tabla_afectada', 'registro_id', 'ip_origen']
+    ordering_fields = ['fecha', 'accion', 'tabla_afectada']
+    filterset_fields = ['accion', 'tabla_afectada']
+
+    def get_queryset(self):
+        return RegistroAuditoria.objects.all().select_related('usuario')
+
+
+class NegocioView(APIView):
+    """GET /api/negocio/ - Obtiene la configuración del negocio/empresa para comprobantes."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        negocio = Negocio.get_solo()
+        serializer = NegocioSerializer(negocio)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+

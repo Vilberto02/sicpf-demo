@@ -1,7 +1,14 @@
 import { apiClient } from "@/lib/apiClient";
 import type { InventoryItemType } from "./types";
 import type { PaginatedResponse } from "@/types";
+import type { MarcaType } from "@/types/types";
 import type { InventoryStatsType, InventoryCategoriesType } from "@/features/shared/statsTypes";
+
+export const getMarcas = async (): Promise<MarcaType[]> => {
+  const res = await apiClient<PaginatedResponse<MarcaType> | MarcaType[]>("/marcas/?page_size=200");
+  if (Array.isArray(res)) return res;
+  return res.results || [];
+};
 
 export const getInventoryStats = () => apiClient<InventoryStatsType>("/inventory/stats/");
 export const getInventoryCategories = () => apiClient<InventoryCategoriesType>("/inventory/categories/");
