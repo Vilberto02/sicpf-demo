@@ -488,23 +488,23 @@ class RegistroAuditoria(models.Model):
 
 class Negocio(models.Model):
     nombre_comercial = models.CharField(max_length=150, default="SICPF")
-    razon_social = models.CharField(max_length=200, default="SICPF S.A.C.")
-    ruc = models.CharField(max_length=11, default="10157484405", help_text="RUC de 11 dígitos")
-    direccion = models.CharField(max_length=255, default="CALLE ANIMAS NRO. 124")
-    departamento = models.CharField(max_length=100, default="LIMA")
-    provincia = models.CharField(max_length=100, default="HUARAL")
-    distrito = models.CharField(max_length=100, default="HUARAL")
+    razon_social = models.CharField(blank=True, max_length=200, default="")
+    ruc = models.CharField(blank=True, max_length=11, default="", help_text="RUC de 11 dígitos")
+    direccion = models.CharField(blank=True, max_length=255, default="")
+    departamento = models.CharField(blank=True, max_length=100, default="")
+    provincia = models.CharField(blank=True, max_length=100, default="")
+    distrito = models.CharField(blank=True, max_length=100, default="")
     telefono = models.CharField(max_length=50, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     logo_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL externa del logotipo")
-    url_consulta = models.CharField(max_length=255, default="facturacion.sicpf.com/consulta", help_text="URL para consultar comprobantes")
+    url_consulta = models.CharField(blank=True, max_length=255, default="", help_text="URL para consultar comprobantes")
     mensaje_pie = models.TextField(
-        default="¡NO HAY CAMBIOS NI DEVOLUCIONES!\n¡GRACIAS POR SU COMPRA!",
+        default="¡GRACIAS POR SU COMPRA!",
         help_text="Mensaje de agradecimiento y políticas al pie del comprobante"
     )
     leyenda_software = models.CharField(
         max_length=150,
-        default="UN SOFTWARE DE SICPF\nWWW.SICPF.COM",
+        default="Generado por SICPF",
         help_text="Crédito de software al pie del comprobante"
     )
     serie_boleta_defecto = models.CharField(max_length=4, default="B001")

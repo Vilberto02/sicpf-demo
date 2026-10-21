@@ -12,6 +12,36 @@ from .models import (
 from .services import CategoriaService, ProductoService
 
 
+class NeutralBusinessTest(TestCase):
+    def test_new_business_is_neutral_and_valid_in_admin(self):
+        from .models import Negocio
+        from .admin import NegocioAdmin
+        from django.contrib.admin.sites import AdminSite
+
+        negocio = Negocio.get_solo()
+        self.assertEqual(negocio.nombre_comercial, 'SICPF')
+        for field in ['razon_social', 'ruc', 'direccion', 'departamento', 'provincia', 'distrito', 'url_consulta']:
+            self.assertEqual(getattr(negocio, field), '')
+        self.assertEqual(negocio.mensaje_pie, '¡GRACIAS POR SU COMPRA!')
+        self.assertEqual(negocio.leyenda_software, 'Generado por SICPF')
+        negocio.full_clean()
+        form = NegocioAdmin(Negocio, AdminSite()).get_form(None)
+        for field in ['razon_social', 'ruc', 'direccion', 'url_consulta']:
+            self.assertFalse(form.base_fields[field].required)
+
+    def test_endpoint_preserves_configured_business(self):
+        from .models import Negocio
+
+        negocio = Negocio.objects.create(nombre_comercial='Farmacia de ejemplo', ruc='00000000000')
+        client = APIClient()
+        client.force_authenticate(User.objects.create_user(username='business-reader'))
+        response = client.get('/api/negocio/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['nombre_comercial'], negocio.nombre_comercial)
+        self.assertEqual(response.data['ruc'], negocio.ruc)
+        self.assertEqual(Negocio.objects.count(), 1)
+
+
 class CategoriaServiceTest(TestCase):
     def setUp(self):
         self.cat_data = {"nombre": "Analgésicos"}

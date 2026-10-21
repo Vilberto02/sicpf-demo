@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='negocio',
             name='razon_social',
-            field=models.CharField(default='SICPF S.A.C.', max_length=200),
+            field=models.CharField(blank=True, default='', max_length=200),
         ),
     ]
 
