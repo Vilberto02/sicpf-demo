@@ -73,3 +73,20 @@ python manage.py test api
 * **api/urls.py**: Enruta las peticiones web hacia las vistas correspondientes.
 * **api/tests.py**: Contiene las pruebas automatizadas del proyecto.
 * **populate_db.py**: Script utilitario para inyectar datos de prueba en la base de datos local.
+
+## Identidad del negocio y tickets de demostración
+
+SICPF es independiente de cualquier farmacia. Para configurar una instalación:
+
+1. Ejecute las migraciones y cree un administrador con `python manage.py createsuperuser`.
+2. Ingrese a `/admin/` y abra **Configuración del Negocio**. Edite el registro activo; si no existe, cree uno.
+3. Complete nombre comercial, razón social, RUC y dirección para salir del modo de demostración. Puede configurar ubicación, contacto, logo, serie, moneda y mensajes del ticket.
+4. Deje la URL de consulta vacía si no dispone de un servicio propio. El crédito predeterminado es «Generado por SICPF».
+
+Sin los cuatro campos de identificación completos, o si falla la consulta a la API, se imprime **TICKET DE DEMOSTRACIÓN — SIN VALIDEZ TRIBUTARIA**, sin identificación empresarial ni QR tributario. La configuración completa conserva el formato de boleta; configurar estos datos no implementa envío ni autorización ante SUNAT.
+
+### Instalaciones existentes
+
+Las migraciones actualizan los valores predeterminados, pero conservan los registros guardados. Revise todos los registros de negocio, incluidos los inactivos, y retire nombres, RUC, direcciones, logos, enlaces y mensajes que pertenezcan a una empresa anterior. Para una demo, use SICPF como nombre comercial, deje vacía la identificación y use un agradecimiento neutral. Revise también sedes y perfiles si contienen información real.
+
+No use el script de población para limpiar una instalación con datos que deba conservar. Las bases remotas y los despliegues existentes se administran por separado; este cambio no los modifica.
