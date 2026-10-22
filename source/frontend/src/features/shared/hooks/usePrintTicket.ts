@@ -29,6 +29,9 @@ export function usePrintTicket() {
       currentNegocio = negocio;
     }
 
+    const isDemo = [currentNegocio.nombre_comercial, currentNegocio.razon_social, currentNegocio.ruc, currentNegocio.direccion]
+      .some((value) => !value.trim());
+
     const totalNum = Number(row.total) || 0;
     const opGravada = row.op_gravada !== undefined && row.op_gravada !== null
       ? Number(row.op_gravada)
@@ -132,7 +135,7 @@ export function usePrintTicket() {
     const nombreSede = (row.sede_nombre || "").trim();
 
     // 4. Generación del código QR SUNAT
-    const qrDataUrl = await generateTicketQRCode({
+    const qrDataUrl = isDemo ? "" : await generateTicketQRCode({
       ruc: currentNegocio.ruc,
       tipoComprobante: "03",
       serie,
@@ -189,18 +192,16 @@ export function usePrintTicket() {
           <!-- Cabecera del Negocio -->
           <div class="center">
             ${
-              currentNegocio.logo_url
+              !isDemo && currentNegocio.logo_url
                 ? `<img src="${currentNegocio.logo_url}" alt="Logo" style="max-height: 48px; max-width: 130px; margin: 0 auto 3px auto; display: block;" />`
                 : `<div class="bold" style="font-size: 20px; letter-spacing: 2px; margin-bottom: 3px;">SICPF</div>`
             }
-            <div class="bold" style="font-size: 12px;">RUC ${currentNegocio.ruc}</div>
-            <div class="bold" style="font-size: 12px; text-transform: uppercase;">${currentNegocio.nombre_comercial}</div>
-            ${nombreSede ? `<div class="bold" style="font-size: 10px; margin-top: 2px; letter-spacing: 0.5px;">SEDE: ${nombreSede.toUpperCase()}</div>` : ""}
-            <div style="font-size: 10px; margin-top: 1px;">
-              ${direccionFinal.toUpperCase()}
-            </div>
+            ${!isDemo ? `<div class="bold" style="font-size: 12px;">RUC ${currentNegocio.ruc}</div>` : ""}
+            ${!isDemo ? `<div class="bold" style="font-size: 12px; text-transform: uppercase;">${currentNegocio.nombre_comercial}</div>` : ""}
+            ${!isDemo && nombreSede ? `<div class="bold" style="font-size: 10px; margin-top: 2px; letter-spacing: 0.5px;">SEDE: ${nombreSede.toUpperCase()}</div>` : ""}
+            ${!isDemo && direccionFinal ? `<div style="font-size: 10px; margin-top: 1px;">${direccionFinal.toUpperCase()}</div>` : ""}
             ${
-              !direccionSede && currentNegocio.distrito
+              !isDemo && !direccionSede && currentNegocio.distrito
                 ? `<div style="font-size: 9.5px; margin-top: 1px;">${currentNegocio.distrito.toUpperCase()} - ${currentNegocio.provincia.toUpperCase()} - ${currentNegocio.departamento.toUpperCase()}</div>`
                 : ""
             }
@@ -211,7 +212,7 @@ export function usePrintTicket() {
 
           <!-- Tipo y Número de Comprobante -->
           <div class="center">
-            <div class="bold" style="font-size: 12px;">BOLETA DE VENTA ELECTRONICA</div>
+            <div class="bold" style="font-size: 12px;">${isDemo ? "TICKET DE DEMOSTRACIÓN — SIN VALIDEZ TRIBUTARIA" : "BOLETA DE VENTA ELECTRONICA"}</div>
             <div class="bold" style="font-size: 14px; letter-spacing: 1px; margin-top: 2px;">
               ${serieCorrelativoDisplay}
             </div>
@@ -298,8 +299,7 @@ export function usePrintTicket() {
 
           <!-- Pie de Página y Mensajes -->
           <div class="center" style="font-size: 9.5px; margin-top: 4px; line-height: 1.35;">
-            <div>Consulte tus comprobantes en:</div>
-            <div style="word-break: break-all; color: #222;">${currentNegocio.url_consulta}</div>
+            ${!isDemo && currentNegocio.url_consulta.trim() ? `<div>Consulte sus comprobantes en:</div><div style="word-break: break-all; color: #222;">${currentNegocio.url_consulta}</div>` : ""}
             <div class="bold" style="margin-top: 5px; white-space: pre-line;">${currentNegocio.mensaje_pie}</div>
             <div style="margin-top: 5px; font-size: 8.5px; color: #444; white-space: pre-line;">${currentNegocio.leyenda_software}</div>
           </div>

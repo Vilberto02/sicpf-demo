@@ -97,7 +97,7 @@
 }
 
 *{
-  font-family: "Sora";
+  font-family: "Sora", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .dark {
